@@ -1,0 +1,148 @@
+import type { Nom035Question } from "@/types/nom035";
+
+export const GUIA_I_QUESTIONS: Nom035Question[] = [
+  {
+    id: "guia_i_1",
+    questionnaireCode: "GUIA_I",
+    section: "I",
+    sectionTitle: "Acontecimiento traumatico severo",
+    text: "Ha presenciado o sufrido alguna vez, durante o con motivo del trabajo un acontecimiento como los siguientes: accidente que tenga como consecuencia la muerte, la perdida de un miembro o una lesion grave; asaltos; actos violentos que derivaron en lesiones graves; secuestro; amenazas; o cualquier otro que ponga en riesgo su vida o salud, y/o la de otras personas?",
+    responseType: "yes_no",
+    order: 1,
+  },
+  {
+    id: "guia_i_2",
+    questionnaireCode: "GUIA_I",
+    section: "II",
+    sectionTitle: "Recuerdos persistentes sobre el acontecimiento durante el ultimo mes",
+    text: "Ha tenido recuerdos recurrentes sobre el acontecimiento que le provocan malestares?",
+    responseType: "yes_no",
+    order: 2,
+  },
+  {
+    id: "guia_i_3",
+    questionnaireCode: "GUIA_I",
+    section: "II",
+    sectionTitle: "Recuerdos persistentes sobre el acontecimiento durante el ultimo mes",
+    text: "Ha tenido suenos de caracter recurrente sobre el acontecimiento, que le producen malestar?",
+    responseType: "yes_no",
+    order: 3,
+  },
+  {
+    id: "guia_i_4",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Se ha esforzado por evitar todo tipo de sentimientos, conversaciones o situaciones que le puedan recordar el acontecimiento?",
+    responseType: "yes_no",
+    order: 4,
+  },
+  {
+    id: "guia_i_5",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Se ha esforzado por evitar todo tipo de actividades, lugares o personas que motivan recuerdos del acontecimiento?",
+    responseType: "yes_no",
+    order: 5,
+  },
+  {
+    id: "guia_i_6",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Ha tenido dificultad para recordar alguna parte importante del evento?",
+    responseType: "yes_no",
+    order: 6,
+  },
+  {
+    id: "guia_i_7",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Ha disminuido su interes en sus actividades cotidianas?",
+    responseType: "yes_no",
+    order: 7,
+  },
+  {
+    id: "guia_i_8",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Se ha sentido usted alejado o distante de los demas?",
+    responseType: "yes_no",
+    order: 8,
+  },
+  {
+    id: "guia_i_9",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Ha notado que tiene dificultad para expresar sus sentimientos?",
+    responseType: "yes_no",
+    order: 9,
+  },
+  {
+    id: "guia_i_10",
+    questionnaireCode: "GUIA_I",
+    section: "III",
+    sectionTitle:
+      "Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento durante el ultimo mes",
+    text: "Ha tenido la impresion de que su vida se va a acortar, que va a morir antes que otras personas o que tiene un futuro limitado?",
+    responseType: "yes_no",
+    order: 10,
+  },
+  {
+    id: "guia_i_11",
+    questionnaireCode: "GUIA_I",
+    section: "IV",
+    sectionTitle: "Afectacion durante el ultimo mes",
+    text: "Ha tenido usted dificultades para dormir?",
+    responseType: "yes_no",
+    order: 11,
+  },
+  {
+    id: "guia_i_12",
+    questionnaireCode: "GUIA_I",
+    section: "IV",
+    sectionTitle: "Afectacion durante el ultimo mes",
+    text: "Ha estado particularmente irritable o le han dado arranques de coraje?",
+    responseType: "yes_no",
+    order: 12,
+  },
+  {
+    id: "guia_i_13",
+    questionnaireCode: "GUIA_I",
+    section: "IV",
+    sectionTitle: "Afectacion durante el ultimo mes",
+    text: "Ha tenido dificultad para concentrarse?",
+    responseType: "yes_no",
+    order: 13,
+  },
+  {
+    id: "guia_i_14",
+    questionnaireCode: "GUIA_I",
+    section: "IV",
+    sectionTitle: "Afectacion durante el ultimo mes",
+    text: "Ha estado nervioso o constantemente en alerta?",
+    responseType: "yes_no",
+    order: 14,
+  },
+  {
+    id: "guia_i_15",
+    questionnaireCode: "GUIA_I",
+    section: "IV",
+    sectionTitle: "Afectacion durante el ultimo mes",
+    text: "Ha estado sobresaltado facilmente por cualquier cosa?",
+    responseType: "yes_no",
+    order: 15,
+  },
+];
+
+export const GUIA_I_SECTION_I_ID = "guia_i_1";
