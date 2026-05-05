@@ -171,7 +171,7 @@ export default function AdminTrabajadoresPage() {
         imported += 1;
       }
       setWorkers(getWorkers());
-      setMessage(`Importacion CSV completada. Registros agregados: ${imported}.`);
+      setMessage(`Importación CSV completada. Registros agregados: ${imported}.`);
     };
     reader.readAsText(file);
   }
@@ -196,7 +196,7 @@ export default function AdminTrabajadoresPage() {
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Trabajadores</h1>
         <p className="mt-1 text-slate-700">
-          Registra trabajadores manualmente o por CSV para habilitar su enlace individual de evaluacion.
+          Registra trabajadores manualmente o por CSV para habilitar su enlace individual de evaluación.
         </p>
       </header>
 
@@ -223,7 +223,7 @@ export default function AdminTrabajadoresPage() {
             />
           </label>
           <label className="text-sm text-slate-700">
-            Telefono
+            Teléfono
             <input
               value={form.phone}
               onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
@@ -271,7 +271,7 @@ export default function AdminTrabajadoresPage() {
             />
           </label>
           <label className="text-sm text-slate-700">
-            Antiguedad
+            Antigüedad
             <input
               value={form.seniority}
               onChange={(event) => setForm((prev) => ({ ...prev, seniority: event.target.value }))}
@@ -304,7 +304,7 @@ export default function AdminTrabajadoresPage() {
               onClick={clearForm}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
             >
-              Cancelar edicion
+              Cancelar edición
             </button>
           ) : null}
         </div>
@@ -355,13 +355,13 @@ export default function AdminTrabajadoresPage() {
               <th className="px-3 py-2 font-semibold">No. empleado</th>
               <th className="px-3 py-2 font-semibold">Nombre</th>
               <th className="px-3 py-2 font-semibold">Email</th>
-              <th className="px-3 py-2 font-semibold">Telefono</th>
+              <th className="px-3 py-2 font-semibold">Teléfono</th>
               <th className="px-3 py-2 font-semibold">Departamento</th>
               <th className="px-3 py-2 font-semibold">Puesto</th>
               <th className="px-3 py-2 font-semibold">Turno</th>
               <th className="px-3 py-2 font-semibold">Sucursal</th>
               <th className="px-3 py-2 font-semibold">Jefe directo</th>
-              <th className="px-3 py-2 font-semibold">Antiguedad</th>
+              <th className="px-3 py-2 font-semibold">Antigüedad</th>
               <th className="px-3 py-2 font-semibold">Activo</th>
               <th className="px-3 py-2 font-semibold">Acciones</th>
             </tr>

@@ -296,3 +296,33 @@
 
 - No se tocaron `calculateGuiaIResult`, `calculateGuiaIIResult`, Supabase, login ni Guia III.
 - El flujo de evaluacion por token se conserva; solo se fortalecio la gestion de origen de enlaces/asignaciones.
+
+## 2026-05-05 - Bloque B3.9 (Auditoria final MVP local)
+
+### Hallazgos principales
+
+- La navegacion admin no mostraba claramente la ruta actual.
+- `/admin` estaba muy basico para demo y no concentraba estado global del sistema.
+- Faltaban utilidades de reseteo/carga de datos para demos repetibles con cliente.
+- Persistia riesgo de desajuste SSR/cliente en `admin/configuracion` por lectura directa de localStorage en render.
+- Habia textos operativos sin acentos en modulos clave para presentacion formal.
+
+### Decisiones y correcciones
+
+- Se actualizo `AdminNav` a componente cliente con `usePathname` para marcar ruta activa.
+- Se rediseño `admin/page` como tablero de auditoria/demo con:
+  - KPIs transversales (trabajadores, campaña, evaluaciones, riesgo, plan, quejas, evidencias, politica),
+  - accesos rapidos a todos los modulos,
+  - herramientas demo locales (`Cargar datos demo`, `Limpiar datos locales`, `Actualizar resumen`).
+- Se creo `demo-data.ts` con funciones:
+  - `seedDemoData`,
+  - `clearNom035LocalData`,
+  - `getNom035LocalDataStatus`,
+  - `computeNom035LocalDataStatus` (pura, con pruebas).
+- Se ajusto `admin/configuracion` para cargar datos tras mounted y mostrar skeleton estable.
+- Se corrigieron textos visibles en `campanas` y `trabajadores` para mejorar claridad y ortografia en demo.
+
+### Notas
+
+- No se agregaron Supabase, login ni Guia III.
+- No se modifico scoring-engine ni preguntas oficiales.

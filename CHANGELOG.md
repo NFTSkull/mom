@@ -42,3 +42,8 @@
 - Se ampliaron tipos de trabajador y `storage-local` con CRUD de trabajadores y asignaciones de campana (`getCampaignAssignments`, `saveCampaignAssignment`, `updateCampaignAssignment`).
 - Se actualizo `/admin/campanas` para listar trabajadores activos, detectar estado "Sin link" y generar enlaces faltantes sin duplicar.
 - Los enlaces individuales se construyen con `window.location.origin` y se mantiene copiado de link/mensaje para envio operativo.
+- Se realizo auditoria final del MVP local con mejoras de navegacion admin (resaltado de ruta activa y etiquetas con acentos).
+- Se transformo `/admin` en dashboard ejecutivo de demo con resumen transversal de modulos y accesos rapidos.
+- Se agregaron herramientas demo locales: cargar datos demo, limpiar solo llaves NOM-035 y refrescar estado.
+- Se creo `src/lib/nom035/demo-data.ts` y pruebas unitarias para estado de datos locales.
+- Se corrigio riesgo de hydration mismatch en `/admin/configuracion` cargando datos tras `mounted` con skeleton estable.

@@ -104,20 +104,20 @@ export default function AdminCampanasPage() {
   async function copyLink(relativeUrl: string): Promise<void> {
     const absoluteUrl = resolveAbsoluteUrl(relativeUrl);
     await navigator.clipboard.writeText(absoluteUrl);
-    setFeedback("Enlace copiado al portapapeles.");
+      setFeedback("Enlace copiado al portapapeles.");
   }
 
   async function copyMessage(workerName: string, relativeUrl: string): Promise<void> {
     const absoluteUrl = resolveAbsoluteUrl(relativeUrl);
-    const message = `Hola ${workerName}, como parte de la evaluacion NOM-035 de la empresa, te compartimos tu enlace individual.
+    const message = `Hola ${workerName}, como parte de la evaluación NOM-035 de la empresa, te compartimos tu enlace individual.
 
-Tus respuestas seran tratadas de forma confidencial y se utilizaran unicamente para identificar areas de mejora en el entorno laboral.
+Tus respuestas serán tratadas de forma confidencial y se utilizarán únicamente para identificar áreas de mejora en el entorno laboral.
 
 Por favor responde desde tu celular en el siguiente enlace:
 
 ${absoluteUrl}`;
     await navigator.clipboard.writeText(message);
-    setFeedback("Mensaje listo para WhatsApp/correo copiado al portapapeles.");
+      setFeedback("Mensaje listo para WhatsApp/correo copiado al portapapeles.");
   }
 
   function statusBadge(status: string): string {
@@ -156,15 +156,15 @@ ${absoluteUrl}`;
   return (
     <section className="space-y-4">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Distribucion de evaluaciones</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Distribución de evaluaciones</h1>
         <p className="text-slate-700">
-          Desde aqui puedes compartir el enlace individual de evaluacion NOM-035 con cada trabajador.
-          Cada enlace es unico y permite registrar sus respuestas de forma confidencial.
+            Desde aquí puedes compartir el enlace individual de evaluación NOM-035 con cada trabajador.
+            Cada enlace es único y permite registrar sus respuestas de forma confidencial.
         </p>
       </header>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Como funciona</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Cómo funciona</h2>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
           <li>Copia el enlace individual del trabajador.</li>
           <li>Envialo por WhatsApp, correo o QR.</li>
@@ -220,7 +220,7 @@ ${absoluteUrl}`;
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-slate-500">Cargando estado de campana desde datos locales...</p>
+          <p className="text-sm text-slate-500">Cargando estado de campaña desde datos locales...</p>
         </>
       ) : (
         <>
@@ -228,10 +228,10 @@ ${absoluteUrl}`;
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
-                  Campana activa: {snapshot.activeCampaign?.name ?? "Sin campana"}
+                  Campaña activa: {snapshot.activeCampaign?.name ?? "Sin campaña"}
                 </h2>
                 <p className="text-sm text-slate-600">
-                  Guia habilitada:{" "}
+                  Guía habilitada:{" "}
                   {snapshot.activeCampaign?.questionnaireTypes.join(", ") ?? "-"}
                 </p>
               </div>
@@ -239,7 +239,7 @@ ${absoluteUrl}`;
                 href="/admin/resultados"
                 className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
               >
-                Ver resultados de la campana
+                Ver resultados de la campaña
               </Link>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -291,7 +291,7 @@ ${absoluteUrl}`;
             </p>
           ) : null}
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Nota: si estas trabajando en localhost, estos enlaces solo funcionaran en esta computadora.
+            Nota: si estás trabajando en localhost, estos enlaces solo funcionarán en esta computadora.
             Para enviarlos a trabajadores reales, el sistema debe publicarse en un dominio.
           </p>
 
@@ -333,7 +333,7 @@ ${absoluteUrl}`;
                               target="_blank"
                               className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100"
                             >
-                              Abrir evaluacion
+                              Abrir evaluación
                             </Link>
                           ) : (
                             <span className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500">
