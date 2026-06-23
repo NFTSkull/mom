@@ -326,3 +326,15 @@
 
 - No se agregaron Supabase, login ni Guia III.
 - No se modifico scoring-engine ni preguntas oficiales.
+
+## 2026-06-22 - Revision ortografica cuestionarios evaluacion
+
+### Decisiones
+
+- Se alineo el texto de Guia I y Guia II con la redaccion publicada en NOM-035-STPS-2018 (DOF), incluyendo signos de interrogacion de apertura y acentos.
+- Se corrigio la pregunta 15 de Guia I, que decia "Ha estado sobresaltado facilmente" y en la norma es "¿Se ha sobresaltado fácilmente por cualquier cosa?".
+- Se cambio la UI de Guia I para renderizar el encabezado de seccion solo al inicio de cada bloque (I, II, III, IV), evitando repeticion en cada reactivo.
+
+### Notas
+
+- La logica de scoring y los IDs de preguntas no cambiaron; solo texto visible y presentacion.

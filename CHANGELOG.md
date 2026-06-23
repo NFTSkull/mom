@@ -47,3 +47,10 @@
 - Se agregaron herramientas demo locales: cargar datos demo, limpiar solo llaves NOM-035 y refrescar estado.
 - Se creo `src/lib/nom035/demo-data.ts` y pruebas unitarias para estado de datos locales.
 - Se corrigio riesgo de hydration mismatch en `/admin/configuracion` cargando datos tras `mounted` con skeleton estable.
+
+## 2026-06-22
+
+- Se corrigio ortografia y acentos del cuestionario oficial en `guia-i.ts` y `guia-ii.ts` segun NOM-035-STPS-2018 (DOF).
+- Se ajusto la pregunta 15 de Guia I al texto oficial: "¿Se ha sobresaltado fácilmente por cualquier cosa?".
+- Se muestra el encabezado de cada seccion de Guia I una sola vez (II, III y IV ya no se repiten por pregunta).
+- Se actualizaron textos visibles de `/evaluacion/[token]` con ortografia correcta y opciones "Sí"/"No".

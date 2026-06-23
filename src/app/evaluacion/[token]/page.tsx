@@ -16,7 +16,7 @@ import {
 import type { GuiaIIGateAnswer, GuiaIILikertAnswer } from "@/types/nom035";
 
 const OPTIONS = [
-  { value: 1, label: "Si" },
+  { value: 1, label: "Sí" },
   { value: 0, label: "No" },
 ] as const;
 
@@ -41,39 +41,39 @@ interface GuiaIIBlock {
 const GUIA_II_BLOCKS: GuiaIIBlock[] = [
   {
     id: "guia-ii-b1",
-    title: "Guia II - Bloque 1",
+    title: "Guía II - Bloque 1",
     description: "Condiciones iniciales de trabajo.",
     questionNumbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   },
   {
     id: "guia-ii-b2",
-    title: "Guia II - Bloque 2",
+    title: "Guía II - Bloque 2",
     description: "Demandas y tiempo de trabajo.",
     questionNumbers: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
   },
   {
     id: "guia-ii-b3",
-    title: "Guia II - Bloque 3",
+    title: "Guía II - Bloque 3",
     description: "Control, desarrollo y funciones.",
     questionNumbers: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
   },
   {
     id: "guia-ii-b4",
-    title: "Guia II - Bloque 4",
+    title: "Guía II - Bloque 4",
     description: "Relaciones y violencia laboral.",
     questionNumbers: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
   },
   {
     id: "guia-ii-b5",
-    title: "Guia II - Atencion a clientes o usuarios",
-    description: "Primero responde la compuerta y despues, si aplica, las preguntas de esta seccion.",
+    title: "Guía II - Atención a clientes o usuarios",
+    description: "Primero responde la compuerta y después, si aplica, las preguntas de esta sección.",
     questionNumbers: [41, 42, 43],
     gate: "clientes",
   },
   {
     id: "guia-ii-b6",
-    title: "Guia II - Supervisión de personal",
-    description: "Primero responde la compuerta y despues, si aplica, las preguntas de esta seccion.",
+    title: "Guía II - Supervisión de personal",
+    description: "Primero responde la compuerta y después, si aplica, las preguntas de esta sección.",
     questionNumbers: [44, 45, 46],
     gate: "jefe",
   },
@@ -225,15 +225,15 @@ export default function EvaluacionPorTokenPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <main className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
         <header className="space-y-2 border-b border-slate-200 pb-4">
-          <h1 className="text-2xl font-semibold text-slate-900">Evaluacion NOM-035</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Evaluación NOM-035</h1>
           <p className="text-sm text-slate-700">
-            Estas por responder una evaluacion confidencial sobre factores psicosociales en el trabajo.
+            Estás por responder una evaluación confidencial sobre factores psicosociales en el trabajo.
           </p>
           <p className="text-sm text-slate-700">No hay respuestas correctas o incorrectas.</p>
-          <p className="text-sm text-slate-700">Tus respuestas seran tratadas con confidencialidad.</p>
+          <p className="text-sm text-slate-700">Tus respuestas serán tratadas con confidencialidad.</p>
           {requiredQuestionnaires.includes("GUIA_III") ? (
             <p className="text-xs text-slate-500">
-              Nota interna: Guia III pendiente de integracion en este MVP.
+              Nota interna: Guía III pendiente de integración en este MVP.
             </p>
           ) : null}
         </header>
@@ -241,14 +241,14 @@ export default function EvaluacionPorTokenPage() {
         {stage === "welcome" ? (
           <section className="mt-5 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm text-slate-700">
-              Iniciaras con Guia I y, segun el tamano de la empresa, se continuara con Guia II.
+              Iniciarás con Guía I y, según el tamaño de la empresa, se continuará con Guía II.
             </p>
             <button
               type="button"
               onClick={() => setStage("guia_i")}
               className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
             >
-              Iniciar evaluacion
+              Iniciar evaluación
             </button>
           </section>
         ) : null}
@@ -256,48 +256,56 @@ export default function EvaluacionPorTokenPage() {
         {stage === "guia_i" ? (
           <form className="mt-5 space-y-4" onSubmit={onSubmitGuiaI}>
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Guia I {shouldApplyGuiaII ? "(Paso 1 de 2)" : ""}
+              Guía I {shouldApplyGuiaII ? "(Paso 1 de 2)" : ""}
             </div>
 
-            {visibleQuestions.map((question) => (
-              <fieldset
-                key={question.id}
-                className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
-              >
-                <legend className="font-medium leading-6 text-slate-900">{question.text}</legend>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Seccion {question.section}: {question.sectionTitle}
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800"
-                    >
-                      <input
-                        type="radio"
-                        name={question.id}
-                        value={option.value}
-                        checked={guiaIAnswers[question.id] === option.value}
-                        onChange={() => onSelect(question.id, option.value)}
-                        className="accent-slate-700"
-                      />
-                      {option.label}
-                    </label>
-                  ))}
+            {visibleQuestions.map((question, index) => {
+              const previousSection = index > 0 ? visibleQuestions[index - 1]?.section : null;
+              const showSectionHeader = question.section !== previousSection;
+
+              return (
+                <div key={question.id} className="space-y-3">
+                  {showSectionHeader ? (
+                    <div className="rounded-md border border-slate-300 bg-slate-100 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                        Sección {question.section}: {question.sectionTitle}
+                      </p>
+                    </div>
+                  ) : null}
+                  <fieldset className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+                    <legend className="font-medium leading-6 text-slate-900">{question.text}</legend>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {OPTIONS.map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800"
+                        >
+                          <input
+                            type="radio"
+                            name={question.id}
+                            value={option.value}
+                            checked={guiaIAnswers[question.id] === option.value}
+                            onChange={() => onSelect(question.id, option.value)}
+                            className="accent-slate-700"
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 </div>
-              </fieldset>
-            ))}
+              );
+            })}
 
             {guiaIAnswers[GUIA_I_SECTION_I_ID] === 1 && remainingQuestions.length > 0 ? (
               <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                Detectamos respuesta afirmativa en la seccion I. Debes contestar las secciones II, III y IV.
+                Detectamos respuesta afirmativa en la sección I. Debes contestar las secciones II, III y IV.
               </p>
             ) : null}
 
             {guiaIAnswers[GUIA_I_SECTION_I_ID] === 0 ? (
               <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-                Respondiste NO en seccion I. Puedes continuar con el siguiente paso.
+                Respondiste NO en sección I. Puedes continuar con el siguiente paso.
               </p>
             ) : null}
 
@@ -311,7 +319,7 @@ export default function EvaluacionPorTokenPage() {
               type="submit"
               className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
             >
-              {shouldApplyGuiaII ? "Continuar a Guia II" : "Finalizar evaluacion"}
+              {shouldApplyGuiaII ? "Continuar a Guía II" : "Finalizar evaluación"}
             </button>
           </form>
         ) : null}
@@ -320,7 +328,7 @@ export default function EvaluacionPorTokenPage() {
           <section className="mt-5 space-y-4">
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">
-                Guia II - Paso {guiaIIStep + 1} de {GUIA_II_BLOCKS.length}
+                Guía II - Paso {guiaIIStep + 1} de {GUIA_II_BLOCKS.length}
               </p>
               <div className="h-2 rounded-full bg-slate-200">
                 <div
@@ -355,7 +363,7 @@ export default function EvaluacionPorTokenPage() {
                         onChange={() => setCurrentGateValue(value)}
                         className="accent-slate-700"
                       />
-                      {value === "si" ? "Si" : "No"}
+                      {value === "si" ? "Sí" : "No"}
                     </label>
                   ))}
                 </div>
@@ -398,7 +406,7 @@ export default function EvaluacionPorTokenPage() {
 
             {currentGuiaIIBlock.gate && getCurrentGateValue() === "no" ? (
               <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                Este bloque se marcara como no aplicable segun la compuerta seleccionada.
+                Este bloque se marcará como no aplicable según la compuerta seleccionada.
               </p>
             ) : null}
 
@@ -431,7 +439,7 @@ export default function EvaluacionPorTokenPage() {
                   onClick={onFinishGuiaII}
                   className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
                 >
-                  Finalizar evaluacion
+                  Finalizar evaluación
                 </button>
               )}
             </div>
