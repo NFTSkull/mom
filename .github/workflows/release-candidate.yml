@@ -66,8 +66,12 @@ jobs:
           version: 2.110.0
       - name: Start Supabase local
         run: npx supabase start
+      - name: Write .env.local from status (CI only)
+        run: node scripts/ci-write-local-env.mjs
       - name: Reset DB
         run: npm run db:reset
+      - name: Concurrencia B4.3 (requiere Supabase local)
+        run: npx vitest run src/lib/nom035/__tests__/b4-3-concurrency.test.ts
       - name: pgTAP
         run: npm run db:test
       - name: Types sin diff
@@ -92,6 +96,8 @@ jobs:
         with:
           version: 2.110.0
       - run: npx supabase start
+      - name: Write .env.local from status (CI only)
+        run: node scripts/ci-write-local-env.mjs
       - run: npm run db:reset
       - run: npx playwright install --with-deps chromium
       - name: Seed auth test users

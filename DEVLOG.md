@@ -9,10 +9,12 @@
 - Password de DB: interactiva / archivo `.tmp` ignorado; nunca en chat ni docs.
 - CI en `release/**` sin deploy ni `db push` remoto.
 - Certificación Cloud queda **NO CERTIFICADO** hasta Preview + E2E remoto + backup/restore.
+- Fallo CI `quality` (run `30313214625`): `b4-3-concurrency` exige Supabase local; en `quality` no hay `.env.local`. Mitigación: `skipIf` + ejecución en job `database` con `scripts/ci-write-local-env.mjs`.
 
 ### Notas
 
 - Veredicto vivo en `docs/B4_7_CLOUD_STAGING_CERTIFICATION.md`.
+
 
 ## 2026-07-27 - Bloque B4.6 (Auth / RBAC / MFA)
 

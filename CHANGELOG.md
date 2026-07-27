@@ -6,6 +6,7 @@
 - Playwright staging config + scripts seed/cleanup sintéticos (fallan fuera de staging).
 - Docs: CI_SECURITY_MODEL, STAGING_*, BACKUP/ROLLBACK, PRODUCTION_CHECKLIST_PRELIMINARY, B4_7.
 - Enlace Cloud únicamente a proyecto nombre exacto `nom035-staging` (sin tocar otros).
+- CI: `b4-3-concurrency` se omite en `quality` sin `.env.local`; corre en `database` tras `ci-write-local-env`.
 - Sin Vercel Production, sin merge a main, sin usuarios/datos reales.
 
 ## 2026-07-27 (B4.6 — Auth, RBAC y MFA)

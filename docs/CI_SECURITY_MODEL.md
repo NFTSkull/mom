@@ -10,10 +10,15 @@ Se ejecuta en ramas `release/**` y PRs hacia esas ramas.
 
 | Job | Qué hace | Qué no hace |
 |---|---|---|
-| quality | npm ci, audit, lint, typecheck, vitest, build, SHA fuente, scoringVersion, secret scan | No despliega |
-| database | Supabase local, reset, pgTAP, diff de tipos | No `db push` remoto |
-| e2e | Playwright Chromium local + seed/cleanup | No apunta a Cloud |
-| security | audit + secret scan | No imprime valores |
+| quality | npm ci, audit, lint, typecheck, vitest (sin stack DB), build, SHA fuente, scoringVersion, secret scan | No despliega; no crea `.env.local` |
+| database | Supabase local, `ci-write-local-env`, reset, Vitest concurrencia B4.3, pgTAP, diff de tipos | No `db push` remoto |
+| e2e | `ci-write-local-env`, Playwright Chromium local + seed/cleanup | No apunta a Cloud |
+| security | audit + secret scan; falla si `.env`/`.env.local` están versionados | No imprime valores |
+
+Notas:
+
+- `b4-3-concurrency` usa `describe.skipIf` sin Supabase local; en CI corre en el job `database`.
+- `.env.local` de CI se genera en runtime y no se versiona.
 
 ## Permisos
 

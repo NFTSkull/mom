@@ -24,6 +24,19 @@ function loadEnvLocal(): Record<string, string> {
   return { ...out, ...(process.env as Record<string, string>) };
 }
 
+/** Solo corre con Supabase local (job database/e2e o máquina con .env.local). */
+function hasLocalSupabase(): boolean {
+  const env = loadEnvLocal();
+  const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const secret = env.SUPABASE_SECRET_KEY ?? "";
+  const pepper = env.NOM035_TOKEN_PEPPER ?? "";
+  const sessionPepper = env.NOM035_SESSION_PEPPER ?? "";
+  return (
+    Boolean(url && secret && pepper && sessionPepper) &&
+    /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(url)
+  );
+}
+
 function adminClient() {
   const env = loadEnvLocal();
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,7 +62,7 @@ function sql(query: string): string {
   ).trim();
 }
 
-describe("B4.3 · concurrencia de submit", () => {
+describe.skipIf(!hasLocalSupabase())("B4.3 · concurrencia de submit", () => {
   it("dos submits simultáneos producen exactamente un resultado", async () => {
     const env = loadEnvLocal();
     const admin = adminClient();
