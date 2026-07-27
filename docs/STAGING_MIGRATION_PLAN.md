@@ -6,13 +6,20 @@
 |---|---|
 | Nombre | `nom035-staging` |
 | Región | `us-east-1` |
-| Estado al plan | `ACTIVE_HEALTHY` |
+| Estado | `ACTIVE_HEALTHY` |
 | Project ref | `agbl…kubf` (censurado) |
 | Prohibidos | `ConCasa CRM`, cualquier otro ref |
 
-**Nota de procedencia:** el ref coincidió históricamente con un proyecto listado como `charolais-db` y fue renombrado a `nom035-staging`. Antes de aplicar migraciones se exige verificación de vacío (sin tablas NOM-035 / sin datos).
+## Wipe legado (autorizado)
 
-## Migraciones (orden)
+- Inicio: `2026-07-27T20:06:39Z`
+- Fin: `2026-07-27T20:06:43Z`
+- Eliminado: `admins`, `categories`, `products`, `product_variants` (+ FK/sequence dependientes)
+- Respaldo fuera de repo: `~/Desktop/nom035-staging-legacy-backup/`
+
+## Migraciones aplicadas
+
+Orden exacto:
 
 1. `001_nom035_initial_schema.sql`
 2. `002_public_evaluation_backend.sql`
@@ -20,39 +27,27 @@
 4. `004_secondary_modules_and_storage.sql`
 5. `005_auth_rbac_mfa.sql`
 
-Sin gaps. Sin modificar migraciones certificadas.
+- Dry-run: limpio (solo esas 5).
+- Push inicio: `2026-07-27T20:07:32Z`
+- Push fin: `2026-07-27T20:08:36Z`
+- Historial remoto: 001–005 presentes.
 
-## Efectos
+## Nota TRUNCATE
 
-- Esquema NOM-035 + RLS FORCE.
-- RPCs públicas (evaluación/queja) y admin con `require_admin_permission`.
-- Storage bucket privado `nom035-evidence` (15 MB, PDF/JPEG/PNG).
-- Matriz `role_permissions` + MFA flags.
+`005` incluye `truncate public.role_permissions` para reseeding determinista de la matriz RBAC. No es TRUNCATE de datos de negocio.
 
-## Validaciones previas
+## Validaciones post-aplicación
 
-1. Nombre exacto `nom035-staging`.
-2. Un solo match.
-3. Proyecto activo.
-4. Sin migraciones NOM-035 remotas.
-5. Sin tablas de dominio inesperadas.
-6. `npx supabase db push --dry-run` limpio.
-7. Escaneo: sin DROP/TRUNCATE/anon público/bucket público/token claro.
+- 16 tablas public + FORCE RLS en las 16
+- `role_permissions` = 73
+- bucket `nom035-evidence` privado, 15 MB, PDF/JPEG/PNG
+- 0 políticas storage para anon
+- 0 columnas `token`/`password`/`totp_secret` en public
 
-## Rollback por migración
+## Tipos
 
-Preferir **forward-fix** (nueva migración). No down improvisado.
+Diff local vs staging: solo metadata `__InternalSupabase.PostgrestVersion` + newline final. Sin diferencias estructurales de tablas/RPC. Código **no** adaptado silenciosamente.
 
-Si corrupción: restaurar desde backup lógico (ver `BACKUP_RESTORE_RUNBOOK.md`) tras abortar tráfico Preview.
+## Abortar / siguiente
 
-## Abortar si
-
-- dry-run muestra migraciones inesperadas;
-- aparecen datos reales;
-- el ref enlazado deja de ser staging;
-- falla cualquier prueba local previa.
-
-## Responsable / hora
-
-- Responsable: operador del release candidate.
-- Hora de aplicación: se registra en la entrega B4.7 al ejecutar.
+Detener antes de Vercel Preview / seed remoto / E2E staging hasta revisión humana.

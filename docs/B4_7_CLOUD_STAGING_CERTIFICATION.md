@@ -2,35 +2,25 @@
 
 ## Veredicto
 
-**NO CERTIFICADO**
+**NO CERTIFICADO** (Supabase staging migrado; falta Preview/E2E/Auth remoto y push Git del RC).
 
-## Completado
+## Completado en esta fase
 
-- Regresión local: audit 0, Vitest 189, pgTAP 517, Playwright 42.
-- Rama `release/nom035-staging-rc1` con commits RC + tag local `nom035-local-certified-rc1`.
-- CI workflow preparado (push remoto bloqueado: PAT sin scope `workflow`).
-- Health `/api/health/live|ready`, Playwright staging, scripts seed/cleanup staging, docs.
-- Identificación: único proyecto nombre exacto `nom035-staging` (ref `agbl…kubf`, us-east-1, ACTIVE_HEALTHY).
-- `supabase link` exclusivo a ese ref (no ConCasa CRM).
+- Destino verificado: `nom035-staging` / `us-east-1` / `agbl…kubf`
+- Wipe legado autorizado + respaldo fuera de Git
+- Dry-run limpio + `db push` 001–005
+- Verificación remota RLS/Storage/role_permissions
+- ConCasa CRM intacto
 
-## Bloqueo duro (db push NO ejecutado)
+## Pendiente / bloqueadores
 
-El proyecto enlazado **no está vacío**. Tablas `public` existentes (legado):
-
-- `admins` (1 fila)
-- `categories` (5 filas)
-- `products` (23 filas)
-- `product_variants` (0 filas)
-
-Historial de migraciones NOM-035 remotas: vacío (001–005 solo locales).  
-Criterio del bloque: *si hay tablas o datos inesperados → detenerse*.
-
-## Push Git
-
-Detenido por GitHub: el token no tiene scope `workflow` para subir `.github/workflows/release-candidate.yml`.
+1. Push de `release/nom035-staging-rc1` (PAT sin scope `workflow`)
+2. Vercel Preview + variables (no iniciado — detención pedida)
+3. Auth redirects / usuarios sintéticos / E2E remoto
+4. Backup/restore formal post-NOM-035 + rollback frontend
 
 ## Confirmaciones
 
-- ConCasa CRM: **intacto / no enlazado**
-- Nombre `charolais-db`: ya no aparece en la lista; el ref renombrado a `nom035-staging` conserva esquema legado → **no se aplicaron migraciones**
-- Sin Production / sin merge a main / sin usuarios reales / sin `db push`
+- Proyecto Supabase **no** eliminado
+- Sin Production / sin merge a main / sin usuarios reales / sin Vercel deploy
+- Sin secretos en docs
