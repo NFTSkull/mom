@@ -11,9 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
     ("jwt_like", re.compile(r"eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}")),
     ("private_key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
-    # Misma línea únicamente (evita que \s* cruce a comentarios en .env.example).
-    ("supabase_secret_assignment", re.compile(r"(?m)^SUPABASE_SECRET_KEY\s*=\s*(\S+)\s*$")),
-    ("pepper_assignment", re.compile(r"(?m)^NOM035_(?:TOKEN|SESSION|RATE_LIMIT)_PEPPER\s*=\s*(\S+)\s*$")),
+    # Solo valores en la misma línea; [ \\t]* no cruza saltos de línea.
+    ("supabase_secret_assignment", re.compile(r"(?m)^SUPABASE_SECRET_KEY[ \t]*=[ \t]*(\S+)[ \t]*$")),
+    ("pepper_assignment", re.compile(r"(?m)^NOM035_(?:TOKEN|SESSION|RATE_LIMIT)_PEPPER[ \t]*=[ \t]*(\S+)[ \t]*$")),
     ("password_assignment", re.compile(r"(?i)(password|passwd)\s*[:=]\s*['\"][^'\"]{8,}")),
     ("totp_secret", re.compile(r"(?i)totp[_-]?secret\s*[:=]\s*['\"][^'\"]+")),
     ("oauth_token", re.compile(r"(?i)(access_token|refresh_token)\s*[:=]\s*['\"][^'\"]{16,}")),
