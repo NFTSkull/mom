@@ -2,7 +2,7 @@
 
 ## Veredicto
 
-**NO CERTIFICADO** (Supabase staging migrado; falta Preview/E2E/Auth remoto y push Git del RC).
+**NO CERTIFICADO** (Supabase staging migrado; CI quality falló por concurrencia sin `.env.local` — fix local `304cfa8` pendiente de push; falta Preview/E2E/Auth remoto).
 
 ## Completado en esta fase
 
