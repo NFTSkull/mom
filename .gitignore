@@ -30,8 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (allow committing the example template only)
+.env
+.env.local
+.env.staging.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# supabase local temp / secrets (keep migrations and config)
+supabase/.temp/
+supabase/.branches/
 
 # vercel
 .vercel
@@ -39,3 +49,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# credenciales temporales de prueba Auth (nunca versionar)
+.tmp/
+auth-test-credentials.json
+staging-auth-credentials.json
+staging-db-password
+staging-project-ref.txt

@@ -1,521 +1,359 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { getRequiredQuestionnaires } from "@/lib/nom035/get-required-questionnaires";
-import {
-  getAverageGuiaIIScore,
-  getCriticalDomains,
-  getDepartmentSummaries,
-  getDominantRiskLevel,
-  getRiskDistribution,
-} from "@/lib/nom035/results-analytics";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { adminApi } from "@/lib/nom035/admin-client";
 import {
   generateExecutiveConclusion,
   generateGeneralRecommendations,
   generateInterventionPlan,
 } from "@/lib/nom035/report-generator";
-import {
-  getCampaignsLocal,
-  getCompanyConfigLocal,
-  getEvaluationRecordsLocal,
-  getWorkersLocal,
-  seedNom035LocalData,
-} from "@/lib/nom035/storage-local";
-import type { Campaign, CompanyConfig, EvaluationRecord, RiskLevelNom035, Worker } from "@/types/nom035";
+import type { RiskLevelNom035 } from "@/types/nom035";
 
-interface ReportSnapshot {
-  company: CompanyConfig;
-  activeCampaign: Campaign | null;
-  workers: Worker[];
-  records: EvaluationRecord[];
-  generatedAtISO: string;
-  requiredQuestionnaires: Array<"GUIA_I" | "GUIA_II" | "GUIA_III">;
-}
+type Report = {
+  company: {
+    razonSocial?: string;
+    responsableNombre?: string;
+    totalTrabajadores?: number;
+  } | null;
+  campaign: { id: string; nombre: string; status: string; questionnaireVersion?: string } | null;
+  departamento: string | null;
+  registeredWorkers: number;
+  assignments: number;
+  completed: number;
+  participationRate: number;
+  riskLevels: Record<string, number>;
+  categoryAverages: Record<string, number>;
+  domainAverages: Record<string, number>;
+  dimensionAverages: Record<string, number>;
+  guiaIAggregate: { clinicalAttentionCount?: number; totalWithGuiaI?: number };
+  scoringVersion: string | null;
+  questionnaireVersion: string | null;
+  generatedAt: string;
+};
 
-function mapRiskLabel(value: RiskLevelNom035 | null): string {
+function mapRiskLabel(value: string | null | undefined): string {
   if (!value) return "Sin datos";
   if (value === "nulo") return "Nulo";
   if (value === "bajo") return "Bajo";
   if (value === "medio") return "Medio";
   if (value === "alto") return "Alto";
-  return "Muy alto";
-}
-
-function formatISODate(value: string | null | undefined): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("es-MX");
+  if (value === "muy_alto") return "Muy alto";
+  return value;
 }
 
 export default function AdminReportesPage() {
-  const [mounted, setMounted] = useState(false);
-  const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null);
-  const [responsableNombre, setResponsableNombre] = useState("Responsable RH");
-  const [responsableCargo, setResponsableCargo] = useState("Coordinacion de Recursos Humanos");
-  const [responsableCedula, setResponsableCedula] = useState("");
-  const [responsableFecha, setResponsableFecha] = useState(
-    new Date().toISOString().slice(0, 10)
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; nombre: string; status: string }>>(
+    []
   );
+  const [campaignId, setCampaignId] = useState("");
+  const [departamento, setDepartamento] = useState("");
+  const [report, setReport] = useState<Report | null>(null);
+  const [error, setError] = useState("");
+  const [responsableNombre, setResponsableNombre] = useState("");
+  const [responsableCargo, setResponsableCargo] = useState("Coordinación de Recursos Humanos");
 
-  function loadData(): void {
-    seedNom035LocalData();
-    const company = getCompanyConfigLocal();
-    const campaigns = getCampaignsLocal();
-    const activeCampaign = campaigns[0] ?? null;
-    const workers = getWorkersLocal();
-    const records = getEvaluationRecordsLocal();
-    const requiredQuestionnaires = getRequiredQuestionnaires(company.employeeCount);
-
-    setSnapshot({
-      company,
-      activeCampaign,
-      workers,
-      records,
-      generatedAtISO: new Date().toISOString(),
-      requiredQuestionnaires,
-    });
-  }
+  const load = useCallback(async () => {
+    setError("");
+    const q = new URLSearchParams();
+    if (campaignId) q.set("campaignId", campaignId);
+    if (departamento) q.set("departamento", departamento);
+    const res = await adminApi.reportsSummary(q);
+    if (!res.ok) {
+      setError(res.message);
+      setReport(null);
+      return;
+    }
+    const r = res.report as Report;
+    setReport(r);
+    if (r.company?.responsableNombre) setResponsableNombre(String(r.company.responsableNombre));
+  }, [campaignId, departamento]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
-      loadData();
-      setMounted(true);
+      void adminApi.listCampaigns(new URLSearchParams({ page: "1", pageSize: "50" })).then((r) => {
+        if (r.ok) {
+          const items = (r.items as Array<{ id: string; nombre: string; status: string }>) ?? [];
+          setCampaigns(items);
+          const active = items.find((c) => c.status === "active");
+          if (active && !campaignId) setCampaignId(active.id);
+        }
+      });
     }, 0);
     return () => window.clearTimeout(timerId);
-  }, []);
+  }, [campaignId]);
 
-  const showSkeleton = !mounted || !snapshot;
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, [load]);
 
-  const assignedWorkers = useMemo(() => {
-    if (!snapshot) return [];
-    if (!snapshot.activeCampaign) return snapshot.workers;
-    return snapshot.workers.filter((worker) =>
-      snapshot.activeCampaign?.workerIds.includes(worker.id)
-    );
-  }, [snapshot]);
+  const dominantRisk = useMemo(() => {
+    if (!report) return null;
+    const entries = Object.entries(report.riskLevels ?? {});
+    if (entries.length === 0) return null;
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0]![0] as RiskLevelNom035;
+  }, [report]);
 
-  const latestRecordByWorker = useMemo(() => {
-    if (!snapshot) return new Map<string, EvaluationRecord>();
-    const sorted = [...snapshot.records].sort((a, b) => {
-      const left = new Date(a.completedAt ?? a.submittedAtISO ?? 0).getTime();
-      const right = new Date(b.completedAt ?? b.submittedAtISO ?? 0).getTime();
-      return right - left;
+  const conclusions = useMemo(() => {
+    if (!report) return [];
+    return generateExecutiveConclusion({
+      completedCount: report.completed,
+      dominantRiskLevel: dominantRisk,
+      guiaIFollowUpCases: report.guiaIAggregate?.clinicalAttentionCount ?? 0,
     });
-    const map = new Map<string, EvaluationRecord>();
-    for (const record of sorted) {
-      if (!map.has(record.workerId)) map.set(record.workerId, record);
-    }
-    return map;
-  }, [snapshot]);
+  }, [report, dominantRisk]);
 
-  const completedRecords = useMemo(() => {
-    if (!snapshot) return [];
-    return snapshot.records.filter((record) => record.status === "completed");
-  }, [snapshot]);
+  const recommendations = useMemo(() => {
+    const domains = Object.entries(report?.domainAverages ?? {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5)
+      .map(([domain]) => ({
+        domain,
+        recommendation: `Atender el dominio "${domain}" con acciones preventivas documentadas.`,
+      }));
+    return generateGeneralRecommendations(domains);
+  }, [report]);
 
-  const totalAssigned = assignedWorkers.length;
-  const completedCount = assignedWorkers.filter(
-    (worker) => latestRecordByWorker.get(worker.id)?.status === "completed"
-  ).length;
-  const pendingCount = totalAssigned - completedCount;
-  const participationPct = totalAssigned > 0 ? Math.round((completedCount / totalAssigned) * 100) : 0;
-  const guiaISinAlerta = completedRecords.filter(
-    (record) => record.guiaIResult?.riskLabel === "sin_alerta"
-  ).length;
-  const guiaISeguimiento = completedRecords.filter(
-    (record) => record.guiaIResult?.riskLabel === "requiere_seguimiento_confidencial"
-  ).length;
+  const intervention = useMemo(() => generateInterventionPlan(), []);
 
-  const dominantRisk = getDominantRiskLevel(completedRecords);
-  const avgScore = getAverageGuiaIIScore(completedRecords);
-  const riskDistribution = getRiskDistribution(completedRecords);
-  const departmentSummaries = getDepartmentSummaries(completedRecords, assignedWorkers);
-  const criticalDomains = getCriticalDomains(completedRecords);
-  const conclusions = generateExecutiveConclusion({
-    completedCount,
-    dominantRiskLevel: dominantRisk,
-    guiaIFollowUpCases: guiaISeguimiento,
-  });
-  const recommendations = generateGeneralRecommendations(criticalDomains);
-  const interventionPlan = generateInterventionPlan();
 
   return (
-    <section className="space-y-4">
-      <div className="no-print flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-        >
-          Imprimir / Guardar como PDF
-        </button>
-        <button
-          type="button"
-          onClick={loadData}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-        >
-          Actualizar datos
-        </button>
-        <Link
-          href="/admin/resultados"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-        >
-          Volver a resultados
-        </Link>
+    <section className="space-y-4" data-testid="admin-reports-page">
+      <div className="print:hidden space-y-3">
+        <h1 className="text-2xl font-semibold text-slate-900">Reportes</h1>
+        <div className="flex flex-wrap gap-2">
+          <select
+            data-testid="report-campaign-select"
+            className="rounded border px-2 py-1.5 text-sm"
+            value={campaignId}
+            onChange={(e) => setCampaignId(e.target.value)}
+          >
+            <option value="">Campaña activa / todas</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} ({c.status})
+              </option>
+            ))}
+          </select>
+          <input
+            data-testid="report-departamento"
+            className="rounded border px-2 py-1.5 text-sm"
+            placeholder="Departamento (opcional)"
+            value={departamento}
+            onChange={(e) => setDepartamento(e.target.value)}
+          />
+          <button
+            type="button"
+            data-testid="report-refresh"
+            className="rounded border px-3 py-1.5 text-sm"
+            onClick={() => void load()}
+          >
+            Actualizar
+          </button>
+          <button
+            type="button"
+            data-testid="report-print"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white"
+            onClick={() => window.print()}
+          >
+            Imprimir
+          </button>
+        </div>
+        {error ? <p className="text-sm text-red-700">{error}</p> : null}
       </div>
 
-      {showSkeleton ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-4 w-full animate-pulse rounded bg-slate-100" />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <article className="report-doc space-y-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <header className="page-break-after space-y-2 text-center">
-            <h1 className="text-2xl font-bold text-slate-900">
-              Informe de Evaluacion NOM-035-STPS-2018
-            </h1>
-            <p className="text-slate-700">Factores de riesgo psicosocial en el trabajo</p>
-            <p className="text-sm text-slate-700">
-              Empresa: {snapshot?.company.legalName}
-            </p>
-            <p className="text-sm text-slate-700">
-              Campana evaluada: {snapshot?.activeCampaign?.name ?? "Sin campana activa"}
-            </p>
-            <p className="text-sm text-slate-700">
-              Fecha de generacion: {formatISODate(snapshot?.generatedAtISO)}
-            </p>
-            <p className="text-sm text-slate-700">
-              Periodo de evaluacion: {formatISODate(snapshot?.activeCampaign?.startsAtISO)} al{" "}
-              {formatISODate(snapshot?.activeCampaign?.endsAtISO)}
+      {report ? (
+        <article
+          data-testid="report-document"
+          className="space-y-6 rounded-lg border border-slate-200 bg-white p-6 text-slate-800 shadow-sm print:border-0 print:shadow-none"
+        >
+          <header>
+            <h2 className="text-xl font-semibold">Informe NOM-035</h2>
+            <p className="text-sm text-slate-600">
+              Empresa: {report.company?.razonSocial ?? "—"} · Campaña:{" "}
+              {report.campaign?.nombre ?? "—"} · Fecha:{" "}
+              {new Date(report.generatedAt).toLocaleString("es-MX")}
             </p>
           </header>
 
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Datos del centro de trabajo</h2>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <p className="text-sm text-slate-700">
-                <strong>Razon social:</strong> {snapshot?.company.legalName}
-              </p>
-              <p className="text-sm text-slate-700">
-                <strong>RFC:</strong> {snapshot?.company.rfc || "-"}
-              </p>
-              <p className="text-sm text-slate-700">
-                <strong>Domicilio:</strong> {snapshot?.company.address || "-"}
-              </p>
-              <p className="text-sm text-slate-700">
-                <strong>Telefono:</strong> {snapshot?.company.phone || "-"}
-              </p>
-              <p className="text-sm text-slate-700">
-                <strong>Actividad principal:</strong> {snapshot?.company.mainActivity || "-"}
-              </p>
-              <p className="text-sm text-slate-700">
-                <strong>Total de trabajadores:</strong> {snapshot?.company.employeeCount ?? 0}
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Objetivo</h2>
-            <p className="text-sm text-slate-700">
-              Identificar y analizar los factores de riesgo psicosocial en el trabajo, asi como
-              determinar el nivel de riesgo resultante de la evaluacion aplicada, con el fin de
-              establecer recomendaciones y acciones de prevencion, control e intervencion.
+          <section>
+            <h3 className="font-semibold">1. Objetivo</h3>
+            <p className="text-sm">
+              Identificar factores de riesgo psicosocial y evaluar el entorno organizacional conforme
+              al instrumento oficial NOM-035-STPS-2018 (Guías I y II).
             </p>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Alcance</h2>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-              <li>Numero de trabajadores asignados: {totalAssigned}</li>
-              <li>Numero de evaluaciones completadas: {completedCount}</li>
-              <li>Porcentaje de participacion: {participationPct}%</li>
+          <section>
+            <h3 className="font-semibold">2. Alcance</h3>
+            <p className="text-sm">
+              {departamento
+                ? `Departamento: ${departamento}.`
+                : "Toda la empresa (trabajadores con asignación en la campaña seleccionada)."}
+            </p>
+          </section>
+
+          <section>
+            <h3 className="font-semibold">3. Metodología</h3>
+            <p className="text-sm">
+              Aplicación de cuestionarios oficiales vía enlace individual criptográfico. Scoring
+              calculado únicamente en servidor (
+              <code>{report.scoringVersion ?? "—"}</code> /{" "}
+              <code>{report.questionnaireVersion ?? "—"}</code>).
+            </p>
+          </section>
+
+          <section data-testid="report-results-section">
+            <h3 className="font-semibold">4. Resultados</h3>
+            <ul className="mt-2 list-disc pl-5 text-sm">
+              <li>Trabajadores registrados activos: {report.registeredWorkers}</li>
+              <li>Asignaciones: {report.assignments}</li>
+              <li>Completados: {report.completed}</li>
+              <li>Tasa de participación: {report.participationRate}%</li>
+              <li>Distribución de niveles: {JSON.stringify(report.riskLevels)}</li>
               <li>
-                Guias aplicadas: Guia I
-                {snapshot?.requiredQuestionnaires.includes("GUIA_II") ? " y Guia II" : ""}
-              </li>
-              <li>
-                Forma de aplicacion: Aplicacion digital mediante enlace individual por trabajador.
+                Seguimiento Guía I (agregado/confidencial):{" "}
+                {report.guiaIAggregate?.clinicalAttentionCount ?? 0} de{" "}
+                {report.guiaIAggregate?.totalWithGuiaI ?? 0}
               </li>
             </ul>
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Metodo utilizado</h2>
-            <p className="text-sm text-slate-700">
-              El metodo utilizado corresponde a las Guias de Referencia de la NOM-035-STPS-2018
-              implementadas en formato digital. Las respuestas fueron registradas de forma
-              individual y los resultados se presentan de manera agregada para fines de analisis
-              organizacional.
+            <p className="mt-2 text-xs text-slate-500">
+              El reporte general no incluye respuestas individuales completas.
             </p>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-              <li>La Guia I identifica posibles acontecimientos traumaticos severos.</li>
-              <li>La Guia II identifica y analiza factores de riesgo psicosocial.</li>
-              <li>No se muestran respuestas individuales pregunta por pregunta.</li>
-            </ul>
-          </section>
-
-          <section className="page-break-before space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Resultados generales</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded border border-slate-200 p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Completadas</p>
-                <p className="text-xl font-semibold">{completedCount}</p>
-              </div>
-              <div className="rounded border border-slate-200 p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Pendientes</p>
-                <p className="text-xl font-semibold">{pendingCount}</p>
-              </div>
-              <div className="rounded border border-slate-200 p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Avance</p>
-                <p className="text-xl font-semibold">{participationPct}%</p>
-              </div>
-              <div className="rounded border border-slate-200 p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Puntaje promedio Guia II
-                </p>
-                <p className="text-xl font-semibold">{avgScore}</p>
-              </div>
-            </div>
-            <p className="text-sm text-slate-700">
-              Guia I - Sin alerta: {guiaISinAlerta} | Requieren seguimiento confidencial:{" "}
-              {guiaISeguimiento}
-            </p>
-            <p className="text-sm text-slate-700">
-              Guia II - Riesgo predominante: {mapRiskLabel(dominantRisk)}
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Nivel</th>
-                    <th className="px-3 py-2 font-semibold">Conteo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t border-slate-200">
-                    <td className="px-3 py-2">Nulo</td>
-                    <td className="px-3 py-2">{riskDistribution.nulo}</td>
-                  </tr>
-                  <tr className="border-t border-slate-200">
-                    <td className="px-3 py-2">Bajo</td>
-                    <td className="px-3 py-2">{riskDistribution.bajo}</td>
-                  </tr>
-                  <tr className="border-t border-slate-200">
-                    <td className="px-3 py-2">Medio</td>
-                    <td className="px-3 py-2">{riskDistribution.medio}</td>
-                  </tr>
-                  <tr className="border-t border-slate-200">
-                    <td className="px-3 py-2">Alto</td>
-                    <td className="px-3 py-2">{riskDistribution.alto}</td>
-                  </tr>
-                  <tr className="border-t border-slate-200">
-                    <td className="px-3 py-2">Muy alto</td>
-                    <td className="px-3 py-2">{riskDistribution.muy_alto}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 text-xs">
+              <pre className="overflow-auto rounded bg-slate-50 p-2">
+                Categorías: {JSON.stringify(report.categoryAverages, null, 2)}
+              </pre>
+              <pre className="overflow-auto rounded bg-slate-50 p-2">
+                Dominios: {JSON.stringify(report.domainAverages, null, 2)}
+              </pre>
+              <pre className="overflow-auto rounded bg-slate-50 p-2">
+                Dimensiones: {JSON.stringify(report.dimensionAverages, null, 2)}
+              </pre>
             </div>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Resultados por departamento</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Departamento</th>
-                    <th className="px-3 py-2 font-semibold">Trabajadores evaluados</th>
-                    <th className="px-3 py-2 font-semibold">Puntaje promedio Guia II</th>
-                    <th className="px-3 py-2 font-semibold">Riesgo predominante</th>
-                    <th className="px-3 py-2 font-semibold">Dominios criticos</th>
-                    <th className="px-3 py-2 font-semibold">
-                      Seguimiento confidencial Guia I
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {departmentSummaries.map((row) => (
-                    <tr key={row.department} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{row.department}</td>
-                      <td className="px-3 py-2">{row.evaluatedWorkers}</td>
-                      <td className="px-3 py-2">{row.averageGuiaIIScore}</td>
-                      <td className="px-3 py-2">{mapRiskLabel(row.predominantRiskLevel)}</td>
-                      <td className="px-3 py-2">{row.criticalDomains}</td>
-                      <td className="px-3 py-2">{row.guiaIFollowUpCases}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Dominios con mayor atencion requerida
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Dominio</th>
-                    <th className="px-3 py-2 font-semibold">
-                      Trabajadores en riesgo medio/alto/muy alto
-                    </th>
-                    <th className="px-3 py-2 font-semibold">Nivel mas frecuente</th>
-                    <th className="px-3 py-2 font-semibold">Recomendacion</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {criticalDomains.map((domain) => (
-                    <tr key={domain.domain} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{domain.domain}</td>
-                      <td className="px-3 py-2">{domain.workers}</td>
-                      <td className="px-3 py-2">{mapRiskLabel(domain.mostFrequentLevel)}</td>
-                      <td className="px-3 py-2">{domain.recommendation}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Conclusiones</h2>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {conclusions.map((line, index) => (
-                <li key={`conclusion-${index}`}>{line}</li>
+          <section>
+            <h3 className="font-semibold">5. Conclusiones</h3>
+            <ul className="list-disc pl-5 text-sm">
+              {conclusions.map((c) => (
+                <li key={c}>{c}</li>
               ))}
             </ul>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Recomendaciones generales</h2>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {recommendations.map((line, index) => (
-                <li key={`recommendation-${index}`}>{line}</li>
+          <section>
+            <h3 className="font-semibold">6. Recomendaciones</h3>
+            <ul className="list-disc pl-5 text-sm">
+              {recommendations.map((r) => (
+                <li key={r}>{r}</li>
               ))}
             </ul>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Plan de intervencion sugerido</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Nivel de accion</th>
-                    <th className="px-3 py-2 font-semibold">Enfoque</th>
-                    <th className="px-3 py-2 font-semibold">Accion sugerida</th>
-                    <th className="px-3 py-2 font-semibold">Responsable sugerido</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {interventionPlan.map((row) => (
-                    <tr key={row.level} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{row.level}</td>
-                      <td className="px-3 py-2">{row.focus}</td>
-                      <td className="px-3 py-2">{row.action}</td>
-                      <td className="px-3 py-2">{row.owner}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <section>
+            <h3 className="font-semibold">7. Intervención</h3>
+            <ul className="list-disc pl-5 text-sm">
+              {intervention.map((i) => (
+                <li key={i.level}>
+                  {i.level} ({i.focus}): {i.action} — {i.owner}
+                </li>
+              ))}
+            </ul>
           </section>
 
-          <section className="space-y-3 border-t border-slate-200 pt-4">
-            <h2 className="text-lg font-semibold text-slate-900">Datos del responsable de la evaluacion</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm text-slate-700">
-                Nombre del responsable
-                <input
-                  value={responsableNombre}
-                  onChange={(event) => setResponsableNombre(event.target.value)}
-                  className="no-print mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <span className="print-only block text-slate-900">{responsableNombre}</span>
-              </label>
-              <label className="text-sm text-slate-700">
-                Cargo
-                <input
-                  value={responsableCargo}
-                  onChange={(event) => setResponsableCargo(event.target.value)}
-                  className="no-print mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <span className="print-only block text-slate-900">{responsableCargo}</span>
-              </label>
-              <label className="text-sm text-slate-700">
-                Cedula profesional (opcional)
-                <input
-                  value={responsableCedula}
-                  onChange={(event) => setResponsableCedula(event.target.value)}
-                  className="no-print mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <span className="print-only block text-slate-900">{responsableCedula || "-"}</span>
-              </label>
-              <label className="text-sm text-slate-700">
-                Fecha
-                <input
-                  type="date"
-                  value={responsableFecha}
-                  onChange={(event) => setResponsableFecha(event.target.value)}
-                  className="no-print mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <span className="print-only block text-slate-900">{responsableFecha}</span>
-              </label>
+          <SecondaryModulesSection />
+
+          <section className="print:break-inside-avoid">
+            <h3 className="font-semibold">9. Responsable</h3>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 print:hidden">
+              <input
+                className="rounded border px-2 py-1.5 text-sm"
+                value={responsableNombre}
+                onChange={(e) => setResponsableNombre(e.target.value)}
+                placeholder="Nombre"
+              />
+              <input
+                className="rounded border px-2 py-1.5 text-sm"
+                value={responsableCargo}
+                onChange={(e) => setResponsableCargo(e.target.value)}
+                placeholder="Cargo"
+              />
             </div>
+            <p className="mt-2 text-sm">
+              {responsableNombre || "—"} · {responsableCargo}
+            </p>
+            <p className="text-xs text-slate-500">Nivel predominante: {mapRiskLabel(dominantRisk)}</p>
           </section>
         </article>
+      ) : (
+        <p className="text-sm text-slate-600">Sin datos de reporte.</p>
       )}
 
       <style jsx global>{`
-        .print-only {
-          display: none;
-        }
-
         @media print {
-          .admin-nav,
-          .no-print {
+          .print\\:hidden,
+          [data-testid="admin-local-banner"],
+          nav {
             display: none !important;
-          }
-
-          .print-only {
-            display: block !important;
-          }
-
-          body {
-            background: #fff !important;
-            color: #000 !important;
-          }
-
-          .report-doc {
-            border: none !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            max-width: 100% !important;
-          }
-
-          table,
-          tr,
-          td,
-          th {
-            page-break-inside: avoid;
-          }
-
-          .page-break-before {
-            page-break-before: always;
-          }
-
-          .page-break-after {
-            page-break-after: avoid;
           }
         }
       `}</style>
+    </section>
+  );
+}
+
+function SecondaryModulesSection() {
+  const [block, setBlock] = useState<{
+    plan: string;
+    evidence: string;
+    complaints: string;
+    policy: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const [p, e, c, pol] = await Promise.all([
+          adminApi.actionPlanSummary(),
+          adminApi.evidenceSummary(),
+          adminApi.complaintSummary(),
+          adminApi.policySummary(),
+        ]);
+        const ps = p.ok ? (p.summary as Record<string, number>) : {};
+        const es = e.ok ? (e.summary as Record<string, unknown>) : {};
+        const cs = c.ok ? (c.summary as Record<string, number>) : {};
+        const pols = pol.ok ? (pol.summary as Record<string, unknown>) : {};
+        const published = pols.published as { title?: string; versionLabel?: string } | null;
+        setBlock({
+          plan: `Pendientes ${ps.pendientes ?? 0}, en proceso ${ps.enProceso ?? 0}, completadas ${ps.completadas ?? 0}, vencidas ${ps.vencidas ?? 0}`,
+          evidence: `Activas ${es.total ?? 0}`,
+          complaints: `Recibidas ${cs.recibidas ?? 0}, en revisión ${cs.enRevision ?? 0}, resueltas ${cs.resueltas ?? 0}, cerradas ${cs.cerradas ?? 0}`,
+          policy: published
+            ? `${published.title} (${published.versionLabel})`
+            : "Sin política publicada",
+        });
+      })();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  if (!block) return null;
+  return (
+    <section data-testid="report-secondary-modules">
+      <h3 className="font-semibold">8. Módulos secundarios (agregado)</h3>
+      <ul className="mt-2 list-disc pl-5 text-sm">
+        <li>Plan de acción: {block.plan}</li>
+        <li>Estado documental: {block.evidence}</li>
+        <li>Quejas por estado: {block.complaints}</li>
+        <li>Política vigente: {block.policy}</li>
+      </ul>
+      <p className="mt-2 text-xs text-slate-500">
+        Sin descripciones de quejas, contactos ni respuestas individuales.
+      </p>
     </section>
   );
 }

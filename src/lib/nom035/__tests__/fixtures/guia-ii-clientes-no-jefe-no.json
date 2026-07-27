@@ -1,0 +1,179 @@
+{
+  "answers": {
+    "gateClientes": "no",
+    "gateJefe": "no",
+    "responses": {
+      "1": "nunca",
+      "2": "nunca",
+      "3": "nunca",
+      "4": "nunca",
+      "5": "nunca",
+      "6": "nunca",
+      "7": "nunca",
+      "8": "nunca",
+      "9": "nunca",
+      "10": "nunca",
+      "11": "nunca",
+      "12": "nunca",
+      "13": "nunca",
+      "14": "nunca",
+      "15": "nunca",
+      "16": "nunca",
+      "17": "nunca",
+      "18": "siempre",
+      "19": "siempre",
+      "20": "siempre",
+      "21": "siempre",
+      "22": "siempre",
+      "23": "siempre",
+      "24": "siempre",
+      "25": "siempre",
+      "26": "siempre",
+      "27": "siempre",
+      "28": "siempre",
+      "29": "siempre",
+      "30": "siempre",
+      "31": "siempre",
+      "32": "siempre",
+      "33": "siempre",
+      "34": "nunca",
+      "35": "nunca",
+      "36": "nunca",
+      "37": "nunca",
+      "38": "nunca",
+      "39": "nunca",
+      "40": "nunca"
+    }
+  },
+  "expected": {
+    "questionnaireCode": "GUIA_II",
+    "finalScore": 0,
+    "finalRiskLevel": "nulo",
+    "categoryScores": {
+      "Ambiente de trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Factores propios de la actividad": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Organización del tiempo de trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Liderazgo y relaciones en el trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      }
+    },
+    "domainScores": {
+      "Condiciones en el ambiente de trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Carga de trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Falta de control sobre el trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Jornada de trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Interferencia en la relación trabajo-familia": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Liderazgo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Relaciones en el trabajo": {
+        "score": 0,
+        "riskLevel": "nulo"
+      },
+      "Violencia": {
+        "score": 0,
+        "riskLevel": "nulo"
+      }
+    },
+    "dimensionScores": {
+      "Condiciones deficientes e insalubres": {
+        "score": 0
+      },
+      "Condiciones peligrosas e inseguras": {
+        "score": 0
+      },
+      "Trabajos peligrosos": {
+        "score": 0
+      },
+      "Cargas cuantitativas": {
+        "score": 0
+      },
+      "Ritmos de trabajo acelerado": {
+        "score": 0
+      },
+      "Carga mental": {
+        "score": 0
+      },
+      "Cargas de alta responsabilidad": {
+        "score": 0
+      },
+      "Cargas contradictorias o inconsistentes": {
+        "score": 0
+      },
+      "Cargas psicológicas emocionales": {
+        "score": 0
+      },
+      "Limitada o nula posibilidad de desarrollo": {
+        "score": 0
+      },
+      "Falta de control y autonomía sobre el trabajo": {
+        "score": 0
+      },
+      "Limitada o inexistente capacitación": {
+        "score": 0
+      },
+      "Jornadas de trabajo extensas": {
+        "score": 0
+      },
+      "Influencia del trabajo fuera del centro laboral": {
+        "score": 0
+      },
+      "Influencia de las responsabilidades familiares": {
+        "score": 0
+      },
+      "Escasa claridad de funciones": {
+        "score": 0
+      },
+      "Características del liderazgo": {
+        "score": 0
+      },
+      "Relaciones sociales en el trabajo": {
+        "score": 0
+      },
+      "Deficiente relación con los colaboradores que supervisa": {
+        "score": 0
+      },
+      "Violencia laboral": {
+        "score": 0
+      }
+    },
+    "skippedQuestions": [
+      41,
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "alerts": [],
+    "scoringVersion": "nom035-stps-2018-guia-i-ii-v1",
+    "questionnaireVersion": "nom035-stps-2018-guias-referencia-i-ii",
+    "validationWarnings": []
+  }
+}

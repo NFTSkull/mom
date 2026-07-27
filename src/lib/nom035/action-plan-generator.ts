@@ -31,7 +31,7 @@ const DOMAIN_ACTIONS: Record<
       "Revisar y difundir mecanismos de prevencion, atencion y denuncia de violencia laboral.",
     area: "RH",
   },
-  "Interferencia en la relacion trabajo-familia": {
+  "Interferencia en la relación trabajo-familia": {
     actionLevel: "primer_nivel",
     actionType: "organizacional",
     description: "Revisar horarios, limites de jornada y medidas de conciliacion.",

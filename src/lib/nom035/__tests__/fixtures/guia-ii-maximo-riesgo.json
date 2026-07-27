@@ -1,0 +1,183 @@
+{
+  "answers": {
+    "gateClientes": "si",
+    "gateJefe": "si",
+    "responses": {
+      "1": "siempre",
+      "2": "siempre",
+      "3": "siempre",
+      "4": "siempre",
+      "5": "siempre",
+      "6": "siempre",
+      "7": "siempre",
+      "8": "siempre",
+      "9": "siempre",
+      "10": "siempre",
+      "11": "siempre",
+      "12": "siempre",
+      "13": "siempre",
+      "14": "siempre",
+      "15": "siempre",
+      "16": "siempre",
+      "17": "siempre",
+      "18": "nunca",
+      "19": "nunca",
+      "20": "nunca",
+      "21": "nunca",
+      "22": "nunca",
+      "23": "nunca",
+      "24": "nunca",
+      "25": "nunca",
+      "26": "nunca",
+      "27": "nunca",
+      "28": "nunca",
+      "29": "nunca",
+      "30": "nunca",
+      "31": "nunca",
+      "32": "nunca",
+      "33": "nunca",
+      "34": "siempre",
+      "35": "siempre",
+      "36": "siempre",
+      "37": "siempre",
+      "38": "siempre",
+      "39": "siempre",
+      "40": "siempre",
+      "41": "siempre",
+      "42": "siempre",
+      "43": "siempre",
+      "44": "siempre",
+      "45": "siempre",
+      "46": "siempre"
+    }
+  },
+  "expected": {
+    "questionnaireCode": "GUIA_II",
+    "finalScore": 184,
+    "finalRiskLevel": "muy_alto",
+    "categoryScores": {
+      "Ambiente de trabajo": {
+        "score": 12,
+        "riskLevel": "muy_alto"
+      },
+      "Factores propios de la actividad": {
+        "score": 80,
+        "riskLevel": "muy_alto"
+      },
+      "Organización del tiempo de trabajo": {
+        "score": 16,
+        "riskLevel": "muy_alto"
+      },
+      "Liderazgo y relaciones en el trabajo": {
+        "score": 76,
+        "riskLevel": "muy_alto"
+      }
+    },
+    "domainScores": {
+      "Condiciones en el ambiente de trabajo": {
+        "score": 12,
+        "riskLevel": "muy_alto"
+      },
+      "Carga de trabajo": {
+        "score": 52,
+        "riskLevel": "muy_alto"
+      },
+      "Falta de control sobre el trabajo": {
+        "score": 28,
+        "riskLevel": "muy_alto"
+      },
+      "Jornada de trabajo": {
+        "score": 8,
+        "riskLevel": "muy_alto"
+      },
+      "Interferencia en la relación trabajo-familia": {
+        "score": 8,
+        "riskLevel": "muy_alto"
+      },
+      "Liderazgo": {
+        "score": 20,
+        "riskLevel": "muy_alto"
+      },
+      "Relaciones en el trabajo": {
+        "score": 24,
+        "riskLevel": "muy_alto"
+      },
+      "Violencia": {
+        "score": 32,
+        "riskLevel": "muy_alto"
+      }
+    },
+    "dimensionScores": {
+      "Condiciones deficientes e insalubres": {
+        "score": 4
+      },
+      "Condiciones peligrosas e inseguras": {
+        "score": 4
+      },
+      "Trabajos peligrosos": {
+        "score": 4
+      },
+      "Cargas cuantitativas": {
+        "score": 8
+      },
+      "Ritmos de trabajo acelerado": {
+        "score": 8
+      },
+      "Carga mental": {
+        "score": 8
+      },
+      "Cargas de alta responsabilidad": {
+        "score": 8
+      },
+      "Cargas contradictorias o inconsistentes": {
+        "score": 8
+      },
+      "Cargas psicológicas emocionales": {
+        "score": 12
+      },
+      "Limitada o nula posibilidad de desarrollo": {
+        "score": 8
+      },
+      "Falta de control y autonomía sobre el trabajo": {
+        "score": 12
+      },
+      "Limitada o inexistente capacitación": {
+        "score": 8
+      },
+      "Jornadas de trabajo extensas": {
+        "score": 8
+      },
+      "Influencia del trabajo fuera del centro laboral": {
+        "score": 4
+      },
+      "Influencia de las responsabilidades familiares": {
+        "score": 4
+      },
+      "Escasa claridad de funciones": {
+        "score": 12
+      },
+      "Características del liderazgo": {
+        "score": 8
+      },
+      "Relaciones sociales en el trabajo": {
+        "score": 12
+      },
+      "Deficiente relación con los colaboradores que supervisa": {
+        "score": 12
+      },
+      "Violencia laboral": {
+        "score": 32
+      }
+    },
+    "skippedQuestions": [],
+    "alerts": [
+      "Se recomienda programa de intervención.",
+      "Revisar posibles condiciones de violencia laboral.",
+      "Revisar distribución y ritmo de trabajo.",
+      "Revisar liderazgo, comunicación y apoyo del jefe inmediato."
+    ],
+    "scoringVersion": "nom035-stps-2018-guia-i-ii-v1",
+    "questionnaireVersion": "nom035-stps-2018-guias-referencia-i-ii",
+    "validationWarnings": []
+  }
+}

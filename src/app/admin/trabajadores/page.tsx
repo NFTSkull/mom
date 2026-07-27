@@ -1,414 +1,389 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  deactivateWorker,
-  deleteWorker,
-  getWorkers,
-  saveWorker,
-  seedNom035LocalData,
-  updateWorker,
-} from "@/lib/nom035/storage-local";
-import type { Worker } from "@/types/nom035";
+import { useCallback, useEffect, useState } from "react";
+import { adminApi } from "@/lib/nom035/admin-client";
 
-type WorkerForm = {
-  fullName: string;
-  email: string;
-  phone: string;
-  department: string;
-  position: string;
-  shift: string;
-  branch: string;
-  directManager: string;
-  seniority: string;
-  status: Worker["status"];
+type WorkerRow = {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  departamento: string | null;
+  puesto: string | null;
+  turno: string | null;
+  sucursal: string | null;
+  jefeDirecto: string | null;
+  antiguedad: string | null;
+  externalReference: string | null;
+  activo: boolean;
 };
 
-const INITIAL_FORM: WorkerForm = {
-  fullName: "",
+type FormState = {
+  nombre: string;
+  email: string;
+  telefono: string;
+  departamento: string;
+  puesto: string;
+  turno: string;
+  sucursal: string;
+  jefeDirecto: string;
+  antiguedad: string;
+  externalReference: string;
+};
+
+const EMPTY: FormState = {
+  nombre: "",
   email: "",
-  phone: "",
-  department: "",
-  position: "",
-  shift: "",
-  branch: "",
-  directManager: "",
-  seniority: "",
-  status: "ACTIVE",
+  telefono: "",
+  departamento: "",
+  puesto: "",
+  turno: "",
+  sucursal: "",
+  jefeDirecto: "",
+  antiguedad: "",
+  externalReference: "",
 };
 
 export default function AdminTrabajadoresPage() {
-  const [mounted, setMounted] = useState(false);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [form, setForm] = useState<WorkerForm>(INITIAL_FORM);
+  const [workers, setWorkers] = useState<WorkerRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [activoFilter, setActivoFilter] = useState<"all" | "true" | "false">("all");
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | Worker["status"]>("ALL");
+  const [loading, setLoading] = useState(true);
+  const [csvPreview, setCsvPreview] = useState<{
+    rows: unknown[];
+    errors: unknown[];
+    ok: boolean;
+  } | null>(null);
+  const [csvText, setCsvText] = useState("");
 
-  function loadWorkers(): void {
-    seedNom035LocalData();
-    setWorkers(getWorkers());
-  }
+  const load = useCallback(async () => {
+    setLoading(true);
+    const q = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (search) q.set("search", search);
+    if (activoFilter !== "all") q.set("activo", activoFilter);
+    const res = await adminApi.listWorkers(q);
+    if (res.ok) {
+      setWorkers((res.items as WorkerRow[]) ?? []);
+      setTotal(res.total ?? 0);
+    } else {
+      setMessage(res.message);
+    }
+    setLoading(false);
+  }, [page, search, activoFilter]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
-      loadWorkers();
-      setMounted(true);
+      void load();
     }, 0);
     return () => window.clearTimeout(timerId);
-  }, []);
+  }, [load]);
 
-  const filteredWorkers = useMemo(() => {
-    if (statusFilter === "ALL") return workers;
-    return workers.filter((worker) => worker.status === statusFilter);
-  }, [workers, statusFilter]);
-
-  function clearForm(): void {
-    setForm(INITIAL_FORM);
-    setEditingId(null);
-  }
-
-  function onSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    if (!form.fullName.trim() || !form.email.trim() || !form.department.trim() || !form.position.trim()) {
-      setMessage("Completa nombre, email, departamento y puesto.");
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const body = {
+      nombre: form.nombre,
+      email: form.email || null,
+      telefono: form.telefono || null,
+      departamento: form.departamento || null,
+      puesto: form.puesto || null,
+      turno: form.turno || null,
+      sucursal: form.sucursal || null,
+      jefeDirecto: form.jefeDirecto || null,
+      antiguedad: form.antiguedad || null,
+      externalReference: form.externalReference || null,
+    };
+    const res = editingId
+      ? await adminApi.updateWorker(editingId, body)
+      : await adminApi.createWorker(body);
+    if (!res.ok) {
+      setMessage(res.message);
       return;
     }
+    setMessage(editingId ? "Trabajador actualizado." : "Trabajador creado.");
+    setForm(EMPTY);
+    setEditingId(null);
+    await load();
+  }
 
-    if (editingId) {
-      updateWorker(editingId, {
-        fullName: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        department: form.department.trim(),
-        position: form.position.trim(),
-        shift: form.shift.trim() || undefined,
-        branch: form.branch.trim() || undefined,
-        directManager: form.directManager.trim() || undefined,
-        seniority: form.seniority.trim() || undefined,
-        status: form.status,
-      });
-      setMessage("Trabajador actualizado.");
-    } else {
-      saveWorker({
-        fullName: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        department: form.department.trim(),
-        position: form.position.trim(),
-        shift: form.shift.trim() || undefined,
-        branch: form.branch.trim() || undefined,
-        directManager: form.directManager.trim() || undefined,
-        seniority: form.seniority.trim() || undefined,
-        status: form.status,
-      });
-      setMessage("Trabajador agregado.");
+  async function onCsvFile(file: File) {
+    if (file.size > 1_500_000) {
+      setMessage("Archivo demasiado grande.");
+      return;
     }
-    clearForm();
-    setWorkers(getWorkers());
+    const text = await file.text();
+    setCsvText(text);
+    const res = await adminApi.validateImport(text);
+    if (!res.ok) {
+      setMessage(res.message);
+      return;
+    }
+    const preview = res.preview as { rows: unknown[]; errors: unknown[]; ok: boolean };
+    setCsvPreview(preview);
+    setMessage(preview.ok ? "Vista previa lista. Confirma la importación." : "Hay errores en el CSV.");
   }
 
-  function startEdit(worker: Worker): void {
-    setEditingId(worker.id);
-    setForm({
-      fullName: worker.fullName,
-      email: worker.email,
-      phone: worker.phone ?? "",
-      department: worker.department,
-      position: worker.position,
-      shift: worker.shift ?? "",
-      branch: worker.branch ?? "",
-      directManager: worker.directManager ?? "",
-      seniority: worker.seniority ?? "",
-      status: worker.status,
-    });
-    setMessage("");
-  }
-
-  function onDeactivate(id: string): void {
-    deactivateWorker(id);
-    setWorkers(getWorkers());
-    setMessage("Trabajador desactivado.");
-  }
-
-  function onDelete(id: string): void {
-    deleteWorker(id);
-    setWorkers(getWorkers());
-    if (editingId === id) clearForm();
-    setMessage("Trabajador eliminado.");
-  }
-
-  function onCsvUpload(file: File): void {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = typeof reader.result === "string" ? reader.result : "";
-      const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-      if (lines.length < 2) {
-        setMessage("CSV sin filas de datos.");
-        return;
-      }
-
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const idx = (key: string): number => headers.indexOf(key);
-      let imported = 0;
-      for (const line of lines.slice(1)) {
-        const cols = line.split(",").map((col) => col.trim());
-        const fullName = cols[idx("nombre")] ?? "";
-        const email = cols[idx("email")] ?? "";
-        if (!fullName || !email) continue;
-        saveWorker({
-          fullName,
-          email,
-          phone: cols[idx("telefono")] || undefined,
-          department: cols[idx("departamento")] || "Sin departamento",
-          position: cols[idx("puesto")] || "Sin puesto",
-          shift: cols[idx("turno")] || undefined,
-          branch: cols[idx("sucursal")] || undefined,
-          directManager: cols[idx("jefe_directo")] || undefined,
-          seniority: cols[idx("antiguedad")] || undefined,
-          status: (cols[idx("activo")] ?? "si").toLowerCase() === "no" ? "INACTIVE" : "ACTIVE",
-        });
-        imported += 1;
-      }
-      setWorkers(getWorkers());
-      setMessage(`Importación CSV completada. Registros agregados: ${imported}.`);
-    };
-    reader.readAsText(file);
-  }
-
-  if (!mounted) {
-    return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Trabajadores</h1>
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-4 w-full animate-pulse rounded bg-slate-100" />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
+  async function onCommitCsv() {
+    if (!csvPreview?.ok) return;
+    const rows = (csvPreview.rows as Array<Record<string, unknown>>).map((r) => ({
+      nombre: r.nombre,
+      email: r.email ?? null,
+      telefono: r.telefono ?? null,
+      departamento: r.departamento ?? null,
+      puesto: r.puesto ?? null,
+      turno: r.turno ?? null,
+      sucursal: r.sucursal ?? null,
+      jefe_directo: r.jefe_directo ?? null,
+      antiguedad: r.antiguedad ?? null,
+      referencia_externa: r.referencia_externa ?? null,
+      activo: r.activo ?? true,
+    }));
+    const res = await adminApi.commitImport(rows);
+    if (!res.ok) {
+      setMessage(res.message);
+      return;
+    }
+    setMessage(`Importación completada: ${res.inserted ?? 0} insertados.`);
+    setCsvPreview(null);
+    setCsvText("");
+    await load();
   }
 
   return (
-    <section className="space-y-4">
-      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Trabajadores</h1>
-        <p className="mt-1 text-slate-700">
-          Registra trabajadores manualmente o por CSV para habilitar su enlace individual de evaluación.
-        </p>
-      </header>
+    <section className="space-y-4" data-testid="admin-workers-page">
+      <h1 className="text-2xl font-semibold text-slate-900">Trabajadores</h1>
+      <p className="text-sm text-slate-600">Datos centrales en Supabase local (sin almacenamiento del navegador).</p>
 
-      <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {editingId ? "Editar trabajador" : "Agregar trabajador"}
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="text-sm text-slate-700">
-            Nombre
-            <input
-              value={form.fullName}
-              onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Teléfono
-            <input
-              value={form.phone}
-              onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Departamento
-            <input
-              value={form.department}
-              onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Puesto
-            <input
-              value={form.position}
-              onChange={(event) => setForm((prev) => ({ ...prev, position: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Turno
-            <input
-              value={form.shift}
-              onChange={(event) => setForm((prev) => ({ ...prev, shift: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Sucursal
-            <input
-              value={form.branch}
-              onChange={(event) => setForm((prev) => ({ ...prev, branch: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Jefe directo
-            <input
-              value={form.directManager}
-              onChange={(event) => setForm((prev) => ({ ...prev, directManager: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Antigüedad
-            <input
-              value={form.seniority}
-              onChange={(event) => setForm((prev) => ({ ...prev, seniority: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Activo
-            <select
-              value={form.status}
-              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as Worker["status"] }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="ACTIVE">Si</option>
-              <option value="INACTIVE">No</option>
-            </select>
-          </label>
+      <form onSubmit={onSubmit} className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="font-medium">{editingId ? "Editar" : "Alta"}</h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ["nombre", "Nombre *"],
+              ["email", "Email"],
+              ["telefono", "Teléfono"],
+              ["departamento", "Departamento"],
+              ["puesto", "Puesto"],
+              ["turno", "Turno"],
+              ["sucursal", "Sucursal"],
+              ["jefeDirecto", "Jefe directo"],
+              ["antiguedad", "Antigüedad"],
+              ["externalReference", "Referencia externa"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="block text-sm">
+              {label}
+              <input
+                data-testid={`worker-field-${key}`}
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"
+                value={form[key]}
+                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                required={key === "nombre"}
+              />
+            </label>
+          ))}
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            {editingId ? "Guardar cambios" : "Agregar trabajador"}
-          </button>
-          {editingId ? (
-            <button
-              type="button"
-              onClick={clearForm}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-            >
-              Cancelar edición
-            </button>
-          ) : null}
-        </div>
+        <button
+          type="submit"
+          data-testid="worker-save"
+          className="rounded bg-slate-900 px-3 py-2 text-sm text-white"
+        >
+          Guardar
+        </button>
       </form>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Carga por CSV</h2>
-        <p className="mt-1 text-sm text-slate-700">
-          Encabezados esperados: nombre,email,telefono,departamento,puesto,turno,sucursal,jefe_directo,antiguedad,activo
-        </p>
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="font-medium">Importar CSV</h2>
         <input
+          data-testid="worker-csv-input"
           type="file"
           accept=".csv,text/csv"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) onCsvUpload(file);
-            event.currentTarget.value = "";
+          className="mt-2 block text-sm"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onCsvFile(f);
           }}
-          className="mt-2 block text-sm text-slate-700"
         />
+        {csvPreview ? (
+          <div className="mt-3 space-y-2" data-testid="worker-csv-preview">
+            <p className="text-sm">
+              Filas: {csvPreview.rows.length} · Errores:{" "}
+              {(csvPreview.errors as unknown[]).length}
+            </p>
+            {csvPreview.ok ? (
+              <button
+                type="button"
+                data-testid="worker-csv-commit"
+                onClick={() => void onCommitCsv()}
+                className="rounded bg-emerald-700 px-3 py-2 text-sm text-white"
+              >
+                Confirmar importación atómica
+              </button>
+            ) : (
+              <pre className="max-h-40 overflow-auto rounded bg-slate-50 p-2 text-xs">
+                {JSON.stringify(csvPreview.errors, null, 2)}
+              </pre>
+            )}
+            {!csvText ? null : null}
+          </div>
+        ) : null}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <label className="text-sm text-slate-700">
-          Filtro de estado
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "ALL" | Worker["status"])}
-            className="mt-1 w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="ALL">Todos</option>
-            <option value="ACTIVE">Activos</option>
-            <option value="INACTIVE">Inactivos</option>
-          </select>
-        </label>
+      <div className="flex flex-wrap gap-2">
+        <input
+          data-testid="worker-search"
+          placeholder="Buscar…"
+          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          value={search}
+          onChange={(e) => {
+            setPage(1);
+            setSearch(e.target.value);
+          }}
+        />
+        <select
+          data-testid="worker-activo-filter"
+          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          value={activoFilter}
+          onChange={(e) => {
+            setPage(1);
+            setActivoFilter(e.target.value as typeof activoFilter);
+          }}
+        >
+          <option value="all">Todos</option>
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+        </select>
       </div>
 
       {message ? (
-        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+        <p data-testid="worker-message" className="text-sm text-slate-700">
           {message}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="w-full min-w-[1400px] text-left text-sm text-slate-800">
-          <thead className="bg-slate-100 text-slate-800">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="px-3 py-2 font-semibold">No. empleado</th>
-              <th className="px-3 py-2 font-semibold">Nombre</th>
-              <th className="px-3 py-2 font-semibold">Email</th>
-              <th className="px-3 py-2 font-semibold">Teléfono</th>
-              <th className="px-3 py-2 font-semibold">Departamento</th>
-              <th className="px-3 py-2 font-semibold">Puesto</th>
-              <th className="px-3 py-2 font-semibold">Turno</th>
-              <th className="px-3 py-2 font-semibold">Sucursal</th>
-              <th className="px-3 py-2 font-semibold">Jefe directo</th>
-              <th className="px-3 py-2 font-semibold">Antigüedad</th>
-              <th className="px-3 py-2 font-semibold">Activo</th>
-              <th className="px-3 py-2 font-semibold">Acciones</th>
+              <th className="px-3 py-2">Nombre</th>
+              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Depto</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Acciones</th>
             </tr>
           </thead>
-          <tbody className="text-slate-700">
-            {filteredWorkers.map((worker) => (
-              <tr key={worker.id} className="border-t border-slate-200 hover:bg-slate-50">
-                <td className="px-3 py-2">{worker.employeeNumber}</td>
-                <td className="px-3 py-2">{worker.fullName}</td>
-                <td className="px-3 py-2">{worker.email}</td>
-                <td className="px-3 py-2">{worker.phone ?? "-"}</td>
-                <td className="px-3 py-2">{worker.department}</td>
-                <td className="px-3 py-2">{worker.position}</td>
-                <td className="px-3 py-2">{worker.shift ?? "-"}</td>
-                <td className="px-3 py-2">{worker.branch ?? "-"}</td>
-                <td className="px-3 py-2">{worker.directManager ?? "-"}</td>
-                <td className="px-3 py-2">{worker.seniority ?? "-"}</td>
-                <td className="px-3 py-2">{worker.status === "ACTIVE" ? "Si" : "No"}</td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(worker)}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeactivate(worker.id)}
-                      className="rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
-                    >
-                      Desactivar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(worker.id)}
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-4">
+                  Cargando…
                 </td>
               </tr>
-            ))}
+            ) : workers.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-4">
+                  Sin trabajadores
+                </td>
+              </tr>
+            ) : (
+              workers.map((w) => (
+                <tr key={w.id} className="border-t border-slate-100" data-testid={`worker-row-${w.id}`}>
+                  <td className="px-3 py-2">{w.nombre}</td>
+                  <td className="px-3 py-2">{w.email ?? "—"}</td>
+                  <td className="px-3 py-2">{w.departamento ?? "—"}</td>
+                  <td className="px-3 py-2">{w.activo ? "Activo" : "Inactivo"}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        className="rounded border px-2 py-1 text-xs"
+                        onClick={() => {
+                          setEditingId(w.id);
+                          setForm({
+                            nombre: w.nombre,
+                            email: w.email ?? "",
+                            telefono: w.telefono ?? "",
+                            departamento: w.departamento ?? "",
+                            puesto: w.puesto ?? "",
+                            turno: w.turno ?? "",
+                            sucursal: w.sucursal ?? "",
+                            jefeDirecto: w.jefeDirecto ?? "",
+                            antiguedad: w.antiguedad ?? "",
+                            externalReference: w.externalReference ?? "",
+                          });
+                        }}
+                      >
+                        Editar
+                      </button>
+                      {w.activo ? (
+                        <button
+                          type="button"
+                          data-testid={`worker-deactivate-${w.id}`}
+                          className="rounded border px-2 py-1 text-xs"
+                          onClick={async () => {
+                            await adminApi.deactivateWorker(w.id);
+                            await load();
+                          }}
+                        >
+                          Desactivar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          data-testid={`worker-reactivate-${w.id}`}
+                          className="rounded border px-2 py-1 text-xs"
+                          onClick={async () => {
+                            await adminApi.reactivateWorker(w.id);
+                            await load();
+                          }}
+                        >
+                          Reactivar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        data-testid={`worker-delete-${w.id}`}
+                        className="rounded border border-red-300 px-2 py-1 text-xs text-red-700"
+                        onClick={async () => {
+                          const res = await adminApi.deleteWorker(w.id);
+                          setMessage(res.ok ? "Eliminado." : res.message);
+                          await load();
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center gap-2 text-sm">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="rounded border px-2 py-1 disabled:opacity-40"
+        >
+          Anterior
+        </button>
+        <span>
+          Página {page} · {total} total
+        </span>
+        <button
+          type="button"
+          disabled={page * 20 >= total}
+          onClick={() => setPage((p) => p + 1)}
+          className="rounded border px-2 py-1 disabled:opacity-40"
+        >
+          Siguiente
+        </button>
       </div>
     </section>
   );

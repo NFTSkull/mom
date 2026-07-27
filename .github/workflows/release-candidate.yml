@@ -1,0 +1,133 @@
+name: Release Candidate Quality
+
+on:
+  push:
+    branches:
+      - "release/**"
+  pull_request:
+    branches:
+      - "release/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Fuente oficial intacta
+        run: |
+          EXPECTED=8d5c2c63e703e7d6154a7f71a1aec9ec1741f25a7bbc6eec4303cbe8a38d7a76
+          ACTUAL=$(shasum -a 256 docs/source/NOM-035-STPS-2018-oficial.txt | awk '{print $1}')
+          test "$ACTUAL" = "$EXPECTED"
+          test "$(wc -c < docs/source/NOM-035-STPS-2018-oficial.txt | tr -d ' ')" = "220837"
+      - name: scoringVersion intacta
+        run: |
+          grep -q 'nom035-stps-2018-guia-i-ii-v1' src/data/nom035/guia-ii-manifest.ts
+      - name: Escaneo estático de secretos (sin imprimir valores)
+        run: |
+          python3 scripts/ci-secret-scan.py
+
+  database:
+    name: database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.110.0
+      - name: Start Supabase local
+        run: npx supabase start
+      - name: Reset DB
+        run: npm run db:reset
+      - name: pgTAP
+        run: npm run db:test
+      - name: Types sin diff
+        run: |
+          cp src/types/database.generated.ts /tmp/types.before.ts
+          npm run db:types
+          diff -u /tmp/types.before.ts src/types/database.generated.ts
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [quality, database]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.110.0
+      - run: npx supabase start
+      - run: npm run db:reset
+      - run: npx playwright install --with-deps chromium
+      - name: Seed auth test users
+        run: npm run auth:seed:test
+      - name: Playwright local
+        run: npm run test:e2e
+      - name: Cleanup auth test users
+        if: always()
+        run: npm run auth:cleanup:test
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm audit --omit=dev --audit-level=high
+      - run: python3 scripts/ci-secret-scan.py
+      - name: No remoto de producción en docs sensibles
+        run: |
+          ! grep -RInE 'supabase link --project-ref.*(prod|production)' docs || true
+          ! test -f .env.local
+          ! test -f .env

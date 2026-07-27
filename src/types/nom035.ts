@@ -74,6 +74,10 @@ export interface GuiaIResult {
   requiresClinicalAttention: boolean;
   riskLabel: "sin_alerta" | "requiere_seguimiento_confidencial";
   alerts: string[];
+  scoringVersion?: string;
+  questionnaireVersion?: string;
+  calculatedAt?: string;
+  validationWarnings?: string[];
 }
 
 export interface GuiaIIQuestion {
@@ -110,6 +114,10 @@ export interface GuiaIIResult {
   dimensionScores: Record<string, { score: number }>;
   skippedQuestions: number[];
   alerts: string[];
+  scoringVersion?: string;
+  questionnaireVersion?: string;
+  calculatedAt?: string;
+  validationWarnings?: string[];
 }
 
 export interface GuiaIIAnswers {

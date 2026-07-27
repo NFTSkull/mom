@@ -15,7 +15,7 @@ const DOMAIN_RECOMMENDATIONS: Record<string, string> = {
   "Falta de control sobre el trabajo":
     "Incrementar claridad, autonomia, capacitacion y participacion del trabajador.",
   "Jornada de trabajo": "Revisar jornadas, descansos, horas extras y rotacion.",
-  "Interferencia en la relacion trabajo-familia":
+  "Interferencia en la relación trabajo-familia":
     "Revisar horarios, limites y medidas de conciliacion.",
   Liderazgo: "Fortalecer comunicacion, claridad de funciones y capacitacion a mandos.",
   "Relaciones en el trabajo":

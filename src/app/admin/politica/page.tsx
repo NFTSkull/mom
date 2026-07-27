@@ -1,434 +1,319 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { generateBasePolicy, getPolicyStatusLabel } from "@/lib/nom035/policy-generator";
-import {
-  deletePolicyDocument,
-  getCompanyConfigLocal,
-  getPolicyDocuments,
-  savePolicyDocument,
-  seedNom035LocalData,
-  updatePolicyDocument,
-} from "@/lib/nom035/storage-local";
-import type { CompanyConfig, PolicyDocument } from "@/types/nom035";
+import { useCallback, useEffect, useState } from "react";
+import { adminApi } from "@/lib/nom035/admin-client";
 
-type EditorState = {
-  id: string | null;
+type Policy = {
+  id: string;
   title: string;
   content: string;
-  version: string;
-  status: PolicyDocument["status"];
+  versionNumber: number;
+  versionLabel: string;
+  status: "borrador" | "publicada" | "archivada";
+  publishedAt: string | null;
+  archivedAt: string | null;
+  updatedAt: string;
 };
 
-const EMPTY_EDITOR: EditorState = {
-  id: null,
-  title: "",
-  content: "",
-  version: "1.0",
-  status: "borrador",
+type Summary = {
+  total: number;
+  drafts: number;
+  archived: number;
+  published: Policy | null;
 };
 
-function formatDate(value?: string | null): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("es-MX");
+function statusLabel(s: string) {
+  if (s === "publicada") return "Publicada";
+  if (s === "archivada") return "Archivada";
+  return "Borrador";
+}
+
+/** Vista previa en texto plano (sin HTML inyectado). */
+function PlainText({ text }: { text: string }) {
+  return <pre className="whitespace-pre-wrap font-sans text-sm text-slate-800">{text}</pre>;
 }
 
 export default function AdminPoliticaPage() {
-  const [mounted, setMounted] = useState(false);
-  const [company, setCompany] = useState<CompanyConfig | null>(null);
-  const [policies, setPolicies] = useState<PolicyDocument[]>([]);
-  const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR);
+  const [items, setItems] = useState<Policy[]>([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [versionLabel, setVersionLabel] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [printMode, setPrintMode] = useState(false);
 
-  function refreshData(): void {
-    seedNom035LocalData();
-    setCompany(getCompanyConfigLocal());
-    setPolicies(getPolicyDocuments());
-  }
+  const selected = items.find((p) => p.id === selectedId) ?? null;
+  const editable = selected?.status === "borrador";
+
+  const load = useCallback(async (preferId?: string | null) => {
+    setLoading(true);
+    setError("");
+    const [listRes, sumRes] = await Promise.all([
+      adminApi.listPolicies(new URLSearchParams({ page: "1", pageSize: "50" })),
+      adminApi.policySummary(),
+    ]);
+    if (!listRes.ok) {
+      setError(listRes.message);
+      setItems([]);
+    } else {
+      const list = (listRes.items as Policy[]) ?? [];
+      setItems(list);
+      const nextId = preferId ?? selectedId ?? list[0]?.id ?? null;
+      if (nextId) {
+        const p = list.find((x) => x.id === nextId) ?? list[0];
+        if (p) {
+          setSelectedId(p.id);
+          setTitle(p.title);
+          setContent(p.content);
+          setVersionLabel(p.versionLabel);
+        }
+      }
+    }
+    if (sumRes.ok) setSummary(sumRes.summary as Summary);
+    setLoading(false);
+  }, [selectedId]);
 
   useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      refreshData();
-      setMounted(true);
+    const t = window.setTimeout(() => {
+      void load(null);
     }, 0);
-    return () => window.clearTimeout(timerId);
+    return () => window.clearTimeout(t);
+    // Carga inicial única.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const latestPolicy = useMemo(() => policies[0] ?? null, [policies]);
-  const publishedPolicy = useMemo(
-    () => policies.find((item) => item.status === "publicada") ?? null,
-    [policies]
-  );
-  const currentPrintPolicy = publishedPolicy ?? latestPolicy;
-
-  function setEditorFromPolicy(policy: PolicyDocument): void {
-    setEditor({
-      id: policy.id,
-      title: policy.title,
-      content: policy.content,
-      version: policy.version,
-      status: policy.status,
-    });
+  function selectPolicy(p: Policy) {
+    setSelectedId(p.id);
+    setTitle(p.title);
+    setContent(p.content);
+    setVersionLabel(p.versionLabel);
     setMessage("");
   }
 
-  function clearEditor(): void {
-    setEditor(EMPTY_EDITOR);
-    setMessage("");
-  }
-
-  function ensureRequiredFields(): boolean {
-    if (!editor.title.trim() || !editor.content.trim() || !editor.version.trim()) {
-      setMessage("Completa titulo, contenido y version antes de guardar.");
-      return false;
-    }
-    return true;
-  }
-
-  function createBasePolicy(): void {
-    if (!company) return;
-    const base = generateBasePolicy(company);
-    setEditor({
-      id: null,
-      title: base.title,
-      content: base.content,
-      version: base.version,
-      status: "borrador",
-    });
-    setMessage("Politica base generada en el editor. Guardala como borrador o publicala.");
-  }
-
-  function saveDraft(): void {
-    if (!ensureRequiredFields()) return;
-    const payload: Omit<PolicyDocument, "id" | "createdAt" | "updatedAt"> = {
-      title: editor.title.trim(),
-      content: editor.content.trim(),
-      version: editor.version.trim(),
-      status: "borrador",
-    };
-
-    if (editor.id) {
-      updatePolicyDocument(editor.id, payload);
-      setMessage("Borrador actualizado.");
-    } else {
-      const created = savePolicyDocument(payload);
-      setEditor((prev) => ({ ...prev, id: created.id, status: "borrador" }));
-      setMessage("Borrador guardado.");
-    }
-    setPolicies(getPolicyDocuments());
-  }
-
-  function publishPolicy(fromHistoryId?: string): void {
-    const now = new Date().toISOString();
-    if (fromHistoryId) {
-      updatePolicyDocument(fromHistoryId, { status: "publicada", publishedAt: now });
-      setPolicies(getPolicyDocuments());
-      setMessage("Politica publicada.");
+  async function generateBase() {
+    setBusy(true);
+    const res = await adminApi.generatePolicyBase();
+    if (!res.ok) {
+      setMessage(res.message);
+      setBusy(false);
       return;
     }
+    setTitle(res.base.title);
+    setContent(res.base.content);
+    setSelectedId(null);
+    setMessage("Base generada desde company_settings central. Guarda como borrador.");
+    setBusy(false);
+  }
 
-    if (!ensureRequiredFields()) return;
-    const payload: Omit<PolicyDocument, "id" | "createdAt" | "updatedAt"> = {
-      title: editor.title.trim(),
-      content: editor.content.trim(),
-      version: editor.version.trim(),
-      status: "publicada",
-      publishedAt: now,
-    };
-
-    if (editor.id) {
-      updatePolicyDocument(editor.id, payload);
-      setMessage("Politica publicada.");
+  async function saveDraft() {
+    setBusy(true);
+    if (editable && selectedId) {
+      const res = await adminApi.updatePolicyDraft(selectedId, { title, content, versionLabel });
+      setMessage(res.ok ? "Borrador actualizado." : res.message);
+      await load(selectedId);
     } else {
-      const created = savePolicyDocument(payload);
-      setEditor((prev) => ({ ...prev, id: created.id, status: "publicada" }));
-      setMessage("Politica creada y publicada.");
+      const res = await adminApi.createPolicyDraft({
+        title,
+        content,
+        versionLabel: versionLabel || null,
+      });
+      if (res.ok) {
+        setMessage("Borrador creado.");
+        const p = res.policy as Policy;
+        await load(p.id);
+      } else {
+        setMessage(res.message);
+        await load(selectedId);
+      }
     }
-    setPolicies(getPolicyDocuments());
+    setBusy(false);
   }
 
-  function duplicatePolicy(policy: PolicyDocument): void {
-    const duplicate = savePolicyDocument({
-      title: `${policy.title} (Copia)`,
-      content: policy.content,
-      version: policy.version,
-      status: "borrador",
-    });
-    setPolicies(getPolicyDocuments());
-    setEditorFromPolicy(duplicate);
-    setMessage("Se genero una copia como borrador.");
+  async function duplicate() {
+    if (!selectedId) return;
+    setBusy(true);
+    const res = await adminApi.duplicatePolicy(selectedId, {});
+    if (res.ok) {
+      setMessage("Nueva versión (borrador) creada.");
+      const p = res.policy as Policy;
+      setSelectedId(p.id);
+      setTitle(p.title);
+      setContent(p.content);
+      setVersionLabel(p.versionLabel);
+    } else setMessage(res.message);
+    setBusy(false);
+    await load(res.ok ? (res.policy as Policy).id : selectedId);
   }
 
-  function removePolicy(id: string): void {
-    deletePolicyDocument(id);
-    setPolicies(getPolicyDocuments());
-    if (editor.id === id) {
-      clearEditor();
-    }
-    setMessage("Politica eliminada.");
+  async function publish() {
+    if (!selectedId) return;
+    const published = summary?.published;
+    const ok = window.confirm(
+      published
+        ? `¿Publicar esta versión? La vigente «${published.title}» (${published.versionLabel}) será archivada.`
+        : "¿Publicar esta política como vigente?"
+    );
+    if (!ok) return;
+    setBusy(true);
+    const res = await adminApi.publishPolicy(selectedId);
+    setMessage(res.ok ? "Política publicada." : res.message);
+    setBusy(false);
+    await load(selectedId);
   }
 
-  if (!mounted) {
+  async function archive() {
+    if (!selectedId) return;
+    setBusy(true);
+    const res = await adminApi.archivePolicy(selectedId);
+    setMessage(res.ok ? "Política archivada." : res.message);
+    setBusy(false);
+    await load(selectedId);
+  }
+
+  function printPolicy() {
+    setPrintMode(true);
+    window.setTimeout(() => {
+      window.print();
+      setPrintMode(false);
+    }, 50);
+  }
+
+  if (printMode && selected) {
     return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Politica de prevencion NOM-035</h1>
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-4 w-full animate-pulse rounded bg-slate-100" />
-            ))}
-          </div>
-        </div>
-      </section>
+      <main className="mx-auto max-w-3xl p-8 print:p-0" data-testid="policy-print">
+        <h1 className="text-xl font-semibold">{selected.title}</h1>
+        <p className="text-sm text-slate-600">
+          Versión {selected.versionLabel} · {statusLabel(selected.status)}
+        </p>
+        <PlainText text={selected.content} />
+      </main>
     );
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 print:hidden" data-testid="politica-page">
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Politica de prevencion NOM-035</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Política NOM-035</h1>
         <p className="mt-1 text-slate-700">
-          Genera y administra la politica interna para prevenir factores de riesgo psicosocial,
-          prevenir violencia laboral y promover un entorno organizacional favorable.
+          Versionado central. Solo una publicada. Texto plano (sin HTML).
         </p>
-      </header>
-
-      <div className="no-print grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total versiones</p>
-          <p className="text-2xl font-semibold text-slate-900">{policies.length}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Ultima version</p>
-          <p className="text-2xl font-semibold text-slate-900">{latestPolicy?.version ?? "-"}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Estado actual</p>
-          <p className="text-2xl font-semibold text-slate-900">
-            {currentPrintPolicy ? getPolicyStatusLabel(currentPrintPolicy.status) : "-"}
-          </p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Fecha de publicacion</p>
-          <p className="text-2xl font-semibold text-slate-900">
-            {formatDate(currentPrintPolicy?.publishedAt)}
-          </p>
-        </article>
-      </div>
-
-      <div className="no-print flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={createBasePolicy}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          Generar politica base
-        </button>
-        <button
-          type="button"
-          onClick={refreshData}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-        >
-          Actualizar datos
-        </button>
-        <Link
-          href="/admin/evidencias"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-        >
-          Ir a evidencias
-        </Link>
-      </div>
-
-      <p className="no-print rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-        Para respaldar cumplimiento documental, registra esta politica publicada en el modulo
-        Evidencias con tipo &quot;Politica&quot;.
-      </p>
-
-      <form className="no-print space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Editor de politica</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-sm text-slate-700 sm:col-span-2">
-            Titulo
-            <input
-              value={editor.title}
-              onChange={(event) => setEditor((prev) => ({ ...prev, title: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Version
-            <input
-              value={editor.version}
-              onChange={(event) => setEditor((prev) => ({ ...prev, version: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700 sm:col-span-3">
-            Contenido
-            <textarea
-              rows={16}
-              value={editor.content}
-              onChange={(event) => setEditor((prev) => ({ ...prev, content: event.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Estado
-            <select
-              value={editor.status}
-              onChange={(event) =>
-                setEditor((prev) => ({
-                  ...prev,
-                  status: event.target.value as PolicyDocument["status"],
-                }))
-              }
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="borrador">Borrador</option>
-              <option value="publicada">Publicada</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={saveDraft}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-          >
-            Guardar borrador
-          </button>
-          <button
-            type="button"
-            onClick={() => publishPolicy()}
-            className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600"
-          >
-            Publicar politica
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-          >
-            Imprimir politica
-          </button>
-          <button
-            type="button"
-            onClick={clearEditor}
-            className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50"
-          >
-            Limpiar editor
-          </button>
-        </div>
-        {message ? (
-          <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-            {message}
-          </p>
-        ) : null}
-      </form>
-
-      <div className="no-print rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Historial de politicas</h2>
-        {policies.length === 0 ? (
-          <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            Sin politicas registradas. Genera una politica base para iniciar.
+        {summary?.published ? (
+          <p className="mt-2 text-sm text-emerald-800" data-testid="policy-published-banner">
+            Vigente: {summary.published.title} ({summary.published.versionLabel})
+            {summary.published.publishedAt
+              ? ` · ${new Date(summary.published.publishedAt).toLocaleDateString("es-MX")}`
+              : ""}
           </p>
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left text-sm text-slate-800">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">Titulo</th>
-                  <th className="px-3 py-2 font-semibold">Version</th>
-                  <th className="px-3 py-2 font-semibold">Estado</th>
-                  <th className="px-3 py-2 font-semibold">Fecha publicacion</th>
-                  <th className="px-3 py-2 font-semibold">Actualizado</th>
-                  <th className="px-3 py-2 font-semibold">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.map((policy) => (
-                  <tr key={policy.id} className="border-t border-slate-200 hover:bg-slate-50">
-                    <td className="px-3 py-2">{policy.title}</td>
-                    <td className="px-3 py-2">{policy.version}</td>
-                    <td className="px-3 py-2">{getPolicyStatusLabel(policy.status)}</td>
-                    <td className="px-3 py-2">{formatDate(policy.publishedAt)}</td>
-                    <td className="px-3 py-2">{formatDate(policy.updatedAt)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditorFromPolicy(policy)}
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => duplicatePolicy(policy)}
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100"
-                        >
-                          Duplicar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => publishPolicy(policy.id)}
-                          className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50"
-                        >
-                          Publicar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removePolicy(policy.id)}
-                          className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mt-2 text-sm text-amber-800">No hay política publicada.</p>
         )}
-      </div>
+      </header>
 
-      <article className="policy-print rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">
-          {currentPrintPolicy?.title ?? "Politica de prevencion NOM-035"}
-        </h2>
-        <p className="mt-1 text-sm text-slate-700">
-          Empresa: {company?.legalName ?? "-"} | Version: {currentPrintPolicy?.version ?? "-"} |
-          Estado:{" "}
-          {currentPrintPolicy ? getPolicyStatusLabel(currentPrintPolicy.status) : "Sin documento"}
-        </p>
-        <p className="text-sm text-slate-700">
-          Fecha de publicacion: {formatDate(currentPrintPolicy?.publishedAt)}
-        </p>
-        <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-          {currentPrintPolicy?.content || "Sin contenido disponible para impresion."}
+      {message ? <p className="text-sm" data-testid="policy-message">{message}</p> : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {loading ? <div className="h-16 animate-pulse rounded bg-slate-100" /> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+        <aside className="space-y-2 rounded-lg border bg-white p-3 shadow-sm" data-testid="policy-history">
+          <h2 className="text-sm font-semibold">Historial</h2>
+          <ul className="space-y-1 text-sm">
+            {items.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className={`w-full rounded px-2 py-1 text-left ${selectedId === p.id ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                  onClick={() => selectPolicy(p)}
+                  data-testid={`policy-item-${p.id}`}
+                >
+                  <span className="font-medium">{p.versionLabel}</span>
+                  <span className="ml-1 text-xs text-slate-500">{statusLabel(p.status)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} className="rounded border px-3 py-1.5 text-sm" data-testid="policy-generate-base" onClick={() => void generateBase()}>
+              Generar base
+            </button>
+            <button type="button" disabled={busy} className="rounded border px-3 py-1.5 text-sm" data-testid="policy-save" onClick={() => void saveDraft()}>
+              {editable ? "Guardar borrador" : "Crear borrador"}
+            </button>
+            {selected ? (
+              <button type="button" disabled={busy} className="rounded border px-3 py-1.5 text-sm" data-testid="policy-duplicate" onClick={() => void duplicate()}>
+                Crear nueva versión
+              </button>
+            ) : null}
+            {editable ? (
+              <button type="button" disabled={busy} className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white" data-testid="policy-publish" onClick={() => void publish()}>
+                Publicar
+              </button>
+            ) : null}
+            {selected?.status === "publicada" ? (
+              <button type="button" disabled={busy} className="rounded border px-3 py-1.5 text-sm" onClick={() => void archive()}>
+                Archivar
+              </button>
+            ) : null}
+            {selected ? (
+              <button type="button" className="rounded border px-3 py-1.5 text-sm" data-testid="policy-print" onClick={printPolicy}>
+                Imprimir
+              </button>
+            ) : null}
+          </div>
+
+          {selected && !editable ? (
+            <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              Esta política está {statusLabel(selected.status).toLowerCase()} y no se edita directamente.
+              Usa «Crear nueva versión».
+            </p>
+          ) : null}
+
+          <label className="block text-sm">
+            Etiqueta de versión
+            <input
+              className="mt-1 block w-full rounded border px-2 py-1.5"
+              value={versionLabel}
+              disabled={Boolean(selected && !editable)}
+              onChange={(e) => setVersionLabel(e.target.value)}
+              data-testid="policy-version-label"
+            />
+          </label>
+          <label className="block text-sm">
+            Título
+            <input
+              className="mt-1 block w-full rounded border px-2 py-1.5"
+              value={title}
+              disabled={Boolean(selected && !editable)}
+              onChange={(e) => setTitle(e.target.value)}
+              data-testid="policy-title"
+            />
+          </label>
+          <label className="block text-sm">
+            Contenido (texto plano)
+            <textarea
+              className="mt-1 block w-full rounded border px-2 py-1.5 font-mono text-sm"
+              rows={16}
+              value={content}
+              disabled={Boolean(selected && !editable)}
+              onChange={(e) => setContent(e.target.value)}
+              data-testid="policy-content"
+            />
+          </label>
+
+          {selected ? (
+            <div className="rounded border border-slate-100 bg-slate-50 p-3" data-testid="policy-preview">
+              <p className="mb-2 text-xs uppercase text-slate-500">Vista previa (escapada)</p>
+              <PlainText text={selected.content} />
+            </div>
+          ) : null}
         </div>
-      </article>
-
-      <style jsx global>{`
-        @media print {
-          .admin-nav,
-          .no-print {
-            display: none !important;
-          }
-          body {
-            background: #ffffff !important;
-            color: #000000 !important;
-          }
-          .policy-print {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
+      </div>
     </section>
   );
 }

@@ -1,0 +1,21 @@
+{
+  "answers": [
+    {
+      "questionId": "guia_i_1",
+      "value": 0
+    }
+  ],
+  "expected": {
+    "questionnaireCode": "GUIA_I",
+    "traumaticEvent": false,
+    "sectionIIScore": 0,
+    "sectionIIIScore": 0,
+    "sectionIVScore": 0,
+    "requiresClinicalAttention": false,
+    "riskLabel": "sin_alerta",
+    "alerts": [],
+    "scoringVersion": "nom035-stps-2018-guia-i-ii-v1",
+    "questionnaireVersion": "nom035-stps-2018-guias-referencia-i-ii",
+    "validationWarnings": []
+  }
+}

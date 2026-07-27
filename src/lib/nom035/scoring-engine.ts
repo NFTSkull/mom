@@ -2,14 +2,17 @@ import { GUIA_I_QUESTIONS, GUIA_I_SECTION_I_ID } from "../../data/nom035/guia-i"
 import { GUIA_II_GROUPS } from "../../data/nom035/guia-ii-groups";
 import {
   GUIA_II_DIRECT_SCORED_ITEMS,
-  GUIA_II_QUESTIONS,
+  GUIA_II_MANIFEST_BY_NUMBER,
   GUIA_II_REVERSE_SCORED_ITEMS,
-} from "../../data/nom035/guia-ii";
+  NOM035_QUESTIONNAIRE_VERSION,
+  NOM035_SCORING_VERSION,
+} from "../../data/nom035/guia-ii-manifest";
 import {
   GUIA_II_CATEGORY_THRESHOLDS,
   GUIA_II_DOMAIN_THRESHOLDS,
   GUIA_II_FINAL_THRESHOLDS,
 } from "../../data/nom035/guia-ii-thresholds";
+import { assertValidGuiaIIAnswers, getSkippedQuestionNumbers } from "./validate-guia-ii";
 import type {
   EvaluationResponse,
   GuiaIIAnswers,
@@ -30,12 +33,23 @@ function countSectionYesAnswers(
   }, 0);
 }
 
+function withGuiaIMeta(result: Omit<GuiaIResult, "scoringVersion" | "questionnaireVersion" | "calculatedAt" | "validationWarnings">): GuiaIResult {
+  return {
+    ...result,
+    scoringVersion: NOM035_SCORING_VERSION,
+    questionnaireVersion: NOM035_QUESTIONNAIRE_VERSION,
+    calculatedAt: new Date().toISOString(),
+    validationWarnings: [],
+  };
+}
+
 export function calculateGuiaIResult(answers: EvaluationResponse[]): GuiaIResult {
   const answerMap = new Map(answers.map((item) => [item.questionId, item.value]));
   const traumaticEvent = answerMap.get(GUIA_I_SECTION_I_ID) === 1;
 
+  // Si Sección I = No, se ignoran respuestas residuales de II/III/IV.
   if (!traumaticEvent) {
-    return {
+    return withGuiaIMeta({
       questionnaireCode: "GUIA_I",
       traumaticEvent: false,
       sectionIIScore: 0,
@@ -44,7 +58,15 @@ export function calculateGuiaIResult(answers: EvaluationResponse[]): GuiaIResult
       requiresClinicalAttention: false,
       riskLabel: "sin_alerta",
       alerts: [],
-    };
+    });
+  }
+
+  const applicable = GUIA_I_QUESTIONS.filter((q) => q.section !== "I");
+  const missing = applicable.filter((q) => answerMap.get(q.id) === undefined);
+  if (missing.length > 0) {
+    throw new Error(
+      `Guía I incompleta: faltan respuestas aplicables (${missing.map((q) => q.id).join(", ")}).`
+    );
   }
 
   const sectionIIScore = countSectionYesAnswers("II", answerMap);
@@ -53,20 +75,18 @@ export function calculateGuiaIResult(answers: EvaluationResponse[]): GuiaIResult
   const alerts: string[] = [];
 
   if (sectionIIScore >= 1) {
-    alerts.push("Seccion II con al menos una respuesta afirmativa.");
+    alerts.push("Sección II con al menos una respuesta afirmativa.");
   }
-
   if (sectionIIIScore >= 3) {
-    alerts.push("Seccion III con tres o mas respuestas afirmativas.");
+    alerts.push("Sección III con tres o más respuestas afirmativas.");
   }
-
   if (sectionIVScore >= 2) {
-    alerts.push("Seccion IV con dos o mas respuestas afirmativas.");
+    alerts.push("Sección IV con dos o más respuestas afirmativas.");
   }
 
   const requiresClinicalAttention = alerts.length > 0;
 
-  return {
+  return withGuiaIMeta({
     questionnaireCode: "GUIA_I",
     traumaticEvent: true,
     sectionIIScore,
@@ -77,7 +97,7 @@ export function calculateGuiaIResult(answers: EvaluationResponse[]): GuiaIResult
       ? "requiere_seguimiento_confidencial"
       : "sin_alerta",
     alerts,
-  };
+  });
 }
 
 const DIRECT_SCORE_MAP: Record<GuiaIILikertAnswer, number> = {
@@ -97,17 +117,27 @@ const REVERSE_SCORE_MAP: Record<GuiaIILikertAnswer, number> = {
 };
 
 export function scoreGuiaIIAnswer(questionNumber: number, answer: GuiaIILikertAnswer): number {
-  if (GUIA_II_REVERSE_SCORED_ITEMS.has(questionNumber)) {
+  const item = GUIA_II_MANIFEST_BY_NUMBER.get(questionNumber);
+  if (!item) {
+    throw new Error(`El reactivo ${questionNumber} no pertenece a la Guía II.`);
+  }
+  if (item.scoring === "reverse" || GUIA_II_REVERSE_SCORED_ITEMS.has(questionNumber)) {
     return REVERSE_SCORE_MAP[answer];
   }
-
-  if (GUIA_II_DIRECT_SCORED_ITEMS.has(questionNumber)) {
+  if (item.scoring === "direct" || GUIA_II_DIRECT_SCORED_ITEMS.has(questionNumber)) {
     return DIRECT_SCORE_MAP[answer];
   }
-
-  throw new Error(`El reactivo ${questionNumber} no pertenece a la Guia II.`);
+  throw new Error(`El reactivo ${questionNumber} no tiene regla de puntuación.`);
 }
 
+/**
+ * Política operativa de fronteras (ver docs/SCORING_BOUNDARY_POLICY.md):
+ * nulo: score < bajoMin
+ * bajo: bajoMin <= score < medioMin
+ * medio: medioMin <= score < altoMin
+ * alto: altoMin <= score < muyAltoMin
+ * muy_alto: score >= muyAltoMin
+ */
 export function getRiskLevelFromThresholds(
   score: number,
   thresholds: GuiaIIThresholds
@@ -119,48 +149,33 @@ export function getRiskLevelFromThresholds(
   return "nulo";
 }
 
-function getApplicableQuestions(answers: GuiaIIAnswers): {
-  skippedQuestions: number[];
-  applicableQuestions: number[];
-} {
-  const skippedQuestions: number[] = [];
-  if (answers.gateClientes === "no") skippedQuestions.push(41, 42, 43);
-  if (answers.gateJefe === "no") skippedQuestions.push(44, 45, 46);
-
-  const skippedSet = new Set(skippedQuestions);
-  const applicableQuestions = GUIA_II_QUESTIONS.map((item) => item.questionNumber).filter(
-    (questionNumber) => !skippedSet.has(questionNumber)
-  );
-
-  return {
-    skippedQuestions: [...new Set(skippedQuestions)].sort((a, b) => a - b),
-    applicableQuestions,
-  };
-}
-
 export function calculateGuiaIIResult(answers: GuiaIIAnswers): GuiaIIResult {
-  const { skippedQuestions, applicableQuestions } = getApplicableQuestions(answers);
+  assertValidGuiaIIAnswers(answers);
+
+  const skippedQuestions = getSkippedQuestionNumbers({
+    gateClientes: answers.gateClientes,
+    gateJefe: answers.gateJefe,
+  });
   const skippedSet = new Set(skippedQuestions);
   const questionScoreMap = new Map<number, number>();
   const alerts: string[] = [];
+  const validationWarnings: string[] = [];
 
-  for (const questionNumber of applicableQuestions) {
-    const answer = answers.responses[questionNumber];
-    if (!answer) {
-      alerts.push(`Falta respuesta para reactivo ${questionNumber}. Se asume puntaje 0 en calculo.`);
-      questionScoreMap.set(questionNumber, 0);
-      continue;
-    }
-    questionScoreMap.set(questionNumber, scoreGuiaIIAnswer(questionNumber, answer));
+  for (const [questionNumber, answer] of Object.entries(answers.responses)) {
+    const n = Number(questionNumber);
+    if (skippedSet.has(n)) continue;
+    questionScoreMap.set(n, scoreGuiaIIAnswer(n, answer as GuiaIILikertAnswer));
   }
 
   for (const skippedQuestion of skippedQuestions) {
     questionScoreMap.set(skippedQuestion, 0);
   }
 
-  const finalScore = GUIA_II_QUESTIONS.reduce((acc, question) => {
-    return acc + (questionScoreMap.get(question.questionNumber) ?? 0);
-  }, 0);
+  let finalScore = 0;
+  for (const [questionNumber, score] of questionScoreMap.entries()) {
+    if (skippedSet.has(questionNumber)) continue;
+    finalScore += score;
+  }
 
   const dimensionScores: GuiaIIResult["dimensionScores"] = {};
   const domainScores: GuiaIIResult["domainScores"] = {};
@@ -182,25 +197,32 @@ export function calculateGuiaIIResult(answers: GuiaIIAnswers): GuiaIIResult {
         domainScore += dimensionScore;
       }
 
+      const domainThresholds = GUIA_II_DOMAIN_THRESHOLDS[domain.name];
+      if (!domainThresholds) {
+        throw new Error(`Umbral de dominio ausente: ${domain.name}`);
+      }
+
       domainScores[domain.name] = {
         score: domainScore,
-        riskLevel: getRiskLevelFromThresholds(domainScore, GUIA_II_DOMAIN_THRESHOLDS[domain.name]),
+        riskLevel: getRiskLevelFromThresholds(domainScore, domainThresholds),
       };
       categoryScore += domainScore;
     }
 
+    const categoryThresholds = GUIA_II_CATEGORY_THRESHOLDS[category.name];
+    if (!categoryThresholds) {
+      throw new Error(`Umbral de categoría ausente: ${category.name}`);
+    }
+
     categoryScores[category.name] = {
       score: categoryScore,
-      riskLevel: getRiskLevelFromThresholds(
-        categoryScore,
-        GUIA_II_CATEGORY_THRESHOLDS[category.name]
-      ),
+      riskLevel: getRiskLevelFromThresholds(categoryScore, categoryThresholds),
     };
   }
 
   const finalRiskLevel = getRiskLevelFromThresholds(finalScore, GUIA_II_FINAL_THRESHOLDS);
   if (["medio", "alto", "muy_alto"].includes(finalRiskLevel)) {
-    alerts.push("Se recomienda programa de intervencion.");
+    alerts.push("Se recomienda programa de intervención.");
   }
 
   if (["medio", "alto", "muy_alto"].includes(domainScores.Violencia.riskLevel)) {
@@ -208,11 +230,11 @@ export function calculateGuiaIIResult(answers: GuiaIIAnswers): GuiaIIResult {
   }
 
   if (["alto", "muy_alto"].includes(domainScores["Carga de trabajo"].riskLevel)) {
-    alerts.push("Revisar distribucion y ritmo de trabajo.");
+    alerts.push("Revisar distribución y ritmo de trabajo.");
   }
 
   if (["alto", "muy_alto"].includes(domainScores.Liderazgo.riskLevel)) {
-    alerts.push("Revisar liderazgo, comunicacion y apoyo del jefe inmediato.");
+    alerts.push("Revisar liderazgo, comunicación y apoyo del jefe inmediato.");
   }
 
   return {
@@ -224,6 +246,10 @@ export function calculateGuiaIIResult(answers: GuiaIIAnswers): GuiaIIResult {
     dimensionScores,
     skippedQuestions,
     alerts,
+    scoringVersion: NOM035_SCORING_VERSION,
+    questionnaireVersion: NOM035_QUESTIONNAIRE_VERSION,
+    calculatedAt: new Date().toISOString(),
+    validationWarnings,
   };
 }
 
@@ -232,8 +258,16 @@ export function calculateNom035Result(
   responses: EvaluationResponse[]
 ): GuiaIResult {
   if (questionnaireType !== "GUIA_I") {
-    throw new Error("Este MVP local solo soporta calculo oficial de GUIA_I.");
+    throw new Error("Este MVP local solo soporta cálculo oficial de GUIA_I.");
   }
 
   return calculateGuiaIResult(responses);
 }
+
+export function getScoringVersionLabel(
+  result: { scoringVersion?: string } | null | undefined
+): string {
+  return result?.scoringVersion ?? "versión no registrada";
+}
+
+export { NOM035_SCORING_VERSION, NOM035_QUESTIONNAIRE_VERSION };

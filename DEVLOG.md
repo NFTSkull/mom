@@ -1,5 +1,66 @@
 # Devlog
 
+## 2026-07-27 - Bloque B4.7 (RC / Staging)
+
+### Decisiones
+
+- Proyectos `ConCasa CRM` y cualquier ref no llamado exactamente `nom035-staging` son intocables.
+- El ref de staging coincidió con un nombre histórico distinto: exigir vacío antes de `db push`.
+- Password de DB: interactiva / archivo `.tmp` ignorado; nunca en chat ni docs.
+- CI en `release/**` sin deploy ni `db push` remoto.
+- Certificación Cloud queda **NO CERTIFICADO** hasta Preview + E2E remoto + backup/restore.
+
+### Notas
+
+- Veredicto vivo en `docs/B4_7_CLOUD_STAGING_CERTIFICATION.md`.
+
+## 2026-07-27 - Bloque B4.6 (Auth / RBAC / MFA)
+
+### Decisiones
+
+- Autoridad de roles/permisos en PostgreSQL (`admin_profiles` + `role_permissions`); JWT solo identidad/AAL.
+- Proxy refresca con `getClaims`; layout + Route Handlers + RPC revalidan.
+- `service_role` bypass SQL solo para pruebas estructurales/pgTAP y excepciones (Auth admin, Storage, público).
+- Email provider habilitado para login/invitación; signup público deshabilitado en `[auth].enable_signup`.
+- Contraseña local: longitud 12 + `lower_upper_letters_digits_symbols`; MFA TOTP enroll/verify on.
+- E2E B4.4/B4.5: login admin + MFA; `can_view_sensitive_cases` del admin se activa en beforeAll de esas suites (seed lo deja en false).
+- MFA verify/challenge: límite 120/10min para viabilidad de suites; reintentos TOTP en `loginAsRole`.
+
+### Notas
+
+- Veredicto **CERTIFICADO** en `docs/B4_6_AUTH_RBAC_CERTIFICATION.md`.
+
+## 2026-07-27 - Bloque B4.5 (módulos secundarios + Storage privado)
+
+### Decisiones
+
+- Generación sugerida: mapeo en servicio Next; agregación + persistencia idempotente en RPC.
+- Storage y DB no son una sola TX: compensación explícita + `storage_delete_pending`.
+- Enum `archivada` vía `::text` en CHECKs (binding DDL); índice parcial usa literal `publicada`.
+- `gen_random_bytes` calificado `extensions.` (search_path fijo de SECURITY DEFINER).
+- Doble envío de queja: `useRef` síncrono además de `sending` (React no alcanza a re-render).
+- CTE de versiones de evidencia: ancestors + descendants (evitar UNION recursivo inválido).
+- Comparaciones enum/text en RPCs con `::text` explícito.
+
+### Notas
+
+- Veredicto en `docs/B4_5_SECONDARY_MODULES_CERTIFICATION.md`.
+
+## 2026-07-24 - Bloque B4.4 (panel admin central local)
+
+### Decisiones
+
+- Guard no confía solo en `NODE_ENV`: exige `local_supabase` + loopback + Origin.
+- Política de campañas: rechazar segunda `active` (cierre explícito obligatorio).
+- Rotate: conserva draft; revoke: elimina draft; completed no se revoca.
+- Tokens one-time en memoria de sesión UI; regeneración invalida hash anterior.
+- CSV: parser RFC4180 propio + import atómico máx. 500 filas.
+- `ACTIVE_REPOSITORY_MODE` sigue `local`; módulos secundarios no migrados.
+
+### Notas
+
+- Veredicto final en `docs/B4_4_ADMIN_CORE_CERTIFICATION.md` tras regresión.
+
 ## 2026-05-05 - Bloque B1 (MVP local base)
 
 ### Decisiones
@@ -338,3 +399,111 @@
 ### Notas
 
 - La logica de scoring y los IDs de preguntas no cambiaron; solo texto visible y presentacion.
+
+## 2026-07-24 - B4.0 Fundamentos seguros Supabase (sin cutover)
+
+### Decisiones
+
+- El MVP permanece en `localStorage` (`ACTIVE_REPOSITORY_MODE = "local"`). Las pantallas no se migraron.
+- Se preparo infraestructura Supabase (clientes, env, migracion SQL, docs de seguridad) sin link remoto ni `db push`.
+- Se eligieron `@supabase/supabase-js@2.109.0` + `@supabase/ssr@0.12.0` para respetar Node 20 del entorno (versiones 2.110.x exigen Node >=22).
+- Politica de denegacion por defecto: RLS enable+force, revoke a anon/authenticated, cero politicas anon.
+- Tokens de evaluacion en schema futuro: solo `token_hash` + `token_last4` (nunca token en claro).
+- `company_settings` usa `singleton_lock` UNIQUE para una sola empresa.
+- npm audit se documento como baseline; no se aplicaron fixes automaticos.
+
+### Notas
+
+- No se agrego login, Auth users, Storage bucket ni Guia III.
+- No se expuso `SUPABASE_SECRET_KEY` al cliente; `admin.ts` usa `server-only`.
+- No se hizo commit/push/deploy ni aplicacion SQL remota.
+
+## 2026-07-24 - B4.1 Certificación normativa (CERTIFICADO)
+
+### Decisiones
+
+- La fuente canónica oficial se verificó en la raíz Git del agente (mismo worktree `main`, sin contenedor): tamaño 220837 y SHA-256 esperado.
+- Se centralizó Guía II en `guia-ii-manifest.ts`; `guia-ii.ts` / groups / thresholds se derivan del manifiesto.
+- Fronteras tipográficas ambiguas de la norma → política operativa determinística (inferior inclusivo, superior exclusivo, último ≥), documentada aparte.
+- El motor deja de asumir 0 en faltantes: valida y falla duro; resultados nuevos llevan `scoringVersion = nom035-stps-2018-guia-i-ii-v1`.
+- Revisión final del trabajador sin exponer puntajes/riesgo; envío definitivo con confirmación e `isSubmitting`.
+- Admin etiqueta resultados legacy como “versión no registrada” sin mezclarlos silenciosamente.
+
+### Notas
+
+- Comparación reactivo a reactivo vs fuente: 0 mismatches de texto; scoring Tabla 2 alineado; acentos de cat/dom/dim corregidos.
+- Sin Supabase remoto, SQL aplicado, login, Guía III, deploy, commit ni push.
+- Veredicto final: **CERTIFICADO** (`docs/SCORING_CERTIFICATION.md`).
+
+## 2026-07-24 - B4.2 Certificación DB local + dependencias (NO CERTIFICADO)
+
+### Decisiones
+
+- Se detectó otra instancia Supabase local (`Copia_de_concasa_crm`) ocupando 54321-54327. Para NO interferir un proyecto ajeno, se desplazaron los puertos de mom a 55321-55324 en `config.toml` (analytics/vector/pooler off). Alternativa descartada: detener la otra instancia (destructivo para trabajo de terceros).
+- Se mantuvo `major_version = 15` fiel a B4.0 (aunque implicó pull de imagen PG15).
+- Dependencias: se subió `next`/`eslint-config-next` a la última estable (16.2.11) y se aplicó `npm audit fix` sin `--force`. No se usó preview/canary aunque serían las únicas builds fuera del rango vulnerable de Next → decisión: NO CERTIFICAR en vez de degradar la política de versiones.
+- Auditoría de migración: se añadieron 4 CHECK de coherencia (assignment completed/revoked, queja anónima, policy publicada). La monotonicidad de estados se difiere explícitamente a la capa RPC (no se finge en la tabla).
+- pgTAP consulta el catálogo real de PostgreSQL (no busca texto en el SQL): 170 assertions en 4 archivos.
+
+### Notas
+
+- Base local real (Docker): 10 contenedores healthy; migración reconstruida desde cero 2 veces (reproducible).
+- Tipos autogenerados desde la base local; regresión del MVP intacta (95 tests, build OK); smoke HTTP 12/12 rutas 200.
+- Único bloqueo del veredicto: 3 high de producción (`next`/`postcss`/`sharp`) sin fix estable disponible. No se ocultan como “solo dev”.
+- Sin remoto/link/push, sin usuarios/Auth/roles, sin cambiar repository mode, sin tocar scoring/manifiesto certificados, sin Guía III, sin deploy, sin commit/push.
+- Veredicto: **NO CERTIFICADO** (`docs/B4_2_DATABASE_CERTIFICATION.md`).
+
+## 2026-07-24 - B4.2.1 Remediación definitiva de dependencias (CERTIFICADO)
+
+### Decisiones
+
+- Se reabrió el audit sin aceptar el rango agregado de `next` como si fuera un
+  advisory propio. El JSON demostró que `next.via = [postcss, sharp]`: era una
+  metavulnerabilidad inducida por transitivos.
+- El dato “PostCSS corregido en 8.5.10” era insuficiente: aparecieron dos GHSA
+  posteriores, con parches 8.5.12 y 8.5.18. Se eligió la latest estable 8.5.23.
+- Next fija PostCSS 8.4.31 y restringe sharp a `^0.34.5`; dependencias directas
+  habrían dejado copias vulnerables. Se aprobaron overrides exactos a PostCSS
+  8.5.23 y sharp 0.35.3, validados con instalación limpia, API y binario nativo.
+- Next se mantiene en 16.2.11, release Active LTS de seguridad oficial; no se usó
+  16.3 preview/canary.
+- Los scripts `db:*` ahora usan `npx --yes supabase`: el primer `db:test` reveló
+  exit 127 al no existir binario local; la repetición real pasó 170 pgTAP.
+
+### Notas
+
+- Audits completo y producción: 0 vulnerabilidades, todos exit 0.
+- Sharp 0.35.3 + libvips 8.18.3; prueba de resize en memoria PASS.
+- Regresión: 99 Vitest, lint/typecheck/build PASS, 170 pgTAP, smoke 11/11.
+- B4.1, scoringVersion, fuente canónica, repository mode y tipos generados intactos.
+- Sin force, prereleases para la remediación, remoto/link/push, login/usuarios,
+  Guía III, deploy, commit ni push.
+- Veredicto: **CERTIFICADO** (`docs/B4_2_1_DEPENDENCY_REMEDIATION.md`).
+
+
+## 2026-07-24 - Bloque B4.3 (evaluación pública por token)
+
+### Decisiones
+
+- El repositorio general permanece `ACTIVE_REPOSITORY_MODE=local`. El flujo público
+  se activa con `NOM035_PUBLIC_EVALUATION_BACKEND=supabase` (canal aparte, no
+  migra el panel admin).
+- Token: `ev_` + 32 bytes `randomBytes`, HMAC-SHA-256 con `NOM035_TOKEN_PEPPER`.
+  Solo se persiste hash + last4.
+- Sesión: secreto distinto, cookie HttpOnly `SameSite=Strict`; en prod `__Host-`.
+  `NOM035_EVALUATION_SESSION_MINUTES=120` (margen sobre 15–25 min del instrumento).
+- Peppers independientes para token / sesión / rate-limit.
+- Cálculo exclusivo en servidor (`prepareCanonicalSubmission`); campos de
+  autoridad del cliente se ignoran y quedan en `validation_warnings`.
+- Submit vía RPC `SECURITY DEFINER` con `FOR UPDATE`, idempotencia por
+  `submission_id`, skipped no se insertan, draft y sesiones se limpian.
+- Seed como `.mjs` ESM (sin tooling TS ni deps nuevas) + transport inerte de
+  realtime para Node 20 sin WebSocket global.
+- Playwright 1.62.0 + Chromium; overrides `minimatch`/`brace-expansion` para
+  mantener audit en 0 tras instalar eslint transitivos vulnerables.
+
+### Notas
+
+- pgTAP 247, Vitest 118, E2E 10/10, audit 0/0.
+- Veredicto: **CERTIFICADO** (`docs/B4_3_PUBLIC_EVALUATION_CERTIFICATION.md`).
+- Sin remoto/link/push, Auth, panel central, Guía III, deploy, commit ni push.

@@ -44,7 +44,7 @@ function makeRecord(input: {
         "Carga de trabajo": { score: 12, riskLevel: input.domainRisk ?? "alto" },
         "Falta de control sobre el trabajo": { score: 0, riskLevel: "nulo" },
         "Jornada de trabajo": { score: 0, riskLevel: "nulo" },
-        "Interferencia en la relacion trabajo-familia": { score: 0, riskLevel: "nulo" },
+        "Interferencia en la relación trabajo-familia": { score: 0, riskLevel: "nulo" },
         Liderazgo: { score: 0, riskLevel: "nulo" },
         "Relaciones en el trabajo": { score: 0, riskLevel: "nulo" },
         Violencia: { score: 0, riskLevel: "nulo" },

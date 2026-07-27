@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-07-27 (B4.7 — Release Candidate / Staging prep)
+
+- Rama `release/nom035-staging-rc1`, CI release, health `/api/health/live|ready`.
+- Playwright staging config + scripts seed/cleanup sintéticos (fallan fuera de staging).
+- Docs: CI_SECURITY_MODEL, STAGING_*, BACKUP/ROLLBACK, PRODUCTION_CHECKLIST_PRELIMINARY, B4_7.
+- Enlace Cloud únicamente a proyecto nombre exacto `nom035-staging` (sin tocar otros).
+- Sin Vercel Production, sin merge a main, sin usuarios/datos reales.
+
+## 2026-07-27 (B4.6 — Auth, RBAC y MFA)
+
+- Migración `005_auth_rbac_mfa.sql`: `app_permission`, `role_permissions`, perfil MFA, último admin, `require_admin_permission*`.
+- RPCs admin ordinarias con autorización interna; EXECUTE a `authenticated`.
+- Proxy Next 16 + `getClaims`; guards server-side; login/logout/MFA/password/users/audit.
+- `NOM035_ADMIN_BACKEND_MODE=auth_rbac`; seed `@nom035.local` + cleanup.
+- pgTAP `008_*`, Vitest B4.6, Playwright `e2e/auth-rbac.spec.ts`.
+- Docs: AUTH_RBAC_MATRIX, AUTH_SECURITY_MODEL, MFA_OPERATIONS, USER_PROVISIONING_RUNBOOK, ACCESS_REVOCATION_RUNBOOK, B4_6_AUTH_RBAC_CERTIFICATION.
+- Certificación local: Vitest 189, pgTAP 517, Playwright 42; audit 0.
+- Sin remoto/link/push/deploy; sin usuarios reales; sin commit/push.
+
+## 2026-07-27 (B4.5 — módulos secundarios + Storage privado)
+
+- Migración `004_secondary_modules_and_storage.sql`: plan/evidencias/quejas/políticas + bucket `nom035-evidence` privado.
+- RPCs `admin_*` / `public_submit_confidential_complaint` (service_role).
+- APIs admin + pública; UI migrada sin localStorage; dashboard/reportes con agregados.
+- Validación magic bytes, compensación Storage↔DB, signed downloads, rate limit/honeypot.
+- pgTAP `007_*`, Vitest B4.5, Playwright `e2e/secondary-modules.spec.ts`.
+- Docs: ACTION_PLAN_API, EVIDENCE_STORAGE_SECURITY, COMPLAINTS_PRIVACY_MODEL, POLICY_VERSIONING, B4_5_SECONDARY_MODULES_CERTIFICATION.
+- Sin Auth, sin remoto, sin scoring/Guía III, sin commit/push.
+
+## 2026-07-24 (B4.4 — panel administrativo central)
+
+- Migración `003_admin_core_backend.sql`: columnas admin, una campaña active, RPCs `admin_*`.
+- Guard local-only (`admin-access-guard`) + API `/api/admin/nom035/*` (Zod, server-only).
+- UI migrada: dashboard, configuración, trabajadores (+CSV), campañas (tokens one-time), resultados, reportes.
+- Módulos fuera de alcance siguen en localStorage (plan-acción, evidencias, quejas, política).
+- pgTAP `006_*`, Vitest B4.4, Playwright `e2e/admin-core.spec.ts`.
+- Docs: `ADMIN_CORE_API.md`, `ADMIN_CORE_LOCAL_SECURITY.md`, `B4_4_ADMIN_CORE_CERTIFICATION.md`.
+- Sin Auth, sin remoto, sin scoring/Guía III, sin commit/push.
+
 ## 2026-05-05
 
 - Se inicializo base `Next.js + TypeScript + Tailwind` para el portal interno NOM-035.
@@ -54,3 +93,67 @@
 - Se ajusto la pregunta 15 de Guia I al texto oficial: "¿Se ha sobresaltado fácilmente por cualquier cosa?".
 - Se muestra el encabezado de cada seccion de Guia I una sola vez (II, III y IV ya no se repiten por pregunta).
 - Se actualizaron textos visibles de `/evaluacion/[token]` con ortografia correcta y opciones "Sí"/"No".
+
+## 2026-07-24
+
+- **B4.3 CERTIFICADO** — evaluación pública centralizada por token (Supabase local).
+- Migración `002_public_evaluation_backend.sql`: drafts, sessions, rate_limits, submission_id, trigger monótono y RPCs atómicas.
+- Módulos server-only: token HMAC, sesión HttpOnly, rate-limit, scoring server-side.
+- Route handlers `/api/public/evaluations/{session,start,draft,submit}`.
+- UI: `/evaluacion/[token]` (intercambio) + `/evaluacion/contestar` + `/evaluacion/gracias`.
+- Cabeceras de privacidad + CSP en `next.config.ts`.
+- Script `db:seed:evaluation` (solo localhost).
+- pgTAP 247 assertions; Vitest 118; Playwright Chromium 10/10.
+- Overrides adicionales `minimatch@10.2.5` / `brace-expansion@5.0.8` (dev, audit 0).
+- Docs: `PUBLIC_EVALUATION_API.md`, `PUBLIC_EVALUATION_THREAT_MODEL.md`, `B4_3_PUBLIC_EVALUATION_CERTIFICATION.md`.
+
+## 2026-07-24 (prev)
+
+- Auditoria formal de produccion documentada en `docs/PRODUCTION_READINESS_AUDIT.md` (veredicto NO-GO).
+- Bloque B4.0: fundamentos seguros Supabase sin migrar pantallas fuera de localStorage.
+- Se agrego linea base `docs/NPM_AUDIT_BASELINE.md` (sin `audit fix --force`).
+- Se instalaron `@supabase/supabase-js@2.109.0`, `@supabase/ssr@0.12.0` y `server-only` (compatibles con Node 20).
+- Se creo `.env.example`, `src/lib/env.ts` y clientes `src/lib/supabase/{client,server,admin}.ts`.
+- Se agrego migracion revisable `supabase/migrations/001_nom035_initial_schema.sql` con RLS force, revoke anon/authenticated y token_hash.
+- Se documentaron `docs/DATABASE_SECURITY_MODEL.md` y el adaptador `Nom035Repository` fijo en modo `local`.
+- Se agregaron pruebas estaticas de seguridad/esquema en `b4-security-foundation.test.ts`.
+- `.gitignore` ahora excluye secretos env y permite versionar `.env.example`.
+
+## 2026-07-24 (B4.2.1 — CERTIFICADO)
+
+- Se demostró que el high atribuido a `next@16.2.11` era una metavulnerabilidad
+  inducida por `postcss@8.4.31` y `sharp@0.34.5`, no un advisory residual propio.
+- Se documentaron GHSA/CVE/rangos/parches exactos en
+  `docs/B4_2_1_DEPENDENCY_REMEDIATION.md`.
+- Overrides estables: `postcss@8.5.23` y `sharp@0.35.3`; árbol final único,
+  sharp nativo con libvips 8.18.3 e instalación limpia reproducible.
+- Audits completo y producción: **0 vulnerabilidades**.
+- Pruebas de no-regresión de lockfile y resize sharp en memoria.
+- Regresión: lint/typecheck/build PASS, **99 pruebas Vitest**, **170 pgTAP**,
+  smoke HTTP 11/11.
+- Scripts `db:*` corregidos para invocar Supabase CLI mediante `npx --yes`.
+- Veredicto de reevaluación: **CERTIFICADO**.
+
+## 2026-07-24 (B4.2 — NO CERTIFICADO por deps de producción)
+
+- Certificación local de base de datos y seguridad de dependencias (sin remoto/link/push).
+- `next`/`eslint-config-next` `16.2.4 → 16.2.11` (última estable); `npm audit fix` (sin `--force`) limpió highs/low de desarrollo.
+- Audit final: 0 critical, **3 high de producción** (`next`/`postcss`/`sharp`) **sin fix estable** (rango vulnerable llega a `16.3.0-preview.7`). Documentado en `docs/DEPENDENCY_SECURITY_CERTIFICATION.md`.
+- Supabase local real (Docker): 10 contenedores healthy; puertos desplazados a 55321-55324 para coexistir con otra instancia; migración aplicada desde cero **dos veces** (reproducible).
+- `config.toml` ampliado (puertos, analytics/pooler off). Migración: se añadieron CHECK de coherencia (`completed`/`revoked`/`published`/queja anónima).
+- pgTAP en PostgreSQL real: `supabase/tests/database/00{1..4}` → **170 assertions, PASS** (estructura, RLS/permisos, integridad, transiciones).
+- Tipos generados `src/types/database.generated.ts` (12 tablas) + alias `src/types/database.ts`.
+- Scripts `db:start/stop/status/reset/test/types`; guía `docs/LOCAL_DATABASE_WORKFLOW.md`.
+- Pruebas estáticas B4.2 (`b4-2-database-hardening.test.ts`); regresión: lint/typecheck OK, **95 tests**, build OK; smoke HTTP 12/12 rutas → 200.
+- Veredicto B4.2 **NO CERTIFICADO** (`docs/B4_2_DATABASE_CERTIFICATION.md`): único bloqueo = highs de producción sin versión estable.
+
+## 2026-07-24 (B4.1 — CERTIFICADO)
+
+- Fuente canónica verificada: `docs/source/NOM-035-STPS-2018-oficial.txt` (220837 bytes, SHA-256 `8d5c2c63…7a76`).
+- Manifiesto único Guía II (`guia-ii-manifest.ts`) como fuente de reactivos, scoring, cat/dom/dim, gates y umbrales.
+- Motor de scoring con validación estricta (falla duro ante respuestas faltantes/inválidas) y metadatos `scoringVersion` / `questionnaireVersion`.
+- Política de fronteras tipográficas documentada en `docs/SCORING_BOUNDARY_POLICY.md`.
+- UI de revisión final del trabajador (sin puntajes), confirmación y protección anti doble envío.
+- 10 fixtures golden + suite de certificación; aviso de “versión no registrada” en admin/resultados.
+- Veredicto **CERTIFICADO** en `docs/SCORING_CERTIFICATION.md` tras lint/typecheck/test/build en verde.
+- Restricciones respetadas: sin Supabase remoto, SQL, login, Guía III, deploy, commit ni push.

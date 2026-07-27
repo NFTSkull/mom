@@ -52,7 +52,7 @@ function recordFactory(input: {
       | "Carga de trabajo"
       | "Falta de control sobre el trabajo"
       | "Jornada de trabajo"
-      | "Interferencia en la relacion trabajo-familia"
+      | "Interferencia en la relación trabajo-familia"
       | "Liderazgo"
       | "Relaciones en el trabajo"
       | "Violencia",
@@ -65,7 +65,7 @@ function recordFactory(input: {
     "Carga de trabajo": { score: 0, riskLevel: "nulo" },
     "Falta de control sobre el trabajo": { score: 0, riskLevel: "nulo" },
     "Jornada de trabajo": { score: 0, riskLevel: "nulo" },
-    "Interferencia en la relacion trabajo-familia": { score: 0, riskLevel: "nulo" },
+    "Interferencia en la relación trabajo-familia": { score: 0, riskLevel: "nulo" },
     Liderazgo: { score: 0, riskLevel: "nulo" },
     "Relaciones en el trabajo": { score: 0, riskLevel: "nulo" },
     Violencia: { score: 0, riskLevel: "nulo" },

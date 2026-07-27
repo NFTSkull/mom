@@ -1,405 +1,339 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getEvidenceChecklist, getEvidenceStats, getEvidenceTypeLabel } from "@/lib/nom035/evidence-analytics";
-import {
-  deleteEvidenceItem,
-  getCampaignsLocal,
-  getEvidenceItems,
-  saveEvidenceItem,
-  seedNom035LocalData,
-  updateEvidenceItem,
-} from "@/lib/nom035/storage-local";
-import type { EvidenceItem } from "@/types/nom035";
+import { useCallback, useEffect, useState } from "react";
+import { adminApi } from "@/lib/nom035/admin-client";
 
-type EvidenceForm = {
+type Evidence = {
+  id: string;
   title: string;
-  evidenceType: EvidenceItem["evidenceType"];
+  evidenceType: string;
   description: string;
-  fileName: string;
-  fileUrl: string;
-  notes: string;
+  evidenceSource: "upload" | "external";
+  externalUrl: string | null;
+  safeFileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  version: number;
+  deletedAt: string | null;
+  storageDeletePending: boolean;
+  replacedById: string | null;
+  state: string;
+  updatedAt: string;
 };
 
-const INITIAL_FORM: EvidenceForm = {
-  title: "",
-  evidenceType: "otro",
-  description: "",
-  fileName: "",
-  fileUrl: "",
-  notes: "",
+type Summary = {
+  total: number;
+  cleanupPending: number;
+  checklist: Record<string, boolean>;
+  byType: Record<string, number>;
 };
+
+const TYPES = [
+  "politica",
+  "difusion",
+  "resultados",
+  "reporte",
+  "capacitacion",
+  "plan_accion",
+  "quejas",
+  "canalizacion",
+  "otro",
+] as const;
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  politica: "Política",
+  difusion: "Difusión",
+  reporte: "Reporte",
+  plan_accion: "Plan de acción",
+  capacitacion: "Capacitación",
+  quejas: "Quejas",
+  canalizacion: "Canalizaciones",
+};
+
+function stateLabel(s: string) {
+  if (s === "active") return "Archivo cargado";
+  if (s === "external") return "Referencia externa";
+  if (s === "superseded") return "Sustituida";
+  if (s === "deleted") return "Eliminada";
+  if (s === "cleanup_pending") return "Limpieza pendiente";
+  return s;
+}
 
 export default function AdminEvidenciasPage() {
-  const [mounted, setMounted] = useState(false);
-  const [campaignId, setCampaignId] = useState<string>("");
-  const [items, setItems] = useState<EvidenceItem[]>([]);
-  const [form, setForm] = useState<EvidenceForm>(INITIAL_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [items, setItems] = useState<Evidence[]>([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [message, setMessage] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [searchFilter, setSearchFilter] = useState<string>("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
 
-  function loadData(): void {
-    seedNom035LocalData();
-    setCampaignId(getCampaignsLocal()[0]?.id ?? "");
-    setItems(getEvidenceItems());
-  }
+  const [title, setTitle] = useState("");
+  const [evidenceType, setEvidenceType] = useState<string>("otro");
+  const [description, setDescription] = useState("");
+  const [externalUrl, setExternalUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    const q = new URLSearchParams({ page: String(page), pageSize: "20", state: "active" });
+    if (typeFilter !== "all") q.set("evidenceType", typeFilter);
+    if (search.trim()) q.set("search", search.trim());
+
+    const [listRes, sumRes] = await Promise.all([
+      adminApi.listEvidence(q),
+      adminApi.evidenceSummary(),
+    ]);
+    if (!listRes.ok) {
+      setError(listRes.message);
+      setItems([]);
+    } else {
+      setItems((listRes.items as Evidence[]) ?? []);
+      setTotal(listRes.total ?? 0);
+    }
+    if (sumRes.ok) setSummary(sumRes.summary as Summary);
+    setLoading(false);
+  }, [page, typeFilter, search]);
 
   useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      loadData();
-      setMounted(true);
+    const t = window.setTimeout(() => {
+      void load();
     }, 0);
-    return () => window.clearTimeout(timerId);
-  }, []);
+    return () => window.clearTimeout(t);
+  }, [load]);
 
-  const stats = getEvidenceStats(items);
-  const checklist = getEvidenceChecklist(items);
-
-  const filteredItems = useMemo(() => {
-    const search = searchFilter.trim().toLowerCase();
-    return items.filter((item) => {
-      const typeOk = typeFilter === "all" || item.evidenceType === typeFilter;
-      const text = `${item.title} ${item.description}`.toLowerCase();
-      const searchOk = search.length === 0 || text.includes(search);
-      return typeOk && searchOk;
-    });
-  }, [items, typeFilter, searchFilter]);
-
-  function clearForm(): void {
-    setForm(INITIAL_FORM);
+  function clearForm() {
+    setTitle("");
+    setEvidenceType("otro");
+    setDescription("");
+    setExternalUrl("");
+    setFile(null);
     setEditingId(null);
   }
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    if (!form.title || !form.description) {
-      setMessage("Completa titulo y descripcion para registrar la evidencia.");
+  async function saveExternal(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    if (editingId) {
+      const res = await adminApi.updateEvidence(editingId, {
+        title,
+        evidenceType,
+        description,
+      });
+      setMessage(res.ok ? "Evidencia actualizada." : res.message);
+    } else if (externalUrl) {
+      const res = await adminApi.createExternalEvidence({
+        title,
+        evidenceType,
+        description,
+        externalUrl,
+      });
+      setMessage(res.ok ? "Referencia externa registrada." : res.message);
+    } else {
+      setMessage("Indica una URL HTTPS o sube un archivo.");
+      setBusy(false);
       return;
     }
-
-    if (editingId) {
-      updateEvidenceItem(editingId, {
-        title: form.title,
-        evidenceType: form.evidenceType,
-        description: form.description,
-        fileName: form.fileName,
-        fileUrl: form.fileUrl,
-        notes: form.notes,
-      });
-      setMessage("Evidencia actualizada correctamente.");
-    } else {
-      saveEvidenceItem({
-        campaignId: campaignId || undefined,
-        title: form.title,
-        evidenceType: form.evidenceType,
-        description: form.description,
-        fileName: form.fileName || undefined,
-        fileUrl: form.fileUrl || undefined,
-        notes: form.notes || undefined,
-      });
-      setMessage("Evidencia registrada correctamente.");
-    }
-
     clearForm();
-    setItems(getEvidenceItems());
+    setBusy(false);
+    await load();
   }
 
-  function startEdit(item: EvidenceItem): void {
-    setEditingId(item.id);
-    setForm({
-      title: item.title,
-      evidenceType: item.evidenceType,
-      description: item.description,
-      fileName: item.fileName ?? "",
-      fileUrl: item.fileUrl ?? "",
-      notes: item.notes ?? "",
-    });
-    setMessage("");
+  async function uploadFile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file || !title) {
+      setMessage("Título y archivo son obligatorios.");
+      return;
+    }
+    setBusy(true);
+    setUploadProgress("Validando y subiendo…");
+    const form = new FormData();
+    form.set("file", file);
+    form.set("title", title);
+    form.set("evidenceType", evidenceType);
+    form.set("description", description);
+    const res = await adminApi.uploadEvidence(form);
+    setUploadProgress("");
+    setMessage(res.ok ? "Archivo cargado en Storage privado." : res.message);
+    if (res.ok) clearForm();
+    setBusy(false);
+    await load();
   }
 
-  function removeItem(id: string): void {
-    deleteEvidenceItem(id);
-    setItems(getEvidenceItems());
+  async function replaceFile(id: string, f: File) {
+    setBusy(true);
+    setUploadProgress("Reemplazando…");
+    const form = new FormData();
+    form.set("file", f);
+    const res = await adminApi.replaceEvidence(id, form);
+    setUploadProgress("");
+    setMessage(res.ok ? "Versión nueva creada." : res.message);
+    setBusy(false);
+    await load();
   }
 
-  if (!mounted) {
-    return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Evidencias NOM-035</h1>
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <div key={idx} className="h-4 w-full animate-pulse rounded bg-slate-100" />
-            ))}
-          </div>
-        </div>
-      </section>
+  async function softDelete(id: string) {
+    setBusy(true);
+    const res = await adminApi.deleteEvidence(id);
+    if (!res.ok) setMessage(res.message);
+    else
+      setMessage(
+        res.cleanupPending
+          ? "Eliminada. Limpieza de Storage pendiente."
+          : "Eliminada y objeto removido."
+      );
+    setBusy(false);
+    await load();
+  }
+
+  async function retryCleanup(id: string) {
+    setBusy(true);
+    const res = await adminApi.retryEvidenceCleanup(id);
+    setMessage(
+      res.ok
+        ? res.cleanupPending
+          ? "Limpieza sigue pendiente."
+          : "Limpieza completada."
+        : res.message
     );
+    setBusy(false);
+    await load();
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" data-testid="evidencias-page">
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Evidencias NOM-035</h1>
         <p className="mt-1 text-slate-700">
-          Organiza la documentacion relacionada con la evaluacion, difusion, resultados, acciones y
-          seguimiento de la NOM-035.
+          Archivos en Storage privado (PDF/JPEG/PNG) y referencias HTTPS.
         </p>
+        <p className="mt-1 text-xs text-amber-800">Privada · acceso temporal controlado</p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total evidencias</p>
-          <p className="text-2xl font-semibold text-slate-900">{stats.total}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Politica</p>
-          <p className="text-2xl font-semibold text-slate-900">{stats.politica}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Resultados / reportes</p>
-          <p className="text-2xl font-semibold text-slate-900">{stats.resultadosReportes}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Plan de accion</p>
-          <p className="text-2xl font-semibold text-slate-900">{stats.planAccion}</p>
-        </article>
-        <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Capacitacion / difusion</p>
-          <p className="text-2xl font-semibold text-slate-900">{stats.capacitacionDifusion}</p>
-        </article>
+      {summary ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="evidence-summary-cards">
+          <Card label="Activas" value={summary.total} />
+          <Card label="Limpieza pendiente" value={summary.cleanupPending} />
+          <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:col-span-2">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Checklist documental</p>
+            <ul className="mt-2 grid grid-cols-2 gap-1 text-sm" data-testid="evidence-checklist">
+              {Object.entries(CHECKLIST_LABELS).map(([k, label]) => (
+                <li key={k} className={summary.checklist?.[k] ? "text-emerald-700" : "text-slate-500"}>
+                  {summary.checklist?.[k] ? "✓" : "○"} {label}
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="text-sm">
+          Tipo
+          <select className="mt-1 block rounded border px-2 py-1.5" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
+            <option value="all">Todos</option>
+            {TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Buscar
+          <input className="mt-1 block rounded border px-2 py-1.5" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="evidence-search" />
+        </label>
+        <button type="button" className="self-end rounded border px-3 py-1.5 text-sm" onClick={() => void load()}>Actualizar</button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Checklist de cumplimiento documental</h2>
-        <ul className="mt-3 space-y-2 text-sm">
-          {checklist.map((item) => (
-            <li key={item.key} className="flex items-center gap-2">
-              <span
-                className={`inline-flex h-2.5 w-2.5 rounded-full ${
-                  item.completed ? "bg-emerald-500" : "bg-slate-300"
-                }`}
-              />
-              <span className={item.completed ? "text-slate-800" : "text-slate-600"}>
-                {item.label}
-              </span>
-              <span
-                className={`rounded px-2 py-0.5 text-xs ${
-                  item.completed
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-slate-100 text-slate-600"
-                }`}
-              >
-                {item.completed ? "Completo" : "Incompleto"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {message ? <p className="text-sm" data-testid="evidence-message">{message}</p> : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {uploadProgress ? <p className="text-sm text-slate-600" data-testid="evidence-progress">{uploadProgress}</p> : null}
 
-      <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {editingId ? "Editar evidencia" : "Registrar evidencia"}
-        </h2>
-        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-          En esta version local se registra la referencia del archivo. La carga real de documentos se
-          conectara cuando se active Supabase Storage.
-        </p>
-
+      <form onSubmit={(e) => void saveExternal(e)} className="space-y-3 rounded-lg border bg-white p-4 shadow-sm" data-testid="evidence-external-form">
+        <h2 className="font-semibold">{editingId ? "Editar metadata" : "Registrar evidencia"}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-slate-700">
-            Titulo
-            <input
-              value={form.title}
-              onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Tipo de evidencia
-            <select
-              value={form.evidenceType}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, evidenceType: e.target.value as EvidenceItem["evidenceType"] }))
-              }
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="politica">Politica</option>
-              <option value="difusion">Difusion</option>
-              <option value="resultados">Resultados</option>
-              <option value="reporte">Reporte</option>
-              <option value="capacitacion">Capacitacion</option>
-              <option value="plan_accion">Plan de accion</option>
-              <option value="quejas">Quejas</option>
-              <option value="canalizacion">Canalizacion</option>
-              <option value="otro">Otro</option>
+          <label className="text-sm">Título<input required className="mt-1 block w-full rounded border px-2 py-1.5" value={title} onChange={(e) => setTitle(e.target.value)} data-testid="evidence-title" /></label>
+          <label className="text-sm">Tipo
+            <select className="mt-1 block w-full rounded border px-2 py-1.5" value={evidenceType} onChange={(e) => setEvidenceType(e.target.value)} data-testid="evidence-type">
+              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
-          <label className="text-sm text-slate-700 sm:col-span-2">
-            Descripcion
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            Nombre del archivo o documento
-            <input
-              value={form.fileName}
-              onChange={(e) => setForm((prev) => ({ ...prev, fileName: e.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            URL del archivo (opcional)
-            <input
-              value={form.fileUrl}
-              onChange={(e) => setForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-sm text-slate-700 sm:col-span-2">
-            Notas
-            <textarea
-              rows={2}
-              value={form.notes}
-              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
         </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            {editingId ? "Guardar cambios" : "Registrar evidencia"}
-          </button>
-          {editingId ? (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingId(null);
-                setForm(INITIAL_FORM);
-              }}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-            >
-              Cancelar edicion
-            </button>
-          ) : null}
-        </div>
-        {message ? (
-          <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-            {message}
-          </p>
+        <label className="block text-sm">Descripción<textarea className="mt-1 block w-full rounded border px-2 py-1.5" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+        {!editingId ? (
+          <label className="block text-sm">URL HTTPS externa<input className="mt-1 block w-full rounded border px-2 py-1.5" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://…" data-testid="evidence-external-url" /></label>
         ) : null}
+        <button type="submit" disabled={busy} className="rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50" data-testid="evidence-save-external">
+          {editingId ? "Guardar" : "Registrar enlace"}
+        </button>
+        {editingId ? <button type="button" className="ml-2 rounded border px-3 py-2 text-sm" onClick={clearForm}>Cancelar</button> : null}
       </form>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-slate-700">
-            Filtro por tipo
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="all">Todos</option>
-              <option value="politica">Politica</option>
-              <option value="difusion">Difusion</option>
-              <option value="resultados">Resultados</option>
-              <option value="reporte">Reporte</option>
-              <option value="capacitacion">Capacitacion</option>
-              <option value="plan_accion">Plan de accion</option>
-              <option value="quejas">Quejas</option>
-              <option value="canalizacion">Canalizacion</option>
-              <option value="otro">Otro</option>
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">
-            Busqueda por titulo o descripcion
-            <input
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
+      <form onSubmit={(e) => void uploadFile(e)} className="space-y-3 rounded-lg border bg-white p-4 shadow-sm" data-testid="evidence-upload-form">
+        <h2 className="font-semibold">Subir archivo (PDF / JPEG / PNG · máx. 15 MB)</h2>
+        <p className="text-xs text-slate-600">Usa el mismo título/tipo del formulario superior, o complétalos aquí antes de subir.</p>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} data-testid="evidence-file" />
+        <button type="submit" disabled={busy || !file} className="rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50" data-testid="evidence-upload">
+          Subir a Storage privado
+        </button>
+      </form>
+
+      {loading ? <div className="h-20 animate-pulse rounded bg-slate-100" /> : null}
+
+      <ul className="space-y-2" data-testid="evidence-list">
+        {items.map((item) => (
+          <li key={item.id} className="rounded-lg border bg-white p-3 shadow-sm" data-testid={`evidence-row-${item.id}`}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="font-medium">{item.title}</p>
+                <p className="text-xs text-slate-500">
+                  {item.evidenceType} · v{item.version} · {stateLabel(item.state)} · Privada
+                </p>
+                <p className="text-sm text-slate-600">{item.description?.slice(0, 120)}</p>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => { setEditingId(item.id); setTitle(item.title); setEvidenceType(item.evidenceType); setDescription(item.description ?? ""); }}>Editar</button>
+                {item.evidenceSource === "upload" ? (
+                  <a className="rounded border px-2 py-1 text-xs" href={adminApi.evidenceDownloadUrl(item.id)} data-testid={`evidence-download-${item.id}`}>Descargar</a>
+                ) : item.externalUrl ? (
+                  <a className="rounded border px-2 py-1 text-xs" href={item.externalUrl} target="_blank" rel="noopener noreferrer">Abrir enlace</a>
+                ) : null}
+                {item.evidenceSource === "upload" ? (
+                  <label className="cursor-pointer rounded border px-2 py-1 text-xs">
+                    Reemplazar
+                    <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { const f = e.target.files?.[0]; if (f) void replaceFile(item.id, f); }} />
+                  </label>
+                ) : null}
+                <button type="button" className="rounded border px-2 py-1 text-xs" disabled={busy} onClick={() => void softDelete(item.id)} data-testid={`evidence-delete-${item.id}`}>Eliminar</button>
+                {item.storageDeletePending ? (
+                  <button type="button" className="rounded border px-2 py-1 text-xs" disabled={busy} onClick={() => void retryCleanup(item.id)}>Reintentar limpieza</button>
+                ) : null}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex gap-2 text-sm">
+        <button type="button" disabled={page <= 1} className="rounded border px-2 py-1 disabled:opacity-40" onClick={() => setPage((p) => p - 1)}>Anterior</button>
+        <span>Página {page} · {total}</span>
+        <button type="button" disabled={page * 20 >= total} className="rounded border px-2 py-1 disabled:opacity-40" onClick={() => setPage((p) => p + 1)}>Siguiente</button>
       </div>
-
-      {items.length === 0 ? (
-        <p className="rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
-          Sin evidencias registradas. Agrega documentos o referencias para respaldar el proceso
-          NOM-035.
-        </p>
-      ) : null}
-
-      {items.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[1000px] text-left text-sm text-slate-800">
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Titulo</th>
-                <th className="px-3 py-2 font-semibold">Tipo</th>
-                <th className="px-3 py-2 font-semibold">Descripcion</th>
-                <th className="px-3 py-2 font-semibold">Archivo/URL</th>
-                <th className="px-3 py-2 font-semibold">Fecha</th>
-                <th className="px-3 py-2 font-semibold">Notas</th>
-                <th className="px-3 py-2 font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id} className="border-t border-slate-200 hover:bg-slate-50">
-                  <td className="px-3 py-2">{item.title}</td>
-                  <td className="px-3 py-2">{getEvidenceTypeLabel(item.evidenceType)}</td>
-                  <td className="px-3 py-2">{item.description}</td>
-                  <td className="px-3 py-2">
-                    <p>{item.fileName || "-"}</p>
-                    {item.fileUrl ? (
-                      <a
-                        href={item.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-700 hover:underline"
-                      >
-                        {item.fileUrl}
-                      </a>
-                    ) : (
-                      <span className="text-slate-500">Sin URL</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{new Date(item.createdAt).toLocaleDateString("es-MX")}</td>
-                  <td className="px-3 py-2">{item.notes || "-"}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(item)}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
     </section>
+  );
+}
+
+function Card({ label, value }: { label: string; value: number }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-2xl font-semibold text-slate-900">{value}</p>
+    </article>
   );
 }

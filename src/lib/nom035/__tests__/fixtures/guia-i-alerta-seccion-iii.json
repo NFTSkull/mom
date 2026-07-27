@@ -1,0 +1,79 @@
+{
+  "answers": [
+    {
+      "questionId": "guia_i_1",
+      "value": 1
+    },
+    {
+      "questionId": "guia_i_2",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_3",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_4",
+      "value": 1
+    },
+    {
+      "questionId": "guia_i_5",
+      "value": 1
+    },
+    {
+      "questionId": "guia_i_6",
+      "value": 1
+    },
+    {
+      "questionId": "guia_i_7",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_8",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_9",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_10",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_11",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_12",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_13",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_14",
+      "value": 0
+    },
+    {
+      "questionId": "guia_i_15",
+      "value": 0
+    }
+  ],
+  "expected": {
+    "questionnaireCode": "GUIA_I",
+    "traumaticEvent": true,
+    "sectionIIScore": 0,
+    "sectionIIIScore": 3,
+    "sectionIVScore": 0,
+    "requiresClinicalAttention": true,
+    "riskLabel": "requiere_seguimiento_confidencial",
+    "alerts": [
+      "Sección III con tres o más respuestas afirmativas."
+    ],
+    "scoringVersion": "nom035-stps-2018-guia-i-ii-v1",
+    "questionnaireVersion": "nom035-stps-2018-guias-referencia-i-ii",
+    "validationWarnings": []
+  }
+}

@@ -1,470 +1,282 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import {
-  getCampaignsLocal,
-  getCompanyConfigLocal,
-  getEvaluationRecordsLocal,
-  getWorkersLocal,
-  seedNom035LocalData,
-} from "@/lib/nom035/storage-local";
-import { getRequiredQuestionnaires } from "@/lib/nom035/get-required-questionnaires";
-import {
-  getAverageGuiaIIScore,
-  getCriticalDomains,
-  getDepartmentSummaries,
-  getDominantRiskLevel,
-  getRiskDistribution,
-  getWorkerCriticalDomains,
-} from "@/lib/nom035/results-analytics";
-import type { Campaign, EvaluationRecord, RiskLevelNom035, Worker } from "@/types/nom035";
+import { useCallback, useEffect, useState } from "react";
+import { adminApi } from "@/lib/nom035/admin-client";
 
-interface ResultadosSnapshot {
-  workers: Worker[];
-  records: EvaluationRecord[];
-  activeCampaign: Campaign | null;
-  showGuiaIIIPending: boolean;
-  cutoffISO: string;
-}
+type ResultRow = {
+  id: string;
+  workerNombre: string;
+  departamento: string | null;
+  puesto: string | null;
+  campaignNombre: string;
+  guiaIRequiresClinicalAttention: boolean | null;
+  finalScore: number | null;
+  finalRiskLevel: string | null;
+  scoringVersion: string | null;
+  completedAt: string | null;
+};
 
-interface WorkerDashboardRow {
-  workerId: string;
-  trabajador: string;
-  departamento: string;
-  estado: "Pendiente" | "En progreso" | "Completada";
-  guiaI: "Sin alerta" | "Requiere seguimiento confidencial" | "-";
-  guiaIIRisk: RiskLevelNom035 | null;
-  guiaIIScore: number | null;
-  dominiosCriticos: string[];
-  fechaFinalizacion: string | null;
-}
-
-function mapGuiaIIRiskLabel(risk: RiskLevelNom035 | null): string {
-  if (!risk) return "-";
-  if (risk === "nulo") return "Nulo";
-  if (risk === "bajo") return "Bajo";
-  if (risk === "medio") return "Medio";
-  if (risk === "alto") return "Alto";
-  return "Muy alto";
-}
-
-function mapDominantRiskLabel(risk: RiskLevelNom035 | null): string {
-  if (!risk) return "Sin datos";
-  return mapGuiaIIRiskLabel(risk);
-}
-
-function mapRiskFilterValue(value: string): RiskLevelNom035 | null {
-  if (value === "all" || value === "sin_datos") return null;
-  return value as RiskLevelNom035;
-}
-
-function statusFromRecord(record: EvaluationRecord | undefined): "Pendiente" | "En progreso" | "Completada" {
-  if (!record) return "Pendiente";
-  if (record.status === "completed") return "Completada";
-  if (record.status === "in_progress") return "En progreso";
-  if ((record.responses.length ?? 0) > 0) return "En progreso";
-  return "Pendiente";
-}
+type Detail = {
+  id: string;
+  worker: { nombre: string; departamento: string | null; puesto: string | null };
+  campaign: { nombre: string; status: string };
+  status: string;
+  completedAt: string | null;
+  guiaIAnswers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>;
+  guiaIIAnswers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>;
+  skippedNote: string;
+  finalScore: number | null;
+  finalRiskLevel: string | null;
+  categoryScores: unknown;
+  domainScores: unknown;
+  dimensionScores: unknown;
+  alerts: unknown;
+  scoringVersion: string | null;
+  questionnaireVersion: string | null;
+  validationWarnings: unknown;
+  guiaIRequiresClinicalAttention: boolean | null;
+  disclaimer: string;
+};
 
 export default function AdminResultadosPage() {
-  const [mounted, setMounted] = useState(false);
-  const [snapshot, setSnapshot] = useState<ResultadosSnapshot | null>(null);
-  const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [riskFilter, setRiskFilter] = useState("all");
-  const [reportMessage, setReportMessage] = useState("");
+  const [items, setItems] = useState<ResultRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [riskLevel, setRiskLevel] = useState("");
+  const [campaignId, setCampaignId] = useState("");
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  function loadSnapshot(): void {
-    seedNom035LocalData();
-    const company = getCompanyConfigLocal();
-    const questionnaires = getRequiredQuestionnaires(company.employeeCount);
-
-    setSnapshot({
-      workers: getWorkersLocal(),
-      records: getEvaluationRecordsLocal(),
-      activeCampaign: getCampaignsLocal()[0] ?? null,
-      showGuiaIIIPending: questionnaires.includes("GUIA_III"),
-      cutoffISO: new Date().toISOString(),
-    });
-    setMounted(true);
-  }
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    const q = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (search) q.set("search", search);
+    if (riskLevel) q.set("riskLevel", riskLevel);
+    if (campaignId) q.set("campaignId", campaignId);
+    const res = await adminApi.listResults(q);
+    if (!res.ok) {
+      setError(res.message);
+      setLoading(false);
+      return;
+    }
+    setItems((res.items as ResultRow[]) ?? []);
+    setTotal(res.total ?? 0);
+    setLoading(false);
+  }, [page, search, riskLevel, campaignId]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
-      loadSnapshot();
+      void adminApi.listCampaigns(new URLSearchParams({ page: "1", pageSize: "50" })).then((r) => {
+        if (r.ok) setCampaigns((r.items as Array<{ id: string; nombre: string }>) ?? []);
+      });
     }, 0);
     return () => window.clearTimeout(timerId);
   }, []);
 
-  const showSkeleton = !mounted || !snapshot;
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, [load]);
 
-  const assignedWorkers = useMemo(() => {
-    if (!snapshot) return [];
-    if (!snapshot.activeCampaign) return snapshot.workers;
-    return snapshot.workers.filter((worker) => snapshot.activeCampaign?.workerIds.includes(worker.id));
-  }, [snapshot]);
-
-  const latestRecordByWorker = useMemo(() => {
-    if (!snapshot) return new Map<string, EvaluationRecord>();
-    const sorted = [...snapshot.records].sort((a, b) => {
-      const left = new Date(a.completedAt ?? a.submittedAtISO ?? 0).getTime();
-      const right = new Date(b.completedAt ?? b.submittedAtISO ?? 0).getTime();
-      return right - left;
-    });
-
-    const map = new Map<string, EvaluationRecord>();
-    for (const record of sorted) {
-      if (!map.has(record.workerId)) {
-        map.set(record.workerId, record);
-      }
+  async function openDetail(id: string) {
+    const res = await adminApi.getResult(id);
+    if (!res.ok) {
+      setError(res.message);
+      return;
     }
-    return map;
-  }, [snapshot]);
-
-  const completedRecords = useMemo(() => {
-    if (!snapshot) return [];
-    return snapshot.records.filter((record) => record.status === "completed");
-  }, [snapshot]);
-
-  const workerRows = useMemo<WorkerDashboardRow[]>(() => {
-    return assignedWorkers.map((worker) => {
-      const record = latestRecordByWorker.get(worker.id);
-      const isCompleted = record?.status === "completed" ? record : undefined;
-      const criticalDomains = getWorkerCriticalDomains(isCompleted);
-
-      return {
-        workerId: worker.id,
-        trabajador: worker.fullName,
-        departamento: worker.department,
-        estado: statusFromRecord(record),
-        guiaI:
-          isCompleted?.guiaIResult?.riskLabel === "sin_alerta"
-            ? "Sin alerta"
-            : isCompleted?.guiaIResult?.riskLabel === "requiere_seguimiento_confidencial"
-              ? "Requiere seguimiento confidencial"
-              : "-",
-        guiaIIRisk: isCompleted?.guiaIIResult?.finalRiskLevel ?? null,
-        guiaIIScore: isCompleted?.guiaIIResult?.finalScore ?? null,
-        dominiosCriticos: criticalDomains,
-        fechaFinalizacion: isCompleted?.completedAt ?? null,
-      };
-    });
-  }, [assignedWorkers, latestRecordByWorker]);
-
-  const filteredRows = useMemo(() => {
-    return workerRows.filter((row) => {
-      const departmentOk = departmentFilter === "all" || row.departamento === departmentFilter;
-      const statusOk = statusFilter === "all" || row.estado === statusFilter;
-      const risk = mapRiskFilterValue(riskFilter);
-      const riskOk = riskFilter === "all" || (risk === null ? row.guiaIIRisk === null : row.guiaIIRisk === risk);
-      return departmentOk && statusOk && riskOk;
-    });
-  }, [workerRows, departmentFilter, statusFilter, riskFilter]);
-
-  const totalAssigned = assignedWorkers.length;
-  const completedCount = workerRows.filter((row) => row.estado === "Completada").length;
-  const pendingCount = workerRows.filter((row) => row.estado === "Pendiente").length;
-  const progressPercent = totalAssigned > 0 ? Math.round((completedCount / totalAssigned) * 100) : 0;
-  const guiaISinAlerta = workerRows.filter((row) => row.guiaI === "Sin alerta").length;
-  const guiaISeguimiento = workerRows.filter(
-    (row) => row.guiaI === "Requiere seguimiento confidencial"
-  ).length;
-
-  const riskDistribution = getRiskDistribution(completedRecords);
-  const dominantRisk = getDominantRiskLevel(completedRecords);
-  const averageScore = getAverageGuiaIIScore(completedRecords);
-  const departmentSummaries = getDepartmentSummaries(completedRecords, assignedWorkers);
-  const criticalDomains = getCriticalDomains(completedRecords);
-
-  const departments = Array.from(new Set(assignedWorkers.map((worker) => worker.department))).sort();
-
-  function clearFilters(): void {
-    setDepartmentFilter("all");
-    setStatusFilter("all");
-    setRiskFilter("all");
+    setDetail(res.detail as Detail);
   }
 
-  const cutoffDate = snapshot
-    ? new Date(snapshot.cutoffISO).toLocaleString("es-MX")
-    : "-";
-
   return (
-    <section className="space-y-4">
-      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Dashboard ejecutivo NOM-035</h1>
-        <p className="mt-1 text-sm text-slate-700">
-          Campana activa: {snapshot?.activeCampaign?.name ?? "Sin campana activa"}
-        </p>
-        <p className="text-sm text-slate-600">Fecha de corte: {cutoffDate}</p>
-        <p className="mt-2 text-sm text-slate-700">
-          Este panel muestra resultados agregados de la evaluacion NOM-035. No se muestran
-          respuestas individuales pregunta por pregunta.
-        </p>
-      </header>
+    <section className="space-y-4" data-testid="admin-results-page">
+      <h1 className="text-2xl font-semibold text-slate-900">Resultados</h1>
+      <p className="text-sm text-slate-600">
+        Resultados calculados en servidor. No sustituyen una valoración clínica.
+      </p>
 
-      {snapshot?.showGuiaIIIPending ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Aviso interno: Guia III pendiente de integracion en este MVP.
-        </p>
-      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <input
+          data-testid="results-search"
+          className="rounded border px-2 py-1.5 text-sm"
+          placeholder="Buscar…"
+          value={search}
+          onChange={(e) => {
+            setPage(1);
+            setSearch(e.target.value);
+          }}
+        />
+        <select
+          data-testid="results-risk-filter"
+          className="rounded border px-2 py-1.5 text-sm"
+          value={riskLevel}
+          onChange={(e) => {
+            setPage(1);
+            setRiskLevel(e.target.value);
+          }}
+        >
+          <option value="">Todos los niveles</option>
+          <option value="nulo">Nulo</option>
+          <option value="bajo">Bajo</option>
+          <option value="medio">Medio</option>
+          <option value="alto">Alto</option>
+          <option value="muy_alto">Muy alto</option>
+        </select>
+        <select
+          data-testid="results-campaign-filter"
+          className="rounded border px-2 py-1.5 text-sm"
+          value={campaignId}
+          onChange={(e) => {
+            setPage(1);
+            setCampaignId(e.target.value);
+          }}
+        >
+          <option value="">Todas las campañas</option>
+          {campaigns.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="rounded border px-2 py-1.5 text-sm" onClick={() => void load()}>
+          Reintentar
+        </button>
+      </div>
 
-      {showSkeleton ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="rounded border border-slate-200 p-3">
-                <div className="h-3 w-28 animate-pulse rounded bg-slate-100" />
-                <div className="mt-2 h-8 w-16 animate-pulse rounded bg-slate-200" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Total trabajadores asignados</p>
-              <p className="text-2xl font-semibold text-slate-900">{totalAssigned}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Evaluaciones completadas</p>
-              <p className="text-2xl font-semibold text-slate-900">{completedCount}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Evaluaciones pendientes</p>
-              <p className="text-2xl font-semibold text-slate-900">{pendingCount}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Porcentaje de avance</p>
-              <p className="text-2xl font-semibold text-slate-900">{progressPercent}%</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Guia I: sin alerta</p>
-              <p className="text-2xl font-semibold text-slate-900">{guiaISinAlerta}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Guia I: seguimiento confidencial
-              </p>
-              <p className="text-2xl font-semibold text-slate-900">{guiaISeguimiento}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Guia II: riesgo predominante</p>
-              <p className="text-2xl font-semibold text-slate-900">{mapDominantRiskLabel(dominantRisk)}</p>
-            </article>
-            <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Puntaje promedio Guia II</p>
-              <p className="text-2xl font-semibold text-slate-900">{averageScore}</p>
-            </article>
-          </div>
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {loading ? <p className="text-sm">Cargando…</p> : null}
 
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Distribucion de riesgo Guia II</h2>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              {([
-                ["nulo", "Nulo"],
-                ["bajo", "Bajo"],
-                ["medio", "Medio"],
-                ["alto", "Alto"],
-                ["muy_alto", "Muy alto"],
-              ] as Array<[RiskLevelNom035, string]>).map(([risk, label]) => (
-                <div key={risk} className="rounded border border-slate-200 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-                  <p className="text-xl font-semibold text-slate-900">{riskDistribution[risk]}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Analisis por departamento</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Departamento</th>
-                    <th className="px-3 py-2 font-semibold">Trabajadores evaluados</th>
-                    <th className="px-3 py-2 font-semibold">Puntaje promedio Guia II</th>
-                    <th className="px-3 py-2 font-semibold">Riesgo predominante</th>
-                    <th className="px-3 py-2 font-semibold">Dominios criticos</th>
-                    <th className="px-3 py-2 font-semibold">Seguimiento confidencial Guia I</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {departmentSummaries.map((row) => (
-                    <tr key={row.department} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{row.department}</td>
-                      <td className="px-3 py-2">{row.evaluatedWorkers}</td>
-                      <td className="px-3 py-2">{row.averageGuiaIIScore}</td>
-                      <td className="px-3 py-2">{mapDominantRiskLabel(row.predominantRiskLevel)}</td>
-                      <td className="px-3 py-2">{row.criticalDomains}</td>
-                      <td className="px-3 py-2">{row.guiaIFollowUpCases}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Dominios con mayor atencion requerida
-            </h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[880px] text-left text-sm text-slate-800">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Dominio</th>
-                    <th className="px-3 py-2 font-semibold">
-                      Trabajadores con riesgo medio/alto/muy alto
-                    </th>
-                    <th className="px-3 py-2 font-semibold">Nivel mas frecuente</th>
-                    <th className="px-3 py-2 font-semibold">Recomendacion breve</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {criticalDomains.map((domain) => (
-                    <tr key={domain.domain} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{domain.domain}</td>
-                      <td className="px-3 py-2">{domain.workers}</td>
-                      <td className="px-3 py-2">{mapGuiaIIRiskLabel(domain.mostFrequentLevel)}</td>
-                      <td className="px-3 py-2">{domain.recommendation}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-44">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Departamento
-                </label>
-                <select
-                  value={departmentFilter}
-                  onChange={(event) => setDepartmentFilter(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="all">Todos</option>
-                  {departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="min-w-44">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Estado de evaluacion
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="all">Todos</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="En progreso">En progreso</option>
-                  <option value="Completada">Completada</option>
-                </select>
-              </div>
-              <div className="min-w-44">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Nivel de riesgo Guia II
-                </label>
-                <select
-                  value={riskFilter}
-                  onChange={(event) => setRiskFilter(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="all">Todos</option>
-                  <option value="nulo">Nulo</option>
-                  <option value="bajo">Bajo</option>
-                  <option value="medio">Medio</option>
-                  <option value="alto">Alto</option>
-                  <option value="muy_alto">Muy alto</option>
-                  <option value="sin_datos">Sin datos</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => loadSnapshot()}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              >
-                Actualizar resultados
-              </button>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              >
-                Limpiar filtros
-              </button>
-              <Link
-                href="/admin/campanas"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              >
-                Ir a campanas
-              </Link>
-              <button
-                type="button"
-                onClick={() => setReportMessage("Reporte se generara en el siguiente bloque.")}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              >
-                Preparar reporte
-              </button>
-            </div>
-            {reportMessage ? (
-              <p className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                {reportMessage}
-              </p>
-            ) : null}
-          </div>
-
-          {completedCount === 0 ? (
-            <p className="rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
-              Todavia no hay evaluaciones completadas. Comparte los enlaces desde Campanas para comenzar.
-            </p>
-          ) : null}
-
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table className="w-full min-w-[980px] text-left text-sm text-slate-800">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">Trabajador</th>
-                  <th className="px-3 py-2 font-semibold">Departamento</th>
-                  <th className="px-3 py-2 font-semibold">Estado</th>
-                  <th className="px-3 py-2 font-semibold">Guia I</th>
-                  <th className="px-3 py-2 font-semibold">Riesgo Guia II</th>
-                  <th className="px-3 py-2 font-semibold">Puntaje Guia II</th>
-                  <th className="px-3 py-2 font-semibold">Dominios criticos</th>
-                  <th className="px-3 py-2 font-semibold">Fecha de finalizacion</th>
+      <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Trabajador</th>
+              <th className="px-3 py-2">Depto</th>
+              <th className="px-3 py-2">Campaña</th>
+              <th className="px-3 py-2">Guía I seg.</th>
+              <th className="px-3 py-2">Score</th>
+              <th className="px-3 py-2">Nivel</th>
+              <th className="px-3 py-2">Versión</th>
+              <th className="px-3 py-2">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 && !loading ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-4">
+                  Sin resultados
+                </td>
+              </tr>
+            ) : (
+              items.map((r) => (
+                <tr key={r.id} className="border-t" data-testid={`result-row-${r.id}`}>
+                  <td className="px-3 py-2">{r.workerNombre}</td>
+                  <td className="px-3 py-2">{r.departamento ?? "—"}</td>
+                  <td className="px-3 py-2">{r.campaignNombre}</td>
+                  <td className="px-3 py-2">{r.guiaIRequiresClinicalAttention ? "Sí" : "No"}</td>
+                  <td className="px-3 py-2">{r.finalScore ?? "—"}</td>
+                  <td className="px-3 py-2">{r.finalRiskLevel ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">{r.scoringVersion}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      data-testid={`result-detail-${r.id}`}
+                      className="rounded border px-2 py-1 text-xs"
+                      onClick={() => void openDetail(r.id)}
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => (
-                  <tr key={row.workerId} className="border-t border-slate-200 hover:bg-slate-50">
-                    <td className="px-3 py-2">{row.trabajador}</td>
-                    <td className="px-3 py-2">{row.departamento}</td>
-                    <td className="px-3 py-2">{row.estado}</td>
-                    <td className="px-3 py-2">{row.guiaI}</td>
-                    <td className="px-3 py-2">{mapGuiaIIRiskLabel(row.guiaIIRisk)}</td>
-                    <td className="px-3 py-2">{row.guiaIIScore ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      {row.dominiosCriticos.length > 0 ? row.dominiosCriticos.join(", ") : "-"}
-                    </td>
-                    <td className="px-3 py-2">{row.fechaFinalizacion ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-sm text-slate-600">
+        Página {page} · {total} total
+      </p>
+
+      {detail ? (
+        <article
+          data-testid="result-detail-panel"
+          className="space-y-3 rounded-lg border border-slate-300 bg-white p-4"
+        >
+          <h2 className="text-lg font-semibold">Detalle — {detail.worker.nombre}</h2>
+          <p className="text-sm text-slate-700">{detail.disclaimer}</p>
+          <p className="text-sm text-slate-600">
+            Este resultado corresponde al instrumento aplicado y no sustituye una valoración clínica.
+          </p>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Campaña</dt>
+              <dd>{detail.campaign.nombre}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Estado</dt>
+              <dd>{detail.status}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Score final</dt>
+              <dd data-testid="detail-final-score">{detail.finalScore}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Nivel</dt>
+              <dd data-testid="detail-risk-level">{detail.finalRiskLevel}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">scoringVersion</dt>
+              <dd>{detail.scoringVersion}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">questionnaireVersion</dt>
+              <dd>{detail.questionnaireVersion}</dd>
+            </div>
+          </dl>
+          <div>
+            <h3 className="font-medium">Respuestas Guía I</h3>
+            <ul className="mt-1 max-h-40 overflow-auto text-xs" data-testid="detail-guia-i">
+              {detail.guiaIAnswers.map((a) => (
+                <li key={a.questionId}>
+                  {a.questionId}: {a.answerValue ?? a.answerText}
+                </li>
+              ))}
+            </ul>
           </div>
-        </>
-      )}
+          <div>
+            <h3 className="font-medium">Respuestas Guía II</h3>
+            <ul className="mt-1 max-h-40 overflow-auto text-xs" data-testid="detail-guia-ii">
+              {detail.guiaIIAnswers.map((a) => (
+                <li key={a.questionId}>
+                  {a.questionId}: {a.answerValue ?? a.answerText}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs text-slate-500">{detail.skippedNote}</p>
+          </div>
+          <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs" data-testid="detail-scores">
+            {JSON.stringify(
+              {
+                categories: detail.categoryScores,
+                domains: detail.domainScores,
+                dimensions: detail.dimensionScores,
+                alerts: detail.alerts,
+                warnings: detail.validationWarnings,
+              },
+              null,
+              2
+            )}
+          </pre>
+          <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => setDetail(null)}>
+            Cerrar
+          </button>
+        </article>
+      ) : null}
     </section>
   );
 }

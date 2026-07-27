@@ -1,0 +1,10 @@
+{
+  "answers": {
+    "gateClientes": "si",
+    "gateJefe": "si",
+    "responses": {
+      "1": "siempre"
+    }
+  },
+  "expectError": true
+}
