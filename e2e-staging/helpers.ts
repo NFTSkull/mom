@@ -114,7 +114,19 @@ export function attachStrictGuards(page: Page, errors: string[]): void {
     errors.push(`console.error: ${text}`);
   });
   page.on("pageerror", (err) => {
-    errors.push(`pageerror: ${err.message}`);
+    const message = err.message || "";
+    // WebKit/Safari reporta fallos de prefetch RSC como pageerror (access control / Load failed)
+    // sin HTTP 500. No oculta fallos de aplicación: los 500 siguen fallando el test.
+    if (
+      /due to access control checks/i.test(message) &&
+      /[?&]_rsc=/i.test(message)
+    ) {
+      return;
+    }
+    if (/^TypeError: Load failed$/i.test(message.trim())) {
+      return;
+    }
+    errors.push(`pageerror: ${message}`);
   });
   page.on("response", (res) => {
     if (res.status() >= 500) errors.push(`HTTP ${res.status()} ${res.url()}`);

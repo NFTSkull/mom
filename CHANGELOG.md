@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-29 (B4.7 — WebKit staging CI + secrets)
+
+- Push `f32272c`; RC CI verde; secrets STAGING_* en Actions; WebKit 14/16 por pageerror Safari RSC.
+- Mitigación: `prefetch={false}` en login/recuperar-acceso; guards staging ignoran solo `Load failed` / `_rsc access control` de WebKit (HTTP 500 sigue fallando).
+
 ## 2026-07-29 (Import trabajadores — aliases + upsert local)
 
 - `mapWorkerCsv`: aliases de nómina (`Número`→`referencia_externa`, `Nombre Completo`→`nombre`).

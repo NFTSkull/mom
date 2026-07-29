@@ -91,7 +91,7 @@ function LoginForm() {
         </button>
       </form>
       <p className="mt-4 text-center text-sm text-slate-600">
-        <Link href="/recuperar-acceso" className="underline">
+        <Link href="/recuperar-acceso" prefetch={false} className="underline">
           Recuperar acceso
         </Link>
       </p>

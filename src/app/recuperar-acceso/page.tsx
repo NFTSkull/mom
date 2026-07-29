@@ -59,7 +59,7 @@ export default function RecuperarAccesoPage() {
           </form>
         )}
         <p className="mt-4 text-center text-sm">
-          <Link href="/login" className="underline">
+          <Link href="/login" prefetch={false} className="underline">
             Volver al inicio de sesión
           </Link>
         </p>
