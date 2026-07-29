@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-29 (B4.7 CERTIFICADO @ 0ff37fd)
+
+- CI RC `30480578873` + WebKit `30480578619` success en el mismo SHA.
+- Preview healthy con CSP; cleanup sintético staging OK.
+- Veredicto: **CERTIFICADO** (sin Production; tag no empujado).
+
 ## 2026-07-29 (B4.7 — WebKit staging CI + secrets)
 
 - Push `f32272c`; RC CI verde; secrets STAGING_* en Actions; WebKit 14/16 por pageerror Safari RSC.
