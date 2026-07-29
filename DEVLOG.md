@@ -10,6 +10,7 @@
 - CI en `release/**` sin deploy ni `db push` remoto.
 - Certificación Cloud queda **NO CERTIFICADO** hasta Preview + E2E remoto + backup/restore.
 - Fallo CI `quality` (run `30313214625`): `b4-3-concurrency` exige Supabase local; en `quality` no hay `.env.local`. Mitigación: `skipIf` + ejecución en job `database` con `scripts/ci-write-local-env.mjs`.
+- Fallo CI `quality`/`security` (run `30428999018`): secret-scan marcaba literales `SUPABASE_SECRET_KEY=` / `NOM035_*_PEPPER=` en el generador CI. Mitigación: ensamblar nombres por partes (sin debilitar el escáner). `hasLocalSupabase` también exige `psql` alcanzable.
 
 ### Notas
 

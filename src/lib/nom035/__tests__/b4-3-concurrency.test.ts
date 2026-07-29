@@ -24,17 +24,31 @@ function loadEnvLocal(): Record<string, string> {
   return { ...out, ...(process.env as Record<string, string>) };
 }
 
-/** Solo corre con Supabase local (job database/e2e o máquina con .env.local). */
+/** Solo corre con Supabase local alcanzable (job database/e2e o stack local arriba). */
 function hasLocalSupabase(): boolean {
   const env = loadEnvLocal();
   const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const secret = env.SUPABASE_SECRET_KEY ?? "";
   const pepper = env.NOM035_TOKEN_PEPPER ?? "";
   const sessionPepper = env.NOM035_SESSION_PEPPER ?? "";
-  return (
-    Boolean(url && secret && pepper && sessionPepper) &&
-    /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(url)
-  );
+  if (
+    !(
+      Boolean(url && secret && pepper && sessionPepper) &&
+      /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(url)
+    )
+  ) {
+    return false;
+  }
+  try {
+    execFileSync(
+      "psql",
+      ["postgresql://postgres:postgres@127.0.0.1:55322/postgres", "-At", "-c", "select 1"],
+      { encoding: "utf8", timeout: 3000, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function adminClient() {

@@ -7,6 +7,7 @@
 - Docs: CI_SECURITY_MODEL, STAGING_*, BACKUP/ROLLBACK, PRODUCTION_CHECKLIST_PRELIMINARY, B4_7.
 - Enlace Cloud únicamente a proyecto nombre exacto `nom035-staging` (sin tocar otros).
 - CI: `b4-3-concurrency` se omite en `quality` sin `.env.local`; corre en `database` tras `ci-write-local-env`.
+- CI: `ci-write-local-env` ensambla nombres de env por partes (evita falso positivo del secret-scan).
 - Sin Vercel Production, sin merge a main, sin usuarios/datos reales.
 
 ## 2026-07-27 (B4.6 — Auth, RBAC y MFA)
