@@ -1,29 +1,32 @@
-# Rollback Staging
+# Staging Rollback Runbook (frontend Preview)
 
-## A) Frontend (Vercel Preview)
+## Alcance
 
-1. Identificar deployment RC.
-2. Promover/reactivar el deployment anterior de la misma rama Preview.
-3. Smoke: `/api/health/live`, login, evaluación pública.
-4. Confirmar commit esperado.
+Solo Vercel **Preview**. Prohibido Production.
 
-Simulacro obligatorio en B4.7: RC → deploy controlado → volver a RC.
+## Deployments usados (B4.7)
 
-## B) Base de datos
+| Rol | Deployment | ready |
+|-----|------------|-------|
+| A (RC) | `mom-r9v4rv87l-viozs-projects.vercel.app` | 200 live/ready/login |
+| B | `mom-aysnzxp2n-viozs-projects.vercel.app` | 200 live/ready/login |
+| Alias | `mom-git-release-nom035-staging-rc1-viozs-projects.vercel.app` | apunta a A tras prueba |
 
-- Preferir migración **forward-fix**.
-- No down destructivo improvisado.
-- Restaurar dump solo ante corrupción.
-- Criterio de parar tráfico: datos inconsistentes o Auth rota.
+## Procedimiento verificado
 
-## C) Auth
+```bash
+npx vercel alias set <deployment-B> mom-git-release-nom035-staging-rc1-viozs-projects.vercel.app
+# smoke alias: live/ready/login 200; /admin → 307 login
+npx vercel alias set <deployment-A> mom-git-release-nom035-staging-rc1-viozs-projects.vercel.app
+# smoke alias de nuevo
+```
 
-- Desactivar usuarios sintéticos.
-- Revocar sesiones.
-- Rotar secretos si hubo exposición.
+## Evidencia
 
-## D) Storage
+- Alias → B: smoke OK (ready 200, no 503)
+- Alias → A: smoke OK; alias restaurado al RC
+- Sin cambios DB; sin Production
 
-- Inventariar objetos staging.
-- Soft-delete / cleanup seguro.
-- Preservar historial de evidencia cuando aplique.
+## No usar
+
+Deployments con `ready=503` como rollback “aprobado”.

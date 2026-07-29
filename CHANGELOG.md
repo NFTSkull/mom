@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-29 (B4.7 — push c6ec8a5+, Preview CSP, E2E staging 42)
+
+- Push `c6ec8a5`; CI `30465305919` verde; Preview con CSP global observada.
+- E2E staging 42/42 (Chromium desktop/móvil + Firefox); WebKit omitido en darwin (frozen).
+- Rollback Preview A↔B con ready 200; cleanup sintéticos.
+- `SUPABASE_DB_PASSWORD_ABSENT` → restore no ejecutado → **NO CERTIFICADO**.
+
 ## 2026-07-29 (B4.7 — CSP global + suite staging ampliada)
 
 - `next.config.ts`: CSP + `X-Frame-Options: DENY` + `frame-ancestors 'none'` en `/:path*` y rutas sensibles; `unsafe-inline`/`unsafe-eval` residuales documentados (Next/hidratación/MFA).

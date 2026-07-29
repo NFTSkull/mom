@@ -14,6 +14,14 @@ if (!baseURL || !/^https:\/\//i.test(baseURL)) {
   );
 }
 
+/**
+ * WebKit en macOS 14 arm64 (Playwright frozen) falla con
+ * `Page.overrideSetting: Unknown setting: PushAPIEnabled`.
+ * Solo se habilita con FORCE_STAGING_WEBKIT=1 o fuera de darwin.
+ */
+const webkitCompatible =
+  process.env.FORCE_STAGING_WEBKIT === "1" || process.platform !== "darwin";
+
 export default defineConfig({
   testDir: "./e2e-staging",
   timeout: 180_000,
@@ -39,11 +47,15 @@ export default defineConfig({
       name: "chromium-mobile",
       use: { ...devices["Pixel 7"] },
     },
-    {
-      name: "webkit-public",
-      use: { ...devices["Desktop Safari"] },
-      testMatch: /public-evaluation|smoke|security/,
-    },
+    ...(webkitCompatible
+      ? [
+          {
+            name: "webkit-public",
+            use: { ...devices["Desktop Safari"] },
+            testMatch: /public-evaluation|smoke|security/,
+          },
+        ]
+      : []),
     {
       name: "firefox-smoke",
       use: { ...devices["Desktop Firefox"] },

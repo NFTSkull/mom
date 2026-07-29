@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-29 - B4.7 push + Preview CSP + E2E staging
+
+### Decisiones
+
+- Token GH solo en memoria; `unset` inmediato post-push.
+- Quejas staging: limpiar `public_rate_limits` en `beforeEach` (429 entre proyectos).
+- WebKit darwin arm64: no compatible (`PushAPIEnabled`); habilitar con `FORCE_STAGING_WEBKIT=1` o Linux.
+- Rollback: alias Vercel entre dos Preview Ready (no 503).
+- Sin password DB: no inventar restore; veredicto permanece NO CERTIFICADO.
+
 ## 2026-07-29 - B4.7 cierre de bloqueos (parcial)
 
 ### Decisiones

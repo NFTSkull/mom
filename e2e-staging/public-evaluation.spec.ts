@@ -41,11 +41,11 @@ test.describe("B4.7 staging · evaluación pública", () => {
     const errors: string[] = [];
     attachStrictGuards(page, errors);
     await page.goto("/evaluacion/ev_token_invalido_staging_xyz");
-    await expect(page.getByText(/no válido|no disponible|enlace/i)).toBeVisible();
+    await expect(page.getByText(/no válido|no disponible|enlace/i).first()).toBeVisible();
 
     const expired = await seedExpiredLink();
     await page.goto(expired.url);
-    await expect(page.getByText(/vencido|no válido|no disponible/i)).toBeVisible({
+    await expect(page.getByText(/vencido|no válido|no disponible/i).first()).toBeVisible({
       timeout: 15_000,
     });
     expect(errors, errors.join("\n")).toEqual([]);
@@ -53,47 +53,52 @@ test.describe("B4.7 staging · evaluación pública", () => {
 });
 
 test.describe("B4.7 staging · quejas", () => {
+  test.beforeEach(async () => {
+    // Evitar 429 residuales entre proyectos Chromium desktop/móvil.
+    await stagingAdmin().from("public_rate_limits").delete().neq("action", "");
+  });
+
   test("queja anónima e identificada", async ({ page, browser }) => {
     const errors: string[] = [];
     attachStrictGuards(page, errors);
 
-    await page.goto("/queja-confidencial");
-    const type = page.getByTestId("queja-type");
-    if (await type.count()) {
-      await type.selectOption({ index: 1 });
+    async function submitQueja(
+      p: typeof page,
+      mode: "anon" | "identified"
+    ): Promise<void> {
+      await p.goto("/queja-confidencial");
+      await p.getByTestId("queja-type").selectOption("violencia_laboral");
+      if (mode === "anon") {
+        await p.getByTestId("queja-anon").check();
+      } else {
+        await p.getByTestId("queja-identified").check();
+        await p.getByTestId("queja-name").fill("STAGING_TEST Reportero");
+        await p.getByTestId("queja-contact").fill("reportero-e2e@nom035.staging.local");
+      }
+      await p
+        .getByTestId("queja-description")
+        .fill(
+          mode === "anon"
+            ? "STAGING_TEST Queja anónima e2e remota controlada."
+            : "STAGING_TEST Queja identificada e2e remota."
+        );
+      await p.getByTestId("queja-confirm").check();
+      await p.getByTestId("queja-submit").click();
+      const receipt = p.getByTestId("queja-receipt");
+      const err = p.getByTestId("queja-error");
+      await Promise.race([
+        receipt.waitFor({ state: "visible", timeout: 25_000 }),
+        err.waitFor({ state: "visible", timeout: 25_000 }).then(async () => {
+          throw new Error(`queja error UI: ${(await err.textContent())?.slice(0, 160)}`);
+        }),
+      ]);
+      await expect(p.getByTestId("queja-folio")).toBeVisible();
     }
-    if (await page.getByTestId("queja-anon").count()) {
-      await page.getByTestId("queja-anon").check();
-    }
-    await page.getByTestId("queja-description").fill("STAGING_TEST Queja anónima e2e remota controlada.");
-    if (await page.getByTestId("queja-confirm").count()) {
-      await page.getByTestId("queja-confirm").check();
-    }
-    await page.getByTestId("queja-submit").click();
-    await expect(page.getByTestId("queja-folio").or(page.getByTestId("queja-receipt")).first()).toBeVisible({
-      timeout: 20_000,
-    });
 
+    await submitQueja(page, "anon");
     const other = await browser.newPage();
     attachStrictGuards(other, errors);
-    await other.goto("/queja-confidencial");
-    if (await other.getByTestId("queja-identified").count()) {
-      await other.getByTestId("queja-identified").check();
-    }
-    if (await other.getByTestId("queja-name").count()) {
-      await other.getByTestId("queja-name").fill("STAGING_TEST Reportero");
-    }
-    if (await other.getByTestId("queja-contact").count()) {
-      await other.getByTestId("queja-contact").fill("reportero-e2e@nom035.staging.local");
-    }
-    await other.getByTestId("queja-description").fill("STAGING_TEST Queja identificada e2e remota.");
-    if (await other.getByTestId("queja-confirm").count()) {
-      await other.getByTestId("queja-confirm").check();
-    }
-    await other.getByTestId("queja-submit").click();
-    await expect(other.getByTestId("queja-folio").or(other.getByTestId("queja-receipt")).first()).toBeVisible({
-      timeout: 20_000,
-    });
+    await submitQueja(other, "identified");
     await other.close();
     expect(errors, errors.join("\n")).toEqual([]);
   });
