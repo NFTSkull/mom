@@ -156,7 +156,9 @@ export default function AdminTrabajadoresPage() {
   return (
     <section className="space-y-4" data-testid="admin-workers-page">
       <h1 className="text-2xl font-semibold text-slate-900">Trabajadores</h1>
-      <p className="text-sm text-slate-600">Datos centrales en Supabase local (sin almacenamiento del navegador).</p>
+      <p className="text-sm text-slate-600">
+        Datos centrales en Supabase (sin almacenamiento del navegador como fuente primaria).
+      </p>
 
       <form onSubmit={onSubmit} className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="font-medium">{editingId ? "Editar" : "Alta"}</h2>

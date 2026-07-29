@@ -112,7 +112,7 @@ export default function AdminHomePage() {
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Portal interno NOM-035</h1>
         <p className="mt-1 text-slate-700">
-          Resumen central conectado a Supabase local. Sin datos mock en este panel.
+          Panel general de seguimiento de trabajadores, campañas y evaluaciones.
         </p>
         <button
           type="button"

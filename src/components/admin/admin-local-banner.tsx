@@ -1,8 +1,13 @@
+import { isVercelProduction } from "@/lib/env";
+
 /**
- * Aviso permanente del entorno administrativo local (B4.4).
- * No se puede ocultar: sin clase de ocultamiento, sin dismiss, role=status.
+ * Aviso del entorno administrativo no productivo (local/preview).
+ * En Production (VERCEL_ENV=production) no se renderiza.
+ * No se puede ocultar con CSS cuando está activo: sin ocultamiento visual, sin dismiss.
  */
 export function AdminLocalBanner() {
+  if (isVercelProduction()) return null;
+
   return (
     <aside
       role="status"
@@ -12,8 +17,8 @@ export function AdminLocalBanner() {
       style={{ display: "block", visibility: "visible", opacity: 1 }}
     >
       <p className="mx-auto max-w-6xl leading-relaxed">
-        Entorno administrativo local conectado a Supabase. El acceso permanecerá
-        deshabilitado en producción hasta implementar autenticación y roles.
+        Entorno administrativo local o de preview conectado a Supabase. No es
+        producción: no cargar trabajadores reales ni datos personales aquí.
       </p>
     </aside>
   );

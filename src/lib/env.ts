@@ -56,13 +56,21 @@ export function getPublicSupabaseEnv(): PublicSupabaseEnv {
 
 /**
  * Indica si hay configuración pública mínima para clientes browser/server cookie.
- * Útil para no romper el MVP localStorage cuando aún no hay Supabase.
+ * No implica modo local: en producción estas variables son obligatorias.
  */
 export function hasPublicSupabaseConfig(): boolean {
   return Boolean(
     readOptional("NEXT_PUBLIC_SUPABASE_URL") &&
       readOptional("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
   );
+}
+
+/**
+ * Runtime de producción en Vercel (no Preview/local).
+ * Usar para ocultar avisos/herramientas solo de desarrollo.
+ */
+export function isVercelProduction(): boolean {
+  return readOptional("VERCEL_ENV") === "production";
 }
 
 /** Secretos de servidor. Solo llamar desde código server-only. */

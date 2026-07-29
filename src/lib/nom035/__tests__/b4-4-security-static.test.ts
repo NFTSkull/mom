@@ -97,11 +97,20 @@ describe("B4.4 · seguridad estática admin", () => {
     }
   });
 
-  it("banner admin local no se oculta con display:none", () => {
+  it("banner admin local no se oculta con CSS y se omite en Production", () => {
     const banner = read("src/components/admin/admin-local-banner.tsx");
-    expect(banner).toContain("Entorno administrativo local conectado a Supabase");
-    expect(banner).not.toMatch(/display:\s*none|hidden|sr-only/);
+    expect(banner).toMatch(/isVercelProduction/);
+    expect(banner).toMatch(/Entorno administrativo local o de preview/);
+    expect(banner).not.toMatch(/display:\s*none|sr-only/);
     expect(banner).toMatch(/visibility:\s*"visible"/);
+  });
+
+  it("superficie productiva no muestra copy MVP local/mock", () => {
+    expect(read("src/app/page.tsx")).not.toMatch(/MVP local|local\/mock/);
+    expect(read("src/app/page.tsx")).toContain("Portal interno NOM-035");
+    expect(read("src/app/admin/page.tsx")).not.toMatch(/Supabase local|MVP local|local\/mock/);
+    expect(read("src/app/admin/page.tsx")).not.toMatch(/Cargar datos demo|Limpiar datos locales/);
+    expect(read("src/app/layout.tsx")).not.toMatch(/MVP local/);
   });
 
   it("guard exige auth_rbac y valida Origin", () => {

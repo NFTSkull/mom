@@ -122,7 +122,7 @@ export default function AdminConfiguracionPage() {
       <header>
         <h1 className="text-2xl font-semibold text-slate-900">Configuración de empresa</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Fuente de datos: Supabase local · Conexión:{" "}
+          Fuente de datos: Supabase · Conexión:{" "}
           <span data-testid="admin-config-connection">{connected ? "conectada" : "sin conexión"}</span>
           {updatedAt ? ` · Actualizado: ${new Date(updatedAt).toLocaleString("es-MX")}` : null}
         </p>

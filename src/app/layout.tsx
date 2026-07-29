@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portal Interno NOM-035",
-  description: "MVP local para flujo interno NOM-035-STPS-2018",
+  title: "Portal interno NOM-035",
+  description: "Panel general de seguimiento de trabajadores, campañas y evaluaciones.",
 };
 
 export default function RootLayout({

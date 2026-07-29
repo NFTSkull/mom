@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-29 - B4.8 cutover Production (bloqueado)
+
+### Decisiones
+
+- No reutilizar `nom035-staging` ni ConCasa como Production.
+- No crear empresa ni admin ficticios; detener import hasta datos reales.
+- Secretos Production generados off-repo; no copiar peppers/keys de staging.
+- Cupo free Supabase (2 proyectos) bloquea creación de `nom035-production` vía API.
+- Vercel exclusivo `nom035-production` creado vacío; deploy aplazado hasta DB + secrets + CI del SHA de cutover.
+- UI: datos demo/localStorage no son fuente del admin; banner solo local/preview.
+
 ## 2026-07-29 - Import CSV nómina (local only)
 
 ### Decisiones

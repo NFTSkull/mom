@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-29 (B4.8 — cutover Production BLOQUEADO)
+
+- Copy productivo: sin “MVP local” / “Supabase local”; banner admin omitido en `VERCEL_ENV=production`.
+- Proyecto Vercel `nom035-production` creado; Supabase `nom035-production` **no** creado (límite free 2/2).
+- CSV 83 validado fuera de repo; **sin** import a Production.
+- Veredicto: **PRODUCCIÓN BLOQUEADA** (`docs/B4_8_PRODUCTION_CUTOVER.md`).
+
 ## 2026-07-29 (B4.7 CERTIFICADO @ 0ff37fd)
 
 - CI RC `30480578873` + WebKit `30480578619` success en el mismo SHA.
