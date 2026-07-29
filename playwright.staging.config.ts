@@ -40,9 +40,14 @@ export default defineConfig({
       use: { ...devices["Pixel 7"] },
     },
     {
-      name: "webkit-mobile-public",
-      use: { ...devices["iPhone 14"] },
-      testMatch: /public|queja|evaluacion/i,
+      name: "webkit-public",
+      use: { ...devices["Desktop Safari"] },
+      testMatch: /public-evaluation|smoke|security/,
+    },
+    {
+      name: "firefox-smoke",
+      use: { ...devices["Desktop Firefox"] },
+      testMatch: /smoke|security/,
     },
   ],
   // Sin webServer: el target es remoto.

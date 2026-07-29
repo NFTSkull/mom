@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-29 - B4.7 cierre de bloqueos (parcial)
+
+### Decisiones
+
+- Causa raíz de fallos E2E local masivos: `PLAYWRIGHT_BASE_URL` quedó exportado al Preview Vercel; las rutas relativas pegaban a Cloud con credenciales locales. Mitigación: `unset` antes de `test:e2e` local.
+- CSP ampliada a toda la app (`/:path*`) manteniendo `unsafe-inline`/`unsafe-eval` por compatibilidad Next + QR MFA; framing vía `frame-ancestors 'none'` y `X-Frame-Options: DENY`.
+- Seed fixtures staging exige ref `agbl…kubf` + nombre `nom035-staging`; Storage público list denegado verificado.
+- Suite staging ampliada (no solo smoke); WebKit iPhone en macOS 14 arm64 fallaba por `PushAPIEnabled` → Desktop Safari + Firefox smoke.
+- Backup/restore y redeploy Preview con CSP nueva siguen bloqueando CERTIFICADO.
+
+### Notas
+
+- CI del SHA `a14d50b`: run `30430479378` success (no reutilizar `471592f`).
+
 ## 2026-07-27 - Bloque B4.7 (RC / Staging)
 
 ### Decisiones

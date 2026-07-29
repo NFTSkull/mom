@@ -22,7 +22,33 @@ const PRIVACY_HEADERS = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self'",
+      // Preview/staging: cliente público puede hablar con Supabase Auth/REST.
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
+];
+
+/** Cabeceras globales (framing + CSP). Residuales unsafe-inline/eval documentados en cert. */
+const APP_SECURITY_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -33,8 +59,14 @@ const PRIVACY_HEADERS = [
 const nextConfig: NextConfig = {
   async headers() {
     return [
+      { source: "/:path*", headers: APP_SECURITY_HEADERS },
       { source: "/evaluacion/:path*", headers: PRIVACY_HEADERS },
       { source: "/api/public/evaluations/:path*", headers: PRIVACY_HEADERS },
+      { source: "/queja-confidencial", headers: PRIVACY_HEADERS },
+      { source: "/api/public/complaints", headers: PRIVACY_HEADERS },
+      { source: "/api/admin/:path*", headers: PRIVACY_HEADERS },
+      { source: "/login", headers: PRIVACY_HEADERS },
+      { source: "/admin/:path*", headers: PRIVACY_HEADERS },
     ];
   },
 };

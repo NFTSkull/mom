@@ -21,6 +21,8 @@
     "auth:cleanup:test": "npx --yes tsx scripts/cleanup-auth-test-users.ts",
     "staging:seed:auth": "npx --yes tsx scripts/seed-staging-auth-users.ts",
     "staging:cleanup:auth": "npx --yes tsx scripts/cleanup-staging-auth-users.ts",
+    "staging:seed:fixtures": "npx --yes tsx scripts/seed-staging-fixtures.ts",
+    "staging:cleanup:fixtures": "npx --yes tsx scripts/cleanup-staging-fixtures.ts",
     "test:e2e:staging": "playwright test -c playwright.staging.config.ts",
     "ci:secret-scan": "python3 scripts/ci-secret-scan.py"
   },

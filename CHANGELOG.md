@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-29 (B4.7 — CSP global + suite staging ampliada)
+
+- `next.config.ts`: CSP + `X-Frame-Options: DENY` + `frame-ancestors 'none'` en `/:path*` y rutas sensibles; `unsafe-inline`/`unsafe-eval` residuales documentados (Next/hidratación/MFA).
+- Scripts `staging:seed:fixtures` / `staging:cleanup:fixtures` (empresa, campaña, tokens, PDF, quejas, plan, política; solo `nom035-staging`).
+- Suite `e2e-staging`: público, Auth/MFA/roles, módulos, seguridad, Chromium desktop/móvil, WebKit público, Firefox smoke.
+- Regresión local con Supabase arriba: Vitest 189 (0 skip), pgTAP 517, Playwright 42.
+- CI `a14d50b` run `30430479378` verde; veredicto sigue **NO CERTIFICADO** hasta E2E staging 100% + backup/restore + redeploy CSP.
+
 ## 2026-07-27 (B4.7 — Release Candidate / Staging prep)
 
 - Rama `release/nom035-staging-rc1`, CI release, health `/api/health/live|ready`.

@@ -4,27 +4,22 @@
 
 **NO CERTIFICADO**
 
-Motivo principal: E2E remoto completo (evaluación pública, Auth/MFA, roles, módulos, WebKit) no está implementado/aprobado; solo smoke. Backup lógico post-NOM-035 no restaurado (sin password DB en sesión; PITR/backups físicos vacíos en plan).
+Motivo principal: suite staging aún no 100% verde tras ampliaciones; Preview aún no redeployado con CSP global; backup lógico no restaurado (password DB staging no disponible en sesión).
 
 ## Completado
 
-- Push `release/nom035-staging-rc1` → remoto `471592f`
-- CI verde run `30429324801` (quality/security/database/e2e)
-- Supabase `nom035-staging` / `agbl…kubf` con migraciones 001–005
-- Vercel proyecto `mom` (repo NFTSkull/mom); variables **solo Preview** rama RC
-- SSO Preview desactivado (antes bloqueaba E2E)
-- Auth Site URL + allow list → Preview alias
-- Health live/ready 200; admin→login; API admin 401
-- Seed sintético `@nom035.staging.local` + cleanup
-- Playwright staging smoke 6/6
-- Rollback frontend: deployment anterior alcanzable; alias RC sigue healthy
+- SHA `a14d50b` local=remoto; CI run `30430479378` quality/security/database/e2e **success**
+- Regresión local sin skips inesperados (Supabase arriba): Vitest **189**, pgTAP **517**, Playwright **42**, audit 0
+- Seed staging auth (4 roles + MFA TOTP) + fixtures (empresa, campaña, 3 tokens, PDF Storage, quejas, plan, política); Storage público denegado
+- Suite `e2e-staging` ampliada (público/Auth/roles/módulos/seguridad); Chromium desktop+móvil mayormente verde; WebKit Desktop Safari / Firefox smoke configurados
+- CSP/headers añadidos en `next.config.ts` (pendiente redeploy Preview para observación remota)
 
 ## Pendiente / bloqueadores P0
 
-1. Suite `e2e-staging` completa (público, Auth/MFA, roles, módulos, WebKit/Firefox)
-2. Backup lógico + restore verificado (password DB staging / PITR no disponible)
-3. Seed de datos ficticios de negocio (campaña/evaluaciones) + cleanup Storage
-4. Headers CSP completos (HSTS sí; CSP no observado en HTML)
+1. Redeploy Preview del SHA con CSP + re-ejecutar headers/E2E staging hasta 0 fail
+2. Backup lógico staging + restore verificado en local limpio
+3. Rollback funcional con dos Preview ready=200
+4. Cleanup final + CI del SHA post-correcciones
 
 ## Confirmaciones
 
@@ -32,3 +27,4 @@ Motivo principal: E2E remoto completo (evaluación pública, Auth/MFA, roles, m�
 - Tag `nom035-local-certified-rc1` no empujado
 - ConCasa CRM / otros proyectos no modificados
 - Sin Vercel `--prod` / sin dominio final / sin datos reales
+- PATs de chat: no reutilizados; `GH_TOKEN_UNSET` al inicio de esta sesión (revocación a confirmar por el usuario)
