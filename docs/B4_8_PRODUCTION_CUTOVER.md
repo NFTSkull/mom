@@ -1,7 +1,7 @@
 # B4.8 — Cutover controlado a producción
 
 **Fecha UTC:** 2026-07-29  
-**Veredicto actual:** **PRODUCCIÓN BLOQUEADA** (pendiente empresa real + admin real + deploy READY certificado)
+**Veredicto actual:** **PRODUCCIÓN BLOQUEADA** (deploy READY + health OK; pendiente empresa real + admin real + import 83 + CI del SHA con `vercel.json`)
 
 ## 1. Promoción del proyecto existente
 
