@@ -52,7 +52,8 @@ export default defineConfig({
           {
             name: "webkit-public",
             use: { ...devices["Desktop Safari"] },
-            testMatch: /public-evaluation|smoke|security/,
+            // Cobertura mínima B4.7 WebKit: pública + auth MFA + smoke + security.
+            testMatch: /public-evaluation|auth-rbac|smoke|security/,
           },
         ]
       : []),

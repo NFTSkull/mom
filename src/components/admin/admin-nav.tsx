@@ -62,6 +62,7 @@ export function AdminNav({
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch={false}
                 aria-current={isActive(item.href) ? "page" : undefined}
                 className={`rounded-md px-3 py-2 font-medium transition ${
                   isActive(item.href)

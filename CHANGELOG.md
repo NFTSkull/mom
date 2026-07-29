@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-29 (B4.7 — backup/restore verificado + WebKit CI)
+
+- Dump lógico `public` de `nom035-staging` fuera del repo + restore aislado en Supabase local con conteos/RLS/FK/RPC verificados; Storage PDF ficticio con hash y privacidad.
+- Workflow `.github/workflows/staging-webkit.yml` (Linux x64, WebKit + deps, seed/cleanup `always()`).
+- `prefetch={false}` en nav/quick links admin (evita pageerror WebKit por prefetch RSC tras logout/auth).
+- Scripts `staging:backup:*`; runbook `docs/BACKUP_RESTORE_RUNBOOK.md` ampliado.
+- Veredicto: pendiente CI WebKit verde en el SHA final + secrets staging en Actions.
+
 ## 2026-07-29 (B4.7 — push c6ec8a5+, Preview CSP, E2E staging 42)
 
 - Push `c6ec8a5`; CI `30465305919` verde; Preview con CSP global observada.

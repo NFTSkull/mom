@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-29 - B4.7 P0 backup/restore + WebKit runner
+
+### Decisiones
+
+- Password DB ausente al inicio → rotación vía Management API PATCH (solo en memoria) para dump; no se imprime; usuario debe resetear en Dashboard al cerrar.
+- Dump acotado a schema `public` (+ roles): evita filtrar MFA secrets/auth.users en el artefacto off-site.
+- Restore real en DB aislada `nom035_restore_verify` (Postgres de Supabase local) con stub mínimo `auth.users` solo para FKs; conteos 1:1 vs origen; RLS+FORCE en 16 tablas; 101 funciones; 24 FKs.
+- Storage: PDF ficticio, anon denegado, signed URL TTL 60s (no persistida), restore re-upload hash OK, cleanup objetos.
+- WebKit en Darwin arm64 sigue incompatible; evidencia en contenedor Linux `mcr.microsoft.com/playwright:v1.62.0-jammy` (14/16) + workflow GHA ubuntu.
+- Fallos WebKit admin/logout: pageerror por prefetch RSC de `<Link>` tras cambio de sesión → `prefetch={false}` en nav/quick links (fix de app, no skip de assertions).
+- Logout staging E2E: flujo UI «Cerrar sesión» + revalidación `/admin` → `/login`.
+
 ## 2026-07-29 - B4.7 push + Preview CSP + E2E staging
 
 ### Decisiones

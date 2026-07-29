@@ -4,28 +4,28 @@
 
 **NO CERTIFICADO**
 
-Motivo principal: `SUPABASE_DB_PASSWORD_ABSENT` — no se ejecutó dump/restore real. Además WebKit no corre en macOS 14 arm64 (Playwright frozen / `PushAPIEnabled`); requiere runner compatible.
+Motivo: falta evidencia CI del SHA final con job WebKit staging en verde (y secrets Actions configurados). Backup/restore lógico + Storage ya verificados off-site.
 
 ## Completado
 
-- Push `c6ec8a5` → remoto; CI run `30465305919` quality/security/database/e2e **success**
-- Preview `mom-r9v4rv87l` alias RC; CSP observada (`frame-ancestors 'none'`, `X-Frame-Options: DENY`, HSTS, nosniff); residuales `unsafe-inline`/`unsafe-eval`
-- Health live/ready 200; admin 307→login; API admin 401
-- Seed+cleanup auth/fixtures staging OK
-- E2E staging **42/42** (Chromium desktop+móvil + Firefox smoke); WebKit omitido en darwin con justificación técnica
-- Rollback Preview A↔B con ready 200 verificado
-- Regresión local: Vitest 189, pgTAP 517, Playwright 42, audit 0
+- SHA base previo `d727691`; CI `30470463127` quality/security/database/e2e success
+- Preview RC live/ready/login 200; CSP + framing; rollback A↔B OK
+- E2E staging Chromium+Firefox 42/42
+- **Backup lógico** en `~/Desktop/nom035-staging-backup-verified/` (roles + schema/data public + MANIFEST SHA-256)
+- **Restore real** en DB aislada local: conteos 1:1, 213 constraints, 24 FK, RLS+FORCE 16, 101 RPC/funciones
+- **Storage**: manifest + anon denegado + signed URL + hash restore; objetos de prueba eliminados
+- Workflow WebKit Linux x64 + `prefetch={false}` admin (mitiga pageerror Safari/WebKit)
 
-## Pendiente / P0
+## Pendiente cierre CERTIFICADO
 
-1. Password DB staging → dump lógico + restore verificado + manifest Storage
-2. WebKit en runner compatible (Linux CI o macOS no frozen)
-3. Ampliar cobertura staging a los 64 casos del checklist si se exige 1:1 (hoy suite condensada pero verde)
+1. Push SHA con workflow + fix prefetch
+2. Secrets GitHub Actions staging configurados
+3. Job `webkit-staging` success en el mismo SHA que quality/security/database/e2e
+4. Cleanup final + `SUPABASE_DB_PASSWORD_UNSET` + reset password Dashboard si se rotó
 
 ## Confirmaciones
 
 - `main` intacto `b037cad…`
 - Tag no empujado
-- ConCasa / otros proyectos no tocados
-- Sin Vercel `--prod` / sin dominio final / sin datos reales
-- `GH_TOKEN` eliminado tras push; listo para revocación definitiva por el usuario
+- ConCasa / Production / dominio final no tocados
+- Sin usuarios ni datos reales

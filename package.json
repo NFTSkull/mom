@@ -23,7 +23,11 @@
     "staging:cleanup:auth": "npx --yes tsx scripts/cleanup-staging-auth-users.ts",
     "staging:seed:fixtures": "npx --yes tsx scripts/seed-staging-fixtures.ts",
     "staging:cleanup:fixtures": "npx --yes tsx scripts/cleanup-staging-fixtures.ts",
+    "staging:backup:dump": "node scripts/staging-backup-dump.mjs",
+    "staging:backup:restore-verify": "node scripts/staging-backup-restore-verify.mjs",
+    "staging:backup:storage-verify": "node scripts/staging-storage-backup-verify.mjs",
     "test:e2e:staging": "playwright test -c playwright.staging.config.ts",
+    "test:e2e:staging:webkit": "FORCE_STAGING_WEBKIT=1 playwright test -c playwright.staging.config.ts --project=webkit-public",
     "ci:secret-scan": "python3 scripts/ci-secret-scan.py"
   },
   "dependencies": {

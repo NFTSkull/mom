@@ -188,6 +188,7 @@ export default function AdminHomePage() {
           <Link
             key={l.href}
             href={l.href}
+            prefetch={false}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:bg-slate-50"
           >
             {l.label}

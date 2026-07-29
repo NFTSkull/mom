@@ -69,9 +69,12 @@ test.describe("B4.7 staging · Auth MFA roles", () => {
     const errors: string[] = [];
     attachStrictGuards(page, errors);
     await loginAsRole(page, "admin");
-    await page.request.post("/api/auth/logout");
+    await page.getByRole("button", { name: "Cerrar sesión" }).click();
+    await expect(page).toHaveURL(/\/login/);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/login/);
+    const me = await page.request.get("/api/auth/me");
+    expect([401, 403]).toContain(me.status());
     expect(errors, errors.join("\n")).toEqual([]);
   });
 

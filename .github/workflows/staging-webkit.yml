@@ -1,0 +1,109 @@
+name: Staging WebKit E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "release/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-webkit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
+  # Preview exclusivo RC — no Production
+  PLAYWRIGHT_BASE_URL: https://mom-git-release-nom035-staging-rc1-viozs-projects.vercel.app
+
+jobs:
+  webkit-staging:
+    name: webkit-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install WebKit + OS deps
+        run: npx playwright install --with-deps webkit
+
+      - name: Write staging env (from secrets, no echo)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          NOM035_TOKEN_PEPPER: ${{ secrets.STAGING_NOM035_TOKEN_PEPPER }}
+          NOM035_SESSION_PEPPER: ${{ secrets.STAGING_NOM035_SESSION_PEPPER }}
+          NOM035_RATE_LIMIT_PEPPER: ${{ secrets.STAGING_NOM035_RATE_LIMIT_PEPPER }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY \
+                   NOM035_TOKEN_PEPPER NOM035_SESSION_PEPPER NOM035_RATE_LIMIT_PEPPER STAGING_PROJECT_REF; do
+            if [ -z "${!v:-}" ]; then echo "MISSING_SECRET_$v"; missing=1; fi
+          done
+          test "$missing" -eq 0
+          # Guardas anti-producción / anti-ConCasa
+          echo "$NEXT_PUBLIC_SUPABASE_URL" | grep -qiE 'prod|production|concasa|charolais' && exit 1 || true
+          echo "$NEXT_PUBLIC_SUPABASE_URL" | grep -q 'supabase.co'
+          mkdir -p .tmp
+          printf '%s' "$STAGING_PROJECT_REF" > .tmp/staging-project-ref.txt
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
+            echo "SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}"
+            echo "NOM035_TOKEN_PEPPER=${NOM035_TOKEN_PEPPER}"
+            echo "NOM035_SESSION_PEPPER=${NOM035_SESSION_PEPPER}"
+            echo "NOM035_RATE_LIMIT_PEPPER=${NOM035_RATE_LIMIT_PEPPER}"
+            echo "NEXT_PUBLIC_APP_URL=${PLAYWRIGHT_BASE_URL}"
+            echo "STAGING_PROJECT_NAME=nom035-staging"
+            echo "NOM035_PUBLIC_EVALUATION_BACKEND=supabase"
+            echo "NOM035_PUBLIC_COMPLAINT_BACKEND=supabase"
+            echo "NOM035_ADMIN_BACKEND_MODE=auth_rbac"
+            echo "NOM035_EVIDENCE_BUCKET=nom035-evidence"
+          } > .env.staging.local
+          chmod 600 .env.staging.local
+          host=$(python3 -c "from urllib.parse import urlparse; print(urlparse('${NEXT_PUBLIC_SUPABASE_URL}').hostname.split('.')[0])")
+          test "$host" = "$STAGING_PROJECT_REF"
+          echo "STAGING_ENV_READY"
+
+      - name: Seed fixtures + auth sintéticos
+        run: |
+          npm run staging:seed:fixtures
+          npm run staging:seed:auth
+
+      - name: WebKit staging suite
+        env:
+          FORCE_STAGING_WEBKIT: "1"
+          PLAYWRIGHT_BASE_URL: ${{ env.PLAYWRIGHT_BASE_URL }}
+        run: |
+          npx playwright test -c playwright.staging.config.ts --project=webkit-public
+
+      - name: Cleanup staging (siempre)
+        if: always()
+        run: |
+          npm run staging:cleanup:auth || true
+          npm run staging:cleanup:fixtures || true
+          rm -f .env.staging.local .tmp/staging-auth-credentials.json .tmp/staging-fixtures.json
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-staging-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
