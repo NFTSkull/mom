@@ -24,14 +24,16 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect("/admin/seguridad/mfa?mode=verify");
   }
 
+  const showChrome = !ctx.mfaRequired || ctx.aal === "aal2";
+
   return (
     <div className="min-h-screen bg-slate-50">
       <AdminLocalBanner />
-      {ctx.aal === "aal2" ? (
+      {showChrome ? (
         <AdminNav nombre={ctx.nombre} role={ctx.role} permissions={ctx.permissions} />
       ) : null}
       <main className="mx-auto max-w-6xl px-4 py-6 text-slate-800">
-        {ctx.aal === "aal2" ? <LegacyLocalDataNotice /> : null}
+        {showChrome ? <LegacyLocalDataNotice /> : null}
         {children}
       </main>
     </div>
