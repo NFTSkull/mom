@@ -137,7 +137,7 @@ export default function AdminHomePage() {
           <Card label="Trabajadores inactivos" value={summary.inactiveWorkers} testId="card-inactive-workers" />
           <Card
             label="Campaña activa"
-            value={summary.activeCampaign?.nombre ?? "Ninguna"}
+            value={summary.activeCampaign?.nombre ?? "Sin campaña activa"}
             testId="card-active-campaign"
           />
           <Card label="Sin enlace" value={summary.assignments.noLink} testId="card-no-link" />

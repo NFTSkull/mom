@@ -28,6 +28,9 @@
     "staging:backup:storage-verify": "node scripts/staging-storage-backup-verify.mjs",
     "workers:import:local": "npx --yes tsx scripts/local-import-workers-csv.ts",
     "workers:import:local:cleanup": "npx --yes tsx scripts/local-import-workers-csv.ts --cleanup",
+    "production:residue:audit": "npx --yes tsx scripts/production-residue-audit.ts",
+    "production:residue:cleanup": "CONFIRM_PRODUCTION_CLEANUP=YES npx --yes tsx scripts/production-cleanup-staging-residues.ts",
+    "production:backup:dump": "CONFIRM_PRODUCTION_BACKUP=YES node scripts/production-backup-dump.mjs",
     "test:e2e:staging": "playwright test -c playwright.staging.config.ts",
     "test:e2e:staging:webkit": "FORCE_STAGING_WEBKIT=1 playwright test -c playwright.staging.config.ts --project=webkit-public",
     "ci:secret-scan": "python3 scripts/ci-secret-scan.py"

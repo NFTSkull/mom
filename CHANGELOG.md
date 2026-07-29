@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-29 (B4.8 — promoción proyecto + limpieza; Production aún bloqueada)
+
+- Proyecto Supabase renombrado `nom035-staging` → `nom035-production` (mismo ref `agbl…kubf`); sin tercer proyecto.
+- Scripts productivos con guardas de ref/nombre; limpieza de residuos `STAGING_TEST`; peppers nuevos; backup pre-import off-repo.
+- `tsconfig` excluye `scripts` del typecheck de Next (evita fallo de deploy).
+- Dashboard: “Sin campaña activa”. Veredicto: **PRODUCCIÓN BLOQUEADA** (falta empresa real + admin + deploy READY).
+
 ## 2026-07-29 (B4.8 — cutover Production BLOQUEADO)
 
 - Copy productivo: sin “MVP local” / “Supabase local”; banner admin omitido en `VERCEL_ENV=production`.

@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-29 - B4.8 promoción nom035-production (mismo ref)
+
+### Decisiones
+
+- No crear tercer proyecto: el cupo free se resolvió renombrando staging → production (autorizado por el usuario).
+- Rotar DB password + peppers; documentar que service_role/publishable no rotan vía API.
+- Limpieza solo por filtros `STAGING_TEST` / `@nom035.staging.local` (último admin vía SQL con trigger deshabilitado).
+- Excluir `scripts/` de `tsconfig` para que `next build` en Vercel no tipifique utilidades CLI.
+- Import 83 y admin real detenidos hasta datos del usuario.
+
 ## 2026-07-29 - B4.8 cutover Production (bloqueado)
 
 ### Decisiones
