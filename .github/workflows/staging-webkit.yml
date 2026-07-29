@@ -1,10 +1,10 @@
 name: Staging WebKit E2E
 
+# Tras promover nom035-staging → nom035-production (mismo ref),
+# este workflow NO debe correr en push (reseeds destructivos).
+# Solo workflow_dispatch manual cuando exista un staging separado.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "release/**"
 
 permissions:
   contents: read
@@ -16,7 +16,6 @@ concurrency:
 env:
   NODE_VERSION: "20"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
-  # Preview exclusivo RC — no Production
   PLAYWRIGHT_BASE_URL: https://mom-git-release-nom035-staging-rc1-viozs-projects.vercel.app
 
 jobs:
@@ -25,6 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Block seeds against promoted production
+        run: |
+          echo "BLOQUEADO: el proyecto Supabase fue promovido a nom035-production."
+          echo "No ejecutar seeds/cleanup staging contra el mismo ref."
+          echo "Rehabilitar solo con un proyecto staging separado."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -54,7 +60,6 @@ jobs:
             if [ -z "${!v:-}" ]; then echo "MISSING_SECRET_$v"; missing=1; fi
           done
           test "$missing" -eq 0
-          # Guardas anti-producción / anti-ConCasa
           echo "$NEXT_PUBLIC_SUPABASE_URL" | grep -qiE 'prod|production|concasa|charolais' && exit 1 || true
           echo "$NEXT_PUBLIC_SUPABASE_URL" | grep -q 'supabase.co'
           mkdir -p .tmp

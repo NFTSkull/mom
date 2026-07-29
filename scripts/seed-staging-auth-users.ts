@@ -8,6 +8,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import * as OTPAuth from "otpauth";
+import { assertRemoteIsStagingNotProduction } from "./lib/assert-staging-not-production";
 
 const EXPECTED_NAME = "nom035-staging";
 const SYNTH_DOMAIN = "@nom035.staging.local";
@@ -74,6 +75,7 @@ async function main() {
   }
   const expectedRef = readFileSync(refFile, "utf8").trim();
   assertStaging(url, expectedRef);
+  assertRemoteIsStagingNotProduction(expectedRef);
 
   // Defensa: rechazar refs conocidos prohibidos por nombre histórico
   if (env.STAGING_PROJECT_NAME && env.STAGING_PROJECT_NAME !== EXPECTED_NAME) {

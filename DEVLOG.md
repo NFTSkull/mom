@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-29 - B4.8 riesgo: CI staging reseed sobre Production
+
+### Decisiones
+
+- Mismo ref + secrets STAGING_* → WebKit en push reseedeó fixtures tras la promoción.
+- Mitigación: cancelar runs, cleanup, desactivar push en `staging-webkit.yml`, guarda Management API en seeds.
+- Import 83 sigue bloqueado sin empresa/admin reales.
+
 ## 2026-07-29 - B4.8 promoción nom035-production (mismo ref)
 
 ### Decisiones

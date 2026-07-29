@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { assertRemoteIsStagingNotProduction } from "./lib/assert-staging-not-production";
 
 const EXPECTED_NAME = "nom035-staging";
 const MARK = "STAGING_TEST";
@@ -34,6 +35,11 @@ function assertStaging(url: string, expectedRef: string) {
   if (ref.length < 8) throw new Error("project ref inválido");
   if (/prod|production|concasa|charolais/i.test(url)) {
     throw new Error("URL parece producción u otro proyecto prohibido");
+  }
+  // El proyecto promovido conserva el mismo ref: exigir nombre lógico staging.
+  // Si fue renombrado a nom035-production, abortar seeds destructivos.
+  if (process.env.STAGING_PROJECT_NAME === "nom035-production") {
+    throw new Error("ABORT: STAGING_PROJECT_NAME apunta a production");
   }
 }
 
@@ -67,6 +73,7 @@ async function main() {
   if (!existsSync(refFile)) throw new Error("Falta .tmp/staging-project-ref.txt");
   const expectedRef = readFileSync(refFile, "utf8").trim();
   assertStaging(url, expectedRef);
+  assertRemoteIsStagingNotProduction(expectedRef);
   if (env.STAGING_PROJECT_NAME && env.STAGING_PROJECT_NAME !== EXPECTED_NAME) {
     throw new Error("STAGING_PROJECT_NAME debe ser nom035-staging");
   }

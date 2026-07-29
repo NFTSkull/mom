@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-29 (B4.8 — bloquear reseeds staging sobre Production)
+
+- WebKit staging: solo `workflow_dispatch` + fail-fast; seeds abortan si el nombre remoto es `nom035-production`.
+- Re-limpieza tras reseed accidental de CI; DB productiva vacía otra vez.
+
 ## 2026-07-29 (B4.8 — promoción proyecto + limpieza; Production aún bloqueada)
 
 - Proyecto Supabase renombrado `nom035-staging` → `nom035-production` (mismo ref `agbl…kubf`); sin tercer proyecto.

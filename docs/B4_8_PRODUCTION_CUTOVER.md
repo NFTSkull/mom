@@ -1,101 +1,74 @@
 # B4.8 — Cutover controlado a producción
 
 **Fecha UTC:** 2026-07-29  
-**Veredicto actual:** **PRODUCCIÓN BLOQUEADA** (deploy READY + health OK; pendiente empresa real + admin real + import 83 + CI del SHA con `vercel.json`)
+**Veredicto:** **PRODUCCIÓN BLOQUEADA**
 
-## 1. Promoción del proyecto existente
+## Resumen ejecutivo
+
+Proyecto Supabase promovido (`nom035-staging` → `nom035-production`, ref `agbl…kubf`).  
+Vercel Production READY en `https://nom035-production.vercel.app` con health/CSP OK.  
+**No** se importaron los 83: falta empresa real y correo de administrador.  
+CI WebKit de staging reseedó momentáneamente el mismo ref; se limpió y se desactivaron seeds automáticos.
+
+## 1. Promoción
 
 | Campo | Valor |
 |---|---|
-| Nombre actual | `nom035-production` |
-| Nombre anterior | `nom035-staging` |
-| Ref sanitizado | `agbl…kubf` |
+| Nombre | `nom035-production` |
+| Ref | `agbl…kubf` |
 | Región | `us-east-1` |
-| Estado | `ACTIVE_HEALTHY` |
-| ConCasa | intacto (`fvtq…vwzy`) |
-| Tercer proyecto | **no creado** |
+| Tercer proyecto | no creado |
+| ConCasa | intacto |
 
-El Project ID / URL / migraciones / Auth / Storage permanecen; solo cambió el nombre lógico.
+## 2. SHA / CI
 
-## 2. SHA y CI
-
-| Campo | Valor |
+| SHA | Notas |
 |---|---|
-| Rama | `release/nom035-staging-rc1` |
-| Prep B4.8 previa | `27e9d24` — RC Quality + WebKit **success** |
-| Jobs RC | quality / security / database / e2e **success** |
-| WebKit | `webkit-staging` **success** |
+| `27e9d24` | prep B4.8 — RC + WebKit success |
+| `7bf4ed7` | scripts productivos — WebKit success; RC cancelado por supersede |
+| `8e8aab7` | `vercel.json` Next.js — CI en curso al corte; deploy READY verificado |
+| tip con bloqueo WebKit | commit de mitigación anti-reseed |
 
-Cualquier SHA posterior con cambios funcionales requiere CI + WebKit verdes antes de Production.
+## 3. Residuos
 
-## 3. Residuos staging
-
-Inventario inicial (filtros `STAGING_TEST%` / sintéticos):
-
-| Recurso | Cantidad |
-|---|---|
-| workers | 45 |
-| campaigns | 26 |
-| assignments | 30 |
-| results | 12 |
-| company sintética | 1 |
-| auth `@nom035.staging.local` | 1 (+ perfil) |
-| storage test | 0 |
-
-Limpieza explícita (`CONFIRM_PRODUCTION_CLEANUP=YES`): eliminados. Re-auditoría: **cero residuos**, **0 auth users**, **0 workers**, **sin empresa**.
+Inventario inicial limpiado. Tras reseed CI: segunda limpieza (workers/campañas/auth/storage).  
+Estado final auditado: **0 workers, 0 auth, 0 company, 0 storage test**.
 
 ## 4. Rotaciones
 
-Off-repo: `~/Desktop/nom035-production-secrets/rotation-registry.json`
+DB password + peppers nuevos (off-repo). service_role/publishable no rotados (limitación API).
 
-| Secreto | Estado |
-|---|---|
-| `SUPABASE_DB_PASSWORD` | rotada |
-| `NOM035_TOKEN_PEPPER` | nueva (Production) |
-| `NOM035_SESSION_PEPPER` | nueva (Production) |
-| `NOM035_RATE_LIMIT_PEPPER` | nueva (Production) |
-| `SUPABASE_SECRET_KEY` | **no rotada** (limitación API; ligada al proyecto) |
-| publishable key | **no rotada** (ligada al proyecto) |
+## 5. Backup pre-import
 
-No se reutilizaron valores STAGING_* como peppers productivos.
-
-## 5. Backup pre-importación
-
-Ruta: `~/Desktop/nom035-production-backups/2026-07-29T19-37-35-730Z-pre-import/`
-
-| Archivo | Bytes | SHA-256 |
-|---|---|---|
-| 00-roles.sql | 297 | `25873cec…89776ecd` |
-| 01-schema-public.sql | 241832 | `c1caca13…7236f15d` |
-| 02-data-public.sql | 52557 | `ec0332c0…7d43ef3283c` |
-
-Ref del dump: `agbl…kubf`. Sin password en documentación.
+`~/Desktop/nom035-production-backups/2026-07-29T19-37-35-730Z-pre-import/` (manifest con SHA-256).
 
 ## 6. Vercel
 
 | Campo | Valor |
 |---|---|
-| Proyecto | `nom035-production` (team `viozs-projects`) |
-| Variables Production | configuradas (env.ts) |
-| Primer deploy | **falló** typecheck por scripts TS incluidos en `tsc` |
-| Mitigación | `tsconfig.json` excluye `scripts` / `e2e-staging` |
+| Proyecto | `nom035-production` |
+| URL | `https://nom035-production.vercel.app` |
+| live / ready | **200** |
+| `/login` | **200** |
+| `/admin` | **307** → login |
+| API admin | **401** |
+| CSP / XFO DENY / HSTS / nosniff | OK |
 
-## 7. Bloqueadores restantes
+## 7. Auth Supabase
 
-1. **Empresa real:** no existe fila en `company_settings` (obligatorio solo `razon_social`; opcionales RFC/domicilio/responsable/total).  
-   Proporcionar al menos: razón social. Recomendados: RFC, domicilio, actividad, total trabajadores, responsable (nombre/email/teléfono).
-2. **Administrador productivo:** 0 perfiles / 0 Auth. Falta **correo real** (no inventar).
-3. **Deploy Production READY** del SHA con scripts + tsconfig + copy “Sin campaña activa”.
-4. Auth Site URL / redirects al dominio Production definitivo.
-5. Import 83 solo tras: deploy READY, health 200, empresa, admin, dry-run.
+Site URL y redirects apuntan solo a `https://nom035-production.vercel.app` (sin localhost/ConCasa).
 
-## 8. CSV
+## 8. Bloqueadores para OPERATIVA
 
-Validación previa intacta: 83 / 83 / 0 duplicados. **Sin import** (gates incompletos).
+1. **Empresa real** — `company_settings` vacío. Obligatorio: `razon_social`. Recomendados: RFC, domicilio, actividad, total trabajadores, responsable (nombre/email/teléfono).
+2. **Correo admin productivo** — 0 usuarios Auth. No inventar.
+3. Confirmar CI principal verde del tip anti-reseed.
+4. Luego: backup fresco → dry-run CSV → import upsert 83 → backup post → smoke autenticado.
 
-## 9. Confirmaciones
+## 9. CSV
 
-- ConCasa intacto; otros proyectos intactos.
-- CSV / nombres / secretos / dumps fuera de Git.
-- Sin cleanup de trabajadores reales (aún no importados).
-- Sin campaña inventada.
+83/83/0 duplicados validados. **Import no ejecutada.**
+
+## 10. Confirmaciones
+
+ConCasa y otros proyectos intactos; CSV/nombres/secretos fuera de Git; sin campaña inventada; sin cleanup de los 83 (no importados).
