@@ -8,6 +8,7 @@
 - Enlace Cloud únicamente a proyecto nombre exacto `nom035-staging` (sin tocar otros).
 - CI: `b4-3-concurrency` se omite en `quality` sin `.env.local`; corre en `database` tras `ci-write-local-env`.
 - CI: `ci-write-local-env` ensambla nombres de env por partes (evita falso positivo del secret-scan).
+- CI verde run `30429324801` @ `471592f`; Preview Vercel + smoke remoto; veredicto **NO CERTIFICADO** (falta E2E completo + backup restore).
 - Sin Vercel Production, sin merge a main, sin usuarios/datos reales.
 
 ## 2026-07-27 (B4.6 — Auth, RBAC y MFA)
