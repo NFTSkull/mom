@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-29 - Import CSV nómina (local only)
+
+### Decisiones
+
+- Número de empleado = `external_reference` (no hay columna `numero_empleado`; sin cambio de esquema).
+- Empresa singleton: marca de prueba vía `company_settings.razon_social` + `workers.sucursal = LOCAL_IMPORT_TEST_83`.
+- Upsert por referencia: create/update RPC reales; no Auth; no campañas.
+- CSV real solo en Downloads; cleanup verificado 83→0; Auth seed residual limpiado aparte.
+
 ## 2026-07-29 - B4.7 P0 backup/restore + WebKit runner
 
 ### Decisiones

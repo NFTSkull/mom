@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-29 (Import trabajadores — aliases + upsert local)
+
+- `mapWorkerCsv`: aliases de nómina (`Número`→`referencia_externa`, `Nombre Completo`→`nombre`).
+- Import idempotente `mode: upsert` (actualiza nombre/puesto/departamento por número).
+- Script `workers:import:local` / cleanup solo `LOCAL_IMPORT_TEST_83` (localhost-only).
+- Tests con fixtures ficticios; sin CSV real ni nombres reales en el repo.
+
 ## 2026-07-29 (B4.7 — backup/restore verificado + WebKit CI)
 
 - Dump lógico `public` de `nom035-staging` fuera del repo + restore aislado en Supabase local con conteos/RLS/FK/RPC verificados; Storage PDF ficticio con hash y privacidad.

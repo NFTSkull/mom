@@ -25,7 +25,6 @@ export function parseCsv(text: string): CsvParseResult {
     field = "";
   };
   const pushRow = () => {
-    // Ignorar filas totalmente vacías
     if (row.length === 1 && row[0] === "" && !inQuotes) {
       row = [];
       return;
@@ -96,6 +95,45 @@ export function parseCsv(text: string): CsvParseResult {
   return { headers, rows: dataRows, errors };
 }
 
+/** Aliases → canónico (sin tocar valores; solo encabezados). */
+const HEADER_ALIASES: Record<string, string> = {
+  nombre: "nombre",
+  "nombre completo": "nombre",
+  name: "nombre",
+  full_name: "nombre",
+  email: "email",
+  correo: "email",
+  telefono: "telefono",
+  teléfono: "telefono",
+  phone: "telefono",
+  departamento: "departamento",
+  department: "departamento",
+  depto: "departamento",
+  puesto: "puesto",
+  position: "puesto",
+  cargo: "puesto",
+  turno: "turno",
+  sucursal: "sucursal",
+  jefe_directo: "jefe_directo",
+  "jefe directo": "jefe_directo",
+  antiguedad: "antiguedad",
+  antigüedad: "antiguedad",
+  referencia_externa: "referencia_externa",
+  "referencia externa": "referencia_externa",
+  external_reference: "referencia_externa",
+  numero: "referencia_externa",
+  número: "referencia_externa",
+  numero_empleado: "referencia_externa",
+  "número de empleado": "referencia_externa",
+  "numero de empleado": "referencia_externa",
+  employee_number: "referencia_externa",
+  activo: "activo",
+};
+
+export function canonicalizeWorkerCsvHeaders(headers: string[]): string[] {
+  return headers.map((h) => HEADER_ALIASES[h.trim().toLowerCase()] ?? h.trim().toLowerCase());
+}
+
 export const WORKER_CSV_HEADERS = [
   "nombre",
   "email",
@@ -131,6 +169,14 @@ export type WorkerCsvPreview = {
   duplicatesInFile: number[];
 };
 
+export type MapWorkerCsvOptions = {
+  maxRows?: number;
+  /** Exige número/referencia, puesto y departamento (formato nómina). */
+  requireEmployeeFields?: boolean;
+  /** Detecta duplicados exactos de nombre en el archivo. */
+  rejectDuplicateExactNames?: boolean;
+};
+
 function parseActivo(raw: string | undefined): boolean | undefined {
   if (raw === undefined || raw.trim() === "") return undefined;
   const v = raw.trim().toLowerCase();
@@ -139,21 +185,54 @@ function parseActivo(raw: string | undefined): boolean | undefined {
   return undefined;
 }
 
-export function mapWorkerCsv(text: string, maxRows = 500): WorkerCsvPreview {
+export function mapWorkerCsv(
+  text: string,
+  maxRowsOrOptions: number | MapWorkerCsvOptions = 500
+): WorkerCsvPreview {
+  const options: MapWorkerCsvOptions =
+    typeof maxRowsOrOptions === "number"
+      ? { maxRows: maxRowsOrOptions }
+      : maxRowsOrOptions;
+  const maxRows = options.maxRows ?? 500;
+
   const parsed = parseCsv(text);
+  const headers = canonicalizeWorkerCsvHeaders(parsed.headers);
+  // Nómina: si vienen número + depto + puesto, exigir los tres en cada fila.
+  const requireEmployeeFields =
+    options.requireEmployeeFields ??
+    (headers.includes("referencia_externa") &&
+      headers.includes("departamento") &&
+      headers.includes("puesto"));
+  const rejectDuplicateExactNames =
+    options.rejectDuplicateExactNames ?? requireEmployeeFields;
   const errors: WorkerCsvPreview["errors"] = parsed.errors.map((e) => ({
     row: e.row,
     code: "parse_error",
     message: e.message,
   }));
 
-  if (!parsed.headers.includes("nombre")) {
+  if (!headers.includes("nombre")) {
     errors.push({
       row: 0,
       code: "missing_header",
-      message: "Falta el encabezado obligatorio 'nombre'.",
+      message: "Falta el encabezado obligatorio 'nombre' (o 'Nombre Completo').",
     });
     return { ok: false, rows: [], errors, duplicatesInFile: [] };
+  }
+
+  if (requireEmployeeFields) {
+    for (const h of ["referencia_externa", "departamento", "puesto"] as const) {
+      if (!headers.includes(h)) {
+        errors.push({
+          row: 0,
+          code: "missing_header",
+          message: `Falta el encabezado obligatorio para importación de nómina: ${h}.`,
+        });
+      }
+    }
+    if (errors.some((e) => e.code === "missing_header")) {
+      return { ok: false, rows: [], errors, duplicatesInFile: [] };
+    }
   }
 
   if (parsed.rows.length > maxRows) {
@@ -168,18 +247,18 @@ export function mapWorkerCsv(text: string, maxRows = 500): WorkerCsvPreview {
   const rows: WorkerCsvRow[] = [];
   const emailIndex = new Map<string, number>();
   const extIndex = new Map<string, number>();
+  const nameIndex = new Map<string, number>();
   const duplicatesInFile: number[] = [];
 
   parsed.rows.forEach((cols, idx) => {
-    const rowNum = idx + 2; // 1-based + header
+    const rowNum = idx + 2;
     const get = (name: string) => {
-      const i = parsed.headers.indexOf(name);
+      const i = headers.indexOf(name);
       return i >= 0 ? (cols[i] ?? "").trim() : "";
     };
 
     const nombre = get("nombre");
     if (!nombre) {
-      // Fila vacía: saltar sin error si todos vacíos
       if (cols.every((c) => !c.trim())) return;
       errors.push({ row: rowNum, code: "nombre_required", message: "Nombre vacío." });
       return;
@@ -187,11 +266,44 @@ export function mapWorkerCsv(text: string, maxRows = 500): WorkerCsvPreview {
 
     const email = get("email");
     const ext = get("referencia_externa");
+    const departamento = get("departamento");
+    const puesto = get("puesto");
     const activoRaw = get("activo");
     const activo = parseActivo(activoRaw);
     if (activoRaw && activo === undefined) {
       errors.push({ row: rowNum, code: "activo_invalid", message: "Valor de activo inválido." });
       return;
+    }
+
+    if (requireEmployeeFields) {
+      if (!ext) {
+        errors.push({
+          row: rowNum,
+          code: "referencia_externa_required",
+          message: "Número de empleado vacío.",
+        });
+        return;
+      }
+      if (!/^\d+$/.test(ext)) {
+        errors.push({
+          row: rowNum,
+          code: "referencia_externa_invalid",
+          message: "Número de empleado debe ser entero.",
+        });
+        return;
+      }
+      if (!departamento) {
+        errors.push({
+          row: rowNum,
+          code: "departamento_required",
+          message: "Departamento vacío.",
+        });
+        return;
+      }
+      if (!puesto) {
+        errors.push({ row: rowNum, code: "puesto_required", message: "Puesto vacío." });
+        return;
+      }
     }
 
     if (email) {
@@ -213,19 +325,31 @@ export function mapWorkerCsv(text: string, maxRows = 500): WorkerCsvPreview {
         errors.push({
           row: rowNum,
           code: "duplicate_external_reference_in_file",
-          message: "Referencia externa duplicada en el archivo.",
+          message: "Referencia/número duplicado en el archivo.",
         });
         return;
       }
       extIndex.set(ext, rowNum);
+    }
+    if (rejectDuplicateExactNames) {
+      if (nameIndex.has(nombre)) {
+        duplicatesInFile.push(rowNum);
+        errors.push({
+          row: rowNum,
+          code: "duplicate_nombre_in_file",
+          message: "Nombre exacto duplicado en el archivo.",
+        });
+        return;
+      }
+      nameIndex.set(nombre, rowNum);
     }
 
     rows.push({
       nombre,
       email: email || undefined,
       telefono: get("telefono") || undefined,
-      departamento: get("departamento") || undefined,
-      puesto: get("puesto") || undefined,
+      departamento: departamento || undefined,
+      puesto: puesto || undefined,
       turno: get("turno") || undefined,
       sucursal: get("sucursal") || undefined,
       jefe_directo: get("jefe_directo") || undefined,
@@ -245,4 +369,14 @@ export function mapWorkerCsv(text: string, maxRows = 500): WorkerCsvPreview {
     errors,
     duplicatesInFile,
   };
+}
+
+/** Detecta hosts remotos / staging / producción / ConCasa. */
+export function assertLocalOnlySupabaseUrl(url: string): void {
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(url)) {
+    throw new Error("import_local_only: URL no es localhost");
+  }
+  if (/supabase\.co|nom035-staging|production|concasa|charolais/i.test(url)) {
+    throw new Error("import_local_only: host remoto o proyecto prohibido");
+  }
 }

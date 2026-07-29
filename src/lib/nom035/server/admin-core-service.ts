@@ -195,6 +195,119 @@ export async function importWorkers(
   return data as Record<string, unknown>;
 }
 
+export type WorkerImportUpsertRow = {
+  nombre: string;
+  email?: string | null;
+  telefono?: string | null;
+  departamento?: string | null;
+  puesto?: string | null;
+  turno?: string | null;
+  sucursal?: string | null;
+  jefe_directo?: string | null;
+  antiguedad?: string | null;
+  referencia_externa: string;
+  activo?: boolean;
+};
+
+/**
+ * Importación idempotente por referencia_externa (número de empleado).
+ * - Si no existe: crea (RPC admin_create_worker).
+ * - Si existe: actualiza solo nombre, departamento y puesto.
+ * No crea usuarios Auth.
+ */
+export async function importWorkersUpsert(
+  rows: WorkerImportUpsertRow[],
+  client?: Awaited<ReturnType<typeof createSupabaseServerClient>>
+) {
+  const db = client ?? (await rpcClient());
+  let created = 0;
+  let updated = 0;
+  let rejected = 0;
+  const errors: Array<{ row: number; code: string }> = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const ext = row.referencia_externa?.trim();
+    const rowNum = i + 1;
+    if (!ext) {
+      rejected += 1;
+      errors.push({ row: rowNum, code: "referencia_externa_required" });
+      continue;
+    }
+
+    const listed = await db.rpc("admin_list_workers", {
+      p_search: ext,
+      p_activo: null,
+      p_departamento: null,
+      p_page: 1,
+      p_page_size: 100,
+    });
+    if (listed.error) throw listed.error;
+    const items =
+      ((listed.data as { items?: Array<{ id: string; externalReference?: string | null }> } | null)
+        ?.items ?? []);
+    const existing = items.find((w) => w.externalReference === ext) ?? null;
+
+    if (!existing) {
+      const { data, error } = await db.rpc("admin_create_worker", {
+        p_nombre: row.nombre,
+        p_email: row.email ?? null,
+        p_telefono: row.telefono ?? null,
+        p_departamento: row.departamento ?? null,
+        p_puesto: row.puesto ?? null,
+        p_turno: row.turno ?? null,
+        p_sucursal: row.sucursal ?? null,
+        p_jefe_directo: row.jefe_directo ?? null,
+        p_antiguedad: row.antiguedad ?? null,
+        p_external_reference: ext,
+        p_activo: row.activo ?? true,
+      });
+      if (error) throw error;
+      if ((data as { ok?: boolean } | null)?.ok) created += 1;
+      else {
+        rejected += 1;
+        errors.push({
+          row: rowNum,
+          code: String((data as { code?: string } | null)?.code ?? "create_failed"),
+        });
+      }
+      continue;
+    }
+
+    const { data, error } = await db.rpc("admin_update_worker", {
+      p_worker_id: existing.id,
+      p_nombre: row.nombre,
+      p_departamento: row.departamento ?? null,
+      p_puesto: row.puesto ?? null,
+      p_email: null,
+      p_telefono: null,
+      p_turno: null,
+      p_sucursal: null,
+      p_jefe_directo: null,
+      p_antiguedad: null,
+      p_external_reference: null,
+    });
+    if (error) throw error;
+    if ((data as { ok?: boolean } | null)?.ok) updated += 1;
+    else {
+      rejected += 1;
+      errors.push({
+        row: rowNum,
+        code: String((data as { code?: string } | null)?.code ?? "update_failed"),
+      });
+    }
+  }
+
+  return {
+    ok: rejected === 0,
+    created,
+    updated,
+    rejected,
+    total: rows.length,
+    errors,
+  };
+}
+
 export async function getDashboardSummary() {
   const { data, error } = await (await rpcClient()).rpc("admin_dashboard_summary");
   if (error) throw error;

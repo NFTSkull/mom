@@ -7,7 +7,7 @@ import {
   requireAdminApiAuth,
   unwrapRpc,
 } from "@/lib/nom035/server/admin-api-helpers";
-import { importWorkers } from "@/lib/nom035/server/admin-core-service";
+import { importWorkers, importWorkersUpsert } from "@/lib/nom035/server/admin-core-service";
 import { mapWorkerCsv } from "@/lib/nom035/server/admin-worker-import";
 
 export const runtime = "nodejs";
@@ -32,6 +32,7 @@ const bodySchema = z
   .object({
     rows: z.array(rowSchema).max(500).optional(),
     csvText: z.string().min(1).max(2_000_000).optional(),
+    mode: z.enum(["atomic", "upsert"]).optional(),
   })
   .strict()
   .refine((v) => Boolean(v.rows?.length || v.csvText), { message: "rows_or_csv_required" });
@@ -64,6 +65,20 @@ export async function POST(req: NextRequest) {
         referencia_externa: r.referencia_externa ?? null,
         activo: r.activo ?? true,
       }));
+    }
+
+    const mode = parsed.data.mode ?? "atomic";
+    if (mode === "upsert") {
+      const missingExt = rows.find((r) => !r.referencia_externa);
+      if (missingExt) return adminJsonError("invalid_payload", requestId);
+      const result = await importWorkersUpsert(
+        rows.map((r) => ({
+          ...r,
+          referencia_externa: String(r.referencia_externa),
+        }))
+      );
+      if (!result.ok) return adminJsonError("validation_failed", requestId);
+      return adminJsonOk({ ...result, inserted: result.created, requestId });
     }
 
     const data = await importWorkers(rows, "atomic");
