@@ -9,7 +9,7 @@ create extension if not exists pgtap with schema extensions;
 
 select no_plan();
 
--- --- RLS ENABLE en las 15 tablas --------------------------------------------
+-- --- RLS ENABLE en tablas del dominio (+ worker_accounts B4.9) ---------------
 select ok(
   (select bool_and(c.relrowsecurity)
      from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -19,10 +19,11 @@ select ok(
         'evaluation_assignments','evaluation_answers','evaluation_results',
         'action_plans','evidence_items','confidential_complaints',
         'policy_documents','audit_log',
-        'evaluation_drafts','evaluation_sessions','public_rate_limits'])),
-  'RLS ENABLE en las 15 tablas del dominio');
+        'evaluation_drafts','evaluation_sessions','public_rate_limits',
+        'worker_accounts'])),
+  'RLS ENABLE en tablas del dominio');
 
--- --- FORCE RLS en las 15 tablas ---------------------------------------------
+-- --- FORCE RLS --------------------------------------------------------------
 select ok(
   (select bool_and(c.relforcerowsecurity)
      from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -32,8 +33,9 @@ select ok(
         'evaluation_assignments','evaluation_answers','evaluation_results',
         'action_plans','evidence_items','confidential_complaints',
         'policy_documents','audit_log',
-        'evaluation_drafts','evaluation_sessions','public_rate_limits'])),
-  'FORCE RLS en las 15 tablas del dominio');
+        'evaluation_drafts','evaluation_sessions','public_rate_limits',
+        'worker_accounts'])),
+  'FORCE RLS en tablas del dominio');
 
 -- --- anon NO tiene SELECT/INSERT/UPDATE/DELETE en tablas sensibles -----------
 -- (recorre las tablas más sensibles y los 4 privilegios)
@@ -43,17 +45,17 @@ select ok(
 from unnest(array['SELECT','INSERT','UPDATE','DELETE']) p
 cross join unnest(array[
   'workers','evaluation_assignments','evaluation_answers','evaluation_results',
-  'confidential_complaints','admin_profiles','audit_log']) t
+  'confidential_complaints','admin_profiles','audit_log','worker_accounts']) t
 group by p;
 
--- --- authenticated tampoco tiene acceso directo (aún no hay Auth/roles) ------
+-- --- authenticated tampoco tiene acceso directo (RPCs SECURITY DEFINER) ------
 select ok(
   not bool_or(has_table_privilege('authenticated', ('public.'||t)::regclass, p)),
   'authenticated SIN '||p||' directo en tablas sensibles')
 from unnest(array['SELECT','INSERT','UPDATE','DELETE']) p
 cross join unnest(array[
   'workers','evaluation_assignments','evaluation_answers','evaluation_results',
-  'confidential_complaints','admin_profiles','audit_log']) t
+  'confidential_complaints','admin_profiles','audit_log','worker_accounts']) t
 group by p;
 
 -- --- PUBLIC/anon/authenticated: cero grants en information_schema ------------

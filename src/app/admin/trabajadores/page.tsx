@@ -16,6 +16,24 @@ type WorkerRow = {
   antiguedad: string | null;
   externalReference: string | null;
   activo: boolean;
+  accountStatus?: string;
+  evaluationStatus?: string;
+  evaluationStartedAt?: string | null;
+  evaluationCompletedAt?: string | null;
+};
+
+const ACCOUNT_LABEL: Record<string, string> = {
+  sin_cuenta: "Sin cuenta",
+  invitado: "Invitado",
+  activo: "Activo",
+  bloqueado: "Bloqueado",
+};
+
+const EVAL_LABEL: Record<string, string> = {
+  sin_asignar: "Sin asignar",
+  pendiente: "Pendiente",
+  en_progreso: "En progreso",
+  completada: "Completada",
 };
 
 type FormState = {
@@ -271,33 +289,63 @@ export default function AdminTrabajadoresPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
+              <th className="px-3 py-2">Número</th>
               <th className="px-3 py-2">Nombre</th>
-              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Puesto</th>
               <th className="px-3 py-2">Depto</th>
-              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Cuenta</th>
+              <th className="px-3 py-2">Evaluación</th>
+              <th className="px-3 py-2">Inicio</th>
+              <th className="px-3 py-2">Envío</th>
               <th className="px-3 py-2">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-3 py-4">
+                <td colSpan={9} className="px-3 py-4">
                   Cargando…
                 </td>
               </tr>
             ) : workers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-4">
+                <td colSpan={9} className="px-3 py-4">
                   Sin trabajadores
                 </td>
               </tr>
             ) : (
               workers.map((w) => (
                 <tr key={w.id} className="border-t border-slate-100" data-testid={`worker-row-${w.id}`}>
+                  <td className="px-3 py-2">{w.externalReference ?? "—"}</td>
                   <td className="px-3 py-2">{w.nombre}</td>
-                  <td className="px-3 py-2">{w.email ?? "—"}</td>
+                  <td className="px-3 py-2">{w.puesto ?? "—"}</td>
                   <td className="px-3 py-2">{w.departamento ?? "—"}</td>
-                  <td className="px-3 py-2">{w.activo ? "Activo" : "Inactivo"}</td>
+                  <td
+                    className="px-3 py-2"
+                    data-testid={`worker-account-status-${w.id}`}
+                  >
+                    {ACCOUNT_LABEL[w.accountStatus ?? "sin_cuenta"] ??
+                      w.accountStatus ??
+                      "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2"
+                    data-testid={`worker-eval-status-${w.id}`}
+                  >
+                    {EVAL_LABEL[w.evaluationStatus ?? "sin_asignar"] ??
+                      w.evaluationStatus ??
+                      "—"}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {w.evaluationStartedAt
+                      ? new Date(w.evaluationStartedAt).toLocaleString("es-MX")
+                      : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {w.evaluationCompletedAt
+                      ? new Date(w.evaluationCompletedAt).toLocaleString("es-MX")
+                      : "—"}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       <button
@@ -321,6 +369,47 @@ export default function AdminTrabajadoresPage() {
                       >
                         Editar
                       </button>
+                      {w.accountStatus && w.accountStatus !== "sin_cuenta" ? (
+                        <button
+                          type="button"
+                          data-testid={`worker-account-toggle-${w.id}`}
+                          className="rounded border px-2 py-1 text-xs"
+                          onClick={async () => {
+                            const active = w.accountStatus === "bloqueado";
+                            await adminApi.setWorkerAccountActive(w.id, active);
+                            await load();
+                          }}
+                        >
+                          {w.accountStatus === "bloqueado"
+                            ? "Desbloquear cuenta"
+                            : "Bloquear cuenta"}
+                        </button>
+                      ) : null}
+                      {w.accountStatus && w.accountStatus !== "sin_cuenta" ? (
+                        <button
+                          type="button"
+                          data-testid={`worker-account-reset-${w.id}`}
+                          className="rounded border px-2 py-1 text-xs"
+                          onClick={async () => {
+                            const res = await adminApi.resetWorkerAccess(w.id);
+                            if (res.ok && "temporaryPassword" in res && res.temporaryPassword) {
+                              // Entrega única al admin; no se guarda en estado de lista.
+                              window.prompt(
+                                "Contraseña temporal (cópiela ahora; no se volverá a mostrar):",
+                                res.temporaryPassword
+                              );
+                              setMessage("Acceso regenerado. Entregue la contraseña por canal seguro.");
+                            } else if (!res.ok) {
+                              setMessage(res.message);
+                            } else {
+                              setMessage("Acceso regenerado.");
+                            }
+                            await load();
+                          }}
+                        >
+                          Regenerar acceso
+                        </button>
+                      ) : null}
                       {w.activo ? (
                         <button
                           type="button"

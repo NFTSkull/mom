@@ -26,6 +26,19 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "chromium-mobile",
+      testMatch: /worker-portal\.spec\.ts/,
+      grep: /W1\.|W2-W4/,
+      use: { ...devices["Pixel 5"] },
+    },
+    {
+      name: "firefox-smoke",
+      testMatch: /worker-portal\.spec\.ts/,
+      grep: /W1\./,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    // WebKit local (macOS antiguo): Protocol error PushAPIEnabled — smoke en CI WebKit.
   ],
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3000",

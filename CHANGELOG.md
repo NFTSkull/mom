@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-30 (B4.9 — portal autenticado trabajador, LOCAL)
+
+- Migración `006_worker_auth_portal.sql`: `worker_accounts`, RLS, RPCs de login/sesión.
+- Rutas `/trabajador/*` + APIs; reutiliza motor de evaluación existente (cookie → contestar).
+- Seed/cleanup local `trabajador.prueba` / TST-0001.
+- **P0:** Guía III pendiente — no campaña productiva de 83.
+
 ## 2026-07-29 (B4.8 — bloquear reseeds staging sobre Production)
 
 - WebKit staging: solo `workflow_dispatch` + fail-fast; seeds abortan si el nombre remoto es `nom035-production`.

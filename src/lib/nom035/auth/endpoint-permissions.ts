@@ -44,6 +44,8 @@ export const ADMIN_ENDPOINT_PERMISSIONS: EndpointPermissionRule[] = [
   rule("DELETE", "/api/admin/nom035/workers/[id]", "workers.write"),
   rule("POST", "/api/admin/nom035/workers/[id]/deactivate", "workers.write"),
   rule("POST", "/api/admin/nom035/workers/[id]/reactivate", "workers.write"),
+  rule("POST", "/api/admin/nom035/workers/[id]/account/active", "workers.write"),
+  rule("POST", "/api/admin/nom035/workers/[id]/account/reset-access", "workers.write"),
   rule("POST", "/api/admin/nom035/workers/import/validate", "workers.import"),
   rule("POST", "/api/admin/nom035/workers/import/commit", "workers.import"),
 

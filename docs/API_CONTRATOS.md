@@ -1,6 +1,20 @@
 # Contratos de API
 
-## Bloque actual: B4.6 — Auth, RBAC y MFA
+## Bloque actual: B4.9 — Portal autenticado del trabajador
+
+| Método | Ruta | Notas |
+|--------|------|-------|
+| POST | `/api/trabajador/login` | Usuario/número + password; mensaje genérico |
+| POST | `/api/trabajador/logout` | Cierra Auth + cookie de evaluación |
+| GET | `/api/trabajador/me` | Estado portal (assignment) |
+| POST | `/api/trabajador/password/change` | Cambio obligatorio |
+| POST | `/api/trabajador/evaluacion/open` | Emite cookie de sesión y reutiliza `/evaluacion/contestar` |
+
+UI: `/trabajador/login`, `/trabajador`, `/trabajador/cambiar-contrasena`, `/trabajador/evaluacion`, `/trabajador/completado`.
+
+**P0:** Guía III no implementada — no usar este portal para campaña productiva de 83 hasta cerrar Guía III.
+
+## Bloque B4.6 — Auth, RBAC y MFA
 
 Ver:
 

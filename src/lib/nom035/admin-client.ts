@@ -67,6 +67,16 @@ export const adminApi = {
       method: "POST",
       body: "{}",
     }),
+  setWorkerAccountActive: (id: string, active: boolean) =>
+    adminFetch<{ isActive: boolean; requestId: string }>(`/workers/${id}/account/active`, {
+      method: "POST",
+      body: JSON.stringify({ active }),
+    }),
+  resetWorkerAccess: (id: string) =>
+    adminFetch<{ temporaryPassword?: string; requestId: string }>(
+      `/workers/${id}/account/reset-access`,
+      { method: "POST", body: "{}" }
+    ),
   validateImport: (csvText: string) =>
     adminFetch<{ preview: unknown; requestId: string }>("/workers/import/validate", {
       method: "POST",

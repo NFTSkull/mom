@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-30 - B4.9 portal trabajador autenticado
+
+### Decisiones
+
+- Login por username → resolución server-side a email Auth sintético; password solo en Auth.
+- Tras login, `open_evaluation_session_for_worker` emite la misma cookie de evaluación que el flujo por token; UI reutiliza `/evaluacion/contestar`.
+- Guía III ausente (P0): prueba sintética con I+II; no crear campaña real de 83.
+- Solo seed local; no Production / no ConCasa / no 83 Auth.
+- Acceso a datos del trabajador vía RPCs SECURITY DEFINER (sin grants/policies permisivas), coherente con B4.2.
+- WebKit local en este macOS falla con `PushAPIEnabled`; smoke WebKit queda para CI.
+
 ## 2026-07-29 - B4.8 riesgo: CI staging reseed sobre Production
 
 ### Decisiones

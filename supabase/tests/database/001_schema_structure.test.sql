@@ -8,7 +8,7 @@ create extension if not exists pgtap with schema extensions;
 
 select no_plan();
 
--- --- 16 tablas esperadas (15 previas + role_permissions B4.6) ----------------
+-- --- 17 tablas esperadas (16 previas + worker_accounts B4.9) ----------------
 select has_table('public', t, 'tabla ' || t || ' existe')
 from unnest(array[
   'company_settings','admin_profiles','workers','evaluation_campaigns',
@@ -16,13 +16,13 @@ from unnest(array[
   'action_plans','evidence_items','confidential_complaints',
   'policy_documents','audit_log',
   'evaluation_drafts','evaluation_sessions','public_rate_limits',
-  'role_permissions'
+  'role_permissions','worker_accounts'
 ]) as t;
 
 select is(
   (select count(*)::int from information_schema.tables
     where table_schema='public' and table_type='BASE TABLE'),
-  16, 'public tiene exactamente 16 tablas base');
+  17, 'public tiene exactamente 17 tablas base');
 
 -- --- Columnas clave ----------------------------------------------------------
 select has_column('public','company_settings','singleton_lock','company_settings.singleton_lock');

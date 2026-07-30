@@ -847,6 +847,60 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_accounts: {
+        Row: {
+          auth_user_id: string
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          must_change_password: boolean
+          updated_at: string
+          username_normalized: string
+          worker_id: string
+        }
+        Insert: {
+          auth_user_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          must_change_password?: boolean
+          updated_at?: string
+          username_normalized: string
+          worker_id: string
+        }
+        Update: {
+          auth_user_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          must_change_password?: boolean
+          updated_at?: string
+          username_normalized?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_accounts_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: true
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           activo: boolean
@@ -1044,6 +1098,10 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["evidence_items"]["Row"] }
         Returns: Json
       }
+      admin_force_worker_password_change: {
+        Args: { p_worker_id: string }
+        Returns: Json
+      }
       admin_generate_suggested_action_plans: {
         Args: {
           p_campaign_id: string
@@ -1207,8 +1265,16 @@ export type Database = {
         Args: { p_campaign_id?: string; p_departamento?: string }
         Returns: Json
       }
+      admin_reset_worker_access: {
+        Args: { p_worker_id: string }
+        Returns: Json
+      }
       admin_resolve_complaint: {
         Args: { p_category?: string; p_id: string; p_notes?: string }
+        Returns: Json
+      }
+      admin_resolve_worker_login: {
+        Args: { p_username: string }
         Returns: Json
       }
       admin_revoke_assignment: {
@@ -1222,6 +1288,10 @@ export type Database = {
           p_token_hash: string
           p_token_last4: string
         }
+        Returns: Json
+      }
+      admin_set_worker_account_active: {
+        Args: { p_active: boolean; p_worker_id: string }
         Returns: Json
       }
       admin_soft_delete_evidence: { Args: { p_id: string }; Returns: Json }
@@ -1313,6 +1383,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_worker_portal_status: {
+        Args: { p_worker_id: string }
+        Returns: Json
+      }
       admin_worker_to_json: {
         Args: { p: Database["public"]["Tables"]["workers"]["Row"] }
         Returns: Json
@@ -1378,6 +1452,27 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["admin_role"]
       }
+      current_worker_account: {
+        Args: never
+        Returns: {
+          auth_user_id: string
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          must_change_password: boolean
+          updated_at: string
+          username_normalized: string
+          worker_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "worker_accounts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       exchange_evaluation_token: {
         Args: {
           p_session_expires_at: string
@@ -1401,6 +1496,7 @@ export type Database = {
       nom035_next_complaint_folio: { Args: never; Returns: string }
       nom035_normalize_email: { Args: { p: string }; Returns: string }
       nom035_normalize_phone: { Args: { p: string }; Returns: string }
+      nom035_normalize_username: { Args: { p: string }; Returns: string }
       nom035_nullif_blank: { Args: { p: string }; Returns: string }
       nom035_write_auth_audit: {
         Args: {
@@ -1410,6 +1506,14 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: undefined
+      }
+      open_evaluation_session_for_worker: {
+        Args: {
+          p_session_expires_at: string
+          p_session_hash: string
+          p_worker_id: string
+        }
+        Returns: Json
       }
       public_submit_confidential_complaint: {
         Args: {
@@ -1471,6 +1575,12 @@ export type Database = {
         }
         Returns: Json
       }
+      worker_clear_must_change_password: {
+        Args: { p_auth_user_id: string }
+        Returns: Json
+      }
+      worker_get_portal_state: { Args: never; Returns: Json }
+      worker_mark_login: { Args: { p_auth_user_id: string }; Returns: Json }
     }
     Enums: {
       action_level: "primer_nivel" | "segundo_nivel" | "tercer_nivel"
