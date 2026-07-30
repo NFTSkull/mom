@@ -24,6 +24,8 @@ type Detail = {
   completedAt: string | null;
   guiaIAnswers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>;
   guiaIIAnswers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>;
+  guiaIIIAnswers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>;
+  frpGuideType: "GUIA_II" | "GUIA_III" | null;
   skippedNote: string;
   finalScore: number | null;
   finalRiskLevel: string | null;
@@ -249,9 +251,14 @@ export default function AdminResultadosPage() {
             </ul>
           </div>
           <div>
-            <h3 className="font-medium">Respuestas Guía II</h3>
-            <ul className="mt-1 max-h-40 overflow-auto text-xs" data-testid="detail-guia-ii">
-              {detail.guiaIIAnswers.map((a) => (
+            <h3 className="font-medium">
+              Respuestas {detail.frpGuideType === "GUIA_III" ? "Guía III" : "Guía II"}
+            </h3>
+            <ul className="mt-1 max-h-40 overflow-auto text-xs" data-testid="detail-guia-frp">
+              {(detail.frpGuideType === "GUIA_III"
+                ? detail.guiaIIIAnswers
+                : detail.guiaIIAnswers
+              ).map((a) => (
                 <li key={a.questionId}>
                   {a.questionId}: {a.answerValue ?? a.answerText}
                 </li>

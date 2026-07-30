@@ -13,7 +13,10 @@ import {
   getSessionCookieName,
   hashEvaluationSession,
 } from "@/lib/nom035/server/evaluation-session";
-import { submitEvaluation } from "@/lib/nom035/server/public-evaluation-backend";
+import {
+  getSessionContext,
+  submitEvaluation,
+} from "@/lib/nom035/server/public-evaluation-backend";
 import {
   EvaluationValidationError,
   prepareCanonicalSubmission,
@@ -53,10 +56,22 @@ export async function POST(req: NextRequest) {
       ? body.value.submissionId
       : randomUUID();
 
+  const sessionHash = hashEvaluationSession(cookie);
+  const sessionCtx = await getSessionContext(sessionHash);
+  if (!sessionCtx.ok) {
+    return jsonError(sessionCtx.code ?? "no_session", requestId);
+  }
+  const context = sessionCtx.context as { questionnaireVersion?: string } | undefined;
+  const questionnaireVersion = context?.questionnaireVersion;
+  if (!questionnaireVersion) {
+    return jsonError("version_mismatch", requestId);
+  }
+
   let prepared: PreparedSubmission;
   try {
+    // El instrumento FRP lo fija el assignment (servidor), no el cliente.
     prepared = prepareCanonicalSubmission(body.value as RawEvaluationInput, {
-      requireGuiaII: true,
+      questionnaireVersion,
     });
   } catch (error) {
     if (error instanceof EvaluationValidationError) {
@@ -66,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   const outcome = await submitEvaluation({
-    sessionHash: hashEvaluationSession(cookie),
+    sessionHash,
     submissionId,
     prepared,
   });

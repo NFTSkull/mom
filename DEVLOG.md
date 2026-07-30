@@ -1,5 +1,33 @@
 # Devlog
 
+## 2026-07-30 - B4.10 cierre CI WebKit + dry-run 83
+
+### Decisiones
+
+- WebKit no se certifica en macOS local (`PushAPIEnabled`); job dedicado en GitHub Actions con Supabase+Next locales.
+- Dry-run valida CSV fuera de Git y plan de instrumentos I+III; no crea Auth.
+- `assign-prod-worker-prueba.sql` queda fuera del commit B4.10 (artefacto one-shot previo).
+
+## 2026-07-30 - B4.10 Guía III cableado productivo E2E (local)
+
+### Decisiones
+
+- Un solo flujo `contestar` ramificado por `questionnaireVersion` del assignment (servidor).
+- Columnas legacy `guia_ii_*` almacenan el FRP activo (II o III); el tipo real vive en `result_snapshot.guide_type`.
+- `assignment_questionnaires` con mutex II/III; versión I+III = `nom035-stps-2018-guias-referencia-i-iii`.
+- Submit único atómico I+FRP (como I+II); UI secuencia I → III.
+- Seeds sintéticos G3-A/B solo localhost; dry-run 83 reporta I+III y cero II.
+- No commit/push/deploy en esta fase hasta reporte.
+
+## 2026-07-30 - B4.9 Guía III motor (trazabilidad oficial)
+
+### Decisiones
+
+- Guía III estaba **AUSENTE**; se implementó manifiesto + motor desde `NOM-035-STPS-2018-oficial.txt` y Word MAT (hashes en doc de trazabilidad).
+- Misma política de fronteras inclusiva/exclusiva que Guía II.
+- Para N>50 el producto usa I+III, no I+II+III.
+- No se crearon 83 cuentas; no se desplegó campaña productiva Guía III.
+
 ## 2026-07-30 - B4.9 portal trabajador autenticado
 
 ### Decisiones

@@ -62,3 +62,6 @@ auth-test-credentials.json
 staging-auth-credentials.json
 staging-db-password
 staging-project-ref.txt
+
+# backups locales sintéticos
+.local-backups/

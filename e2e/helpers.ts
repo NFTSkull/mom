@@ -52,11 +52,16 @@ export interface SeededLink {
   url: string;
 }
 
-export async function seedEvaluationLink(label = "E2E"): Promise<SeededLink> {
+export async function seedEvaluationLink(
+  label = "E2E",
+  options?: { questionnaireVersion?: string }
+): Promise<SeededLink> {
   const env = loadEnvLocal();
   const admin = adminClient();
   const pepper = env.NOM035_TOKEN_PEPPER;
   const appUrl = env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
+  const questionnaireVersion =
+    options?.questionnaireVersion ?? "nom035-stps-2018-guias-referencia-i-ii";
 
   const workerId = randomUUID();
   const campaignId = randomUUID();
@@ -78,6 +83,7 @@ export async function seedEvaluationLink(label = "E2E"): Promise<SeededLink> {
     activated_at: new Date().toISOString(),
     fecha_inicio: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
     fecha_cierre: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    questionnaire_version: questionnaireVersion,
   });
 
   const token = `ev_${randomBytes(32).toString("base64url")}`;
@@ -88,7 +94,7 @@ export async function seedEvaluationLink(label = "E2E"): Promise<SeededLink> {
     p_token_hash: tokenHash,
     p_token_last4: token.slice(-4),
     p_expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-    p_questionnaire_version: "nom035-stps-2018-guias-referencia-i-ii",
+    p_questionnaire_version: questionnaireVersion,
   });
   if (!created.data?.ok) throw new Error(`seed falló: ${JSON.stringify(created)}`);
 
@@ -130,9 +136,9 @@ export function attachStrictGuards(page: Page, errors: string[]): void {
 export async function answerGuiaINo(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Iniciar evaluación" }).click();
   // Sección I = No
-  const first = page.locator('fieldset').first();
+  const first = page.locator("fieldset").first();
   await first.getByLabel("No", { exact: true }).check();
-  await page.getByRole("button", { name: "Continuar a Guía II" }).click();
+  await page.getByRole("button", { name: /Continuar a Guía (II|III)/ }).click();
 }
 
 export async function answerGuiaIIAllNunca(
@@ -172,6 +178,50 @@ export async function answerGuiaIIAllNunca(
       await page.getByRole("button", { name: "Finalizar bloque y revisar" }).click();
     }
   }
+}
+
+/** Guía III: bloques dinámicos (core + 2 compuertas). */
+export async function answerGuiaIIIAllNunca(
+  page: Page,
+  gates: { clientes: "si" | "no"; jefe: "si" | "no" } = { clientes: "no", jefe: "no" }
+): Promise<void> {
+  async function answerVisibleNunca(): Promise<void> {
+    const radios = page.locator('input[type="radio"][name^="guia-iii-"]');
+    const count = await radios.count();
+    for (let i = 4; i < count; i += 5) {
+      await radios.nth(i).check();
+    }
+  }
+
+  // Máximo de seguridad; sale al encontrar Finalizar.
+  for (let block = 0; block < 20; block++) {
+    const gateClientes = page.locator('input[name="gate-clientes"]');
+    const gateJefe = page.locator('input[name="gate-jefe"]');
+    if ((await gateClientes.count()) > 0) {
+      await gateClientes.nth(gates.clientes === "si" ? 0 : 1).check();
+      if (gates.clientes === "si") {
+        await page.waitForSelector('input[name^="guia-iii-"]');
+        await answerVisibleNunca();
+      }
+    } else if ((await gateJefe.count()) > 0) {
+      await gateJefe.nth(gates.jefe === "si" ? 0 : 1).check();
+      if (gates.jefe === "si") {
+        await page.waitForSelector('input[name^="guia-iii-"]');
+        await answerVisibleNunca();
+      }
+    } else {
+      await page.waitForSelector('input[name^="guia-iii-"]');
+      await answerVisibleNunca();
+    }
+
+    const finish = page.getByRole("button", { name: "Finalizar bloque y revisar" });
+    if (await finish.isVisible()) {
+      await finish.click();
+      return;
+    }
+    await page.getByRole("button", { name: "Siguiente" }).click();
+  }
+  throw new Error("Guía III: no se alcanzó Finalizar");
 }
 
 export async function completeGuiaIIFromCurrent(

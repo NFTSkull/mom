@@ -17,9 +17,20 @@ type Assignment = {
   id: string;
   workerId: string;
   workerNombre: string;
+  workerNumero?: string | null;
+  workerPuesto?: string | null;
+  workerDepartamento?: string | null;
   workerActivo: boolean;
+  accountStatus?: string | null;
   status: string;
   tokenLast4: string;
+  guiaIStatus?: string | null;
+  guiaIIStatus?: string | null;
+  guiaIIIStatus?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  lastActivityAt?: string | null;
+  questionnaireVersion?: string | null;
 };
 
 type OneTimeLink = {
@@ -323,8 +334,15 @@ ${link.link}`;
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
+                  <th className="px-3 py-2">Número</th>
                   <th className="px-3 py-2">Trabajador</th>
-                  <th className="px-3 py-2">Estado</th>
+                  <th className="px-3 py-2">Puesto</th>
+                  <th className="px-3 py-2">Depto</th>
+                  <th className="px-3 py-2">Cuenta</th>
+                  <th className="px-3 py-2">Global</th>
+                  <th className="px-3 py-2">Guía I</th>
+                  <th className="px-3 py-2">Guía II</th>
+                  <th className="px-3 py-2">Guía III</th>
                   <th className="px-3 py-2">Token</th>
                   <th className="px-3 py-2">Acciones</th>
                 </tr>
@@ -332,10 +350,21 @@ ${link.link}`;
               <tbody>
                 {assignments.map((a) => {
                   const mem = memoryTokens[a.id];
+                  const showII = Boolean(a.guiaIIStatus);
+                  const showIII = Boolean(a.guiaIIIStatus);
                   return (
                     <tr key={a.id} className="border-t" data-testid={`assignment-row-${a.id}`}>
+                      <td className="px-3 py-2 text-xs">{a.workerNumero ?? "—"}</td>
                       <td className="px-3 py-2">{a.workerNombre}</td>
+                      <td className="px-3 py-2 text-xs">{a.workerPuesto ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{a.workerDepartamento ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{a.accountStatus ?? "—"}</td>
                       <td className="px-3 py-2">{STATUS_LABEL[a.status] ?? a.status}</td>
+                      <td className="px-3 py-2 text-xs">{a.guiaIStatus ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{showII ? a.guiaIIStatus : "—"}</td>
+                      <td className="px-3 py-2 text-xs" data-testid={`guia-iii-${a.id}`}>
+                        {showIII ? a.guiaIIIStatus : "—"}
+                      </td>
                       <td className="px-3 py-2">
                         {mem ? (
                           <span className="text-xs">…{mem.tokenLast4}</span>

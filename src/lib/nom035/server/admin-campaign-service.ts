@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { NOM035_QUESTIONNAIRE_VERSION } from "@/data/nom035/guia-ii-manifest";
 import { getPublicSupabaseEnv } from "@/lib/env";
+import { resolveQuestionnaireVersionForWorkerCount } from "@/lib/nom035/resolve-questionnaire-version";
 import { generateEvaluationToken } from "@/lib/nom035/server/evaluation-token";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -82,13 +83,27 @@ export async function listCampaigns(params: {
   return data as Record<string, unknown>;
 }
 
+async function resolveDefaultQuestionnaireVersion(): Promise<string> {
+  const client = await rpcClient();
+  const { data } = await client
+    .from("company_settings")
+    .select("total_trabajadores")
+    .limit(1)
+    .maybeSingle();
+  const count =
+    typeof data?.total_trabajadores === "number" ? data.total_trabajadores : 0;
+  return resolveQuestionnaireVersionForWorkerCount(count);
+}
+
 export async function createCampaign(input: z.infer<typeof campaignCreateSchema>) {
+  const version =
+    input.questionnaireVersion ?? (await resolveDefaultQuestionnaireVersion());
   const { data, error } = await (await rpcClient()).rpc("admin_create_campaign", {
     p_nombre: input.nombre,
     p_descripcion: input.descripcion,
     p_fecha_inicio: input.fechaInicio ?? null,
     p_fecha_cierre: input.fechaCierre ?? null,
-    p_questionnaire_version: input.questionnaireVersion ?? NOM035_QUESTIONNAIRE_VERSION,
+    p_questionnaire_version: version,
   });
   if (error) throw error;
   return data as Record<string, unknown>;
@@ -147,6 +162,19 @@ export type IssuedLink = {
 };
 
 /** Emite un assignment individual. El token real solo vive en esta respuesta. */
+async function campaignQuestionnaireVersion(campaignId: string): Promise<string> {
+  const client = await rpcClient();
+  const { data } = await client
+    .from("evaluation_campaigns")
+    .select("questionnaire_version")
+    .eq("id", campaignId)
+    .maybeSingle();
+  return (
+    (data?.questionnaire_version as string | null) ??
+    NOM035_QUESTIONNAIRE_VERSION
+  );
+}
+
 export async function issueAssignment(params: {
   campaignId: string;
   workerId: string;
@@ -154,13 +182,14 @@ export async function issueAssignment(params: {
 }): Promise<Record<string, unknown>> {
   const generated = generateEvaluationToken();
   const expiresAt = params.expiresAt ?? defaultExpiresAt();
+  const questionnaireVersion = await campaignQuestionnaireVersion(params.campaignId);
   const { data, error } = await (await rpcClient()).rpc("admin_issue_assignment", {
     p_campaign_id: params.campaignId,
     p_worker_id: params.workerId,
     p_token_hash: generated.tokenHash,
     p_token_last4: generated.tokenLast4,
     p_expires_at: expiresAt,
-    p_questionnaire_version: NOM035_QUESTIONNAIRE_VERSION,
+    p_questionnaire_version: questionnaireVersion,
   });
   if (error) throw error;
   const rpc = data as Record<string, unknown>;
@@ -191,6 +220,7 @@ export async function issueMissingAssignments(campaignId: string): Promise<Recor
   }
 
   const expiresAt = defaultExpiresAt();
+  const questionnaireVersion = await campaignQuestionnaireVersion(campaignId);
   const localTokens: IssuedLink[] = [];
   const items = workerIds.map((workerId) => {
     const generated = generateEvaluationToken();
@@ -207,14 +237,14 @@ export async function issueMissingAssignments(campaignId: string): Promise<Recor
       tokenHash: generated.tokenHash,
       tokenLast4: generated.tokenLast4,
       expiresAt,
-      questionnaireVersion: NOM035_QUESTIONNAIRE_VERSION,
+      questionnaireVersion,
     };
   });
 
   const { data, error } = await (await rpcClient()).rpc("admin_issue_assignments_batch", {
     p_campaign_id: campaignId,
     p_items: items,
-    p_questionnaire_version: NOM035_QUESTIONNAIRE_VERSION,
+    p_questionnaire_version: questionnaireVersion,
   });
   if (error) throw error;
   const rpc = data as Record<string, unknown>;

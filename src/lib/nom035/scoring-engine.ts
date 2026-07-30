@@ -12,13 +12,32 @@ import {
   GUIA_II_DOMAIN_THRESHOLDS,
   GUIA_II_FINAL_THRESHOLDS,
 } from "../../data/nom035/guia-ii-thresholds";
+import { GUIA_III_GROUPS } from "../../data/nom035/guia-iii-groups";
+import {
+  GUIA_III_DIRECT_SCORED_ITEMS,
+  GUIA_III_MANIFEST_BY_NUMBER,
+  GUIA_III_REVERSE_SCORED_ITEMS,
+  NOM035_GUIA_III_QUESTIONNAIRE_VERSION,
+  NOM035_GUIA_III_SCORING_VERSION,
+} from "../../data/nom035/guia-iii-manifest";
+import {
+  GUIA_III_CATEGORY_THRESHOLDS,
+  GUIA_III_DOMAIN_THRESHOLDS,
+  GUIA_III_FINAL_THRESHOLDS,
+} from "../../data/nom035/guia-iii-thresholds";
 import { assertValidGuiaIIAnswers, getSkippedQuestionNumbers } from "./validate-guia-ii";
+import {
+  assertValidGuiaIIIAnswers,
+  getGuiaIIISkippedQuestionNumbers,
+} from "./validate-guia-iii";
 import type {
   EvaluationResponse,
   GuiaIIAnswers,
   GuiaIILikertAnswer,
   GuiaIIResult,
   GuiaIIThresholds,
+  GuiaIIIAnswers,
+  GuiaIIIResult,
   GuiaIResult,
   QuestionnaireType,
   RiskLevelNom035,
@@ -253,6 +272,117 @@ export function calculateGuiaIIResult(answers: GuiaIIAnswers): GuiaIIResult {
   };
 }
 
+export function scoreGuiaIIIAnswer(questionNumber: number, answer: GuiaIILikertAnswer): number {
+  const item = GUIA_III_MANIFEST_BY_NUMBER.get(questionNumber);
+  if (!item) {
+    throw new Error(`El reactivo ${questionNumber} no pertenece a la Guía III.`);
+  }
+  if (item.scoring === "reverse" || GUIA_III_REVERSE_SCORED_ITEMS.has(questionNumber)) {
+    return REVERSE_SCORE_MAP[answer];
+  }
+  if (item.scoring === "direct" || GUIA_III_DIRECT_SCORED_ITEMS.has(questionNumber)) {
+    return DIRECT_SCORE_MAP[answer];
+  }
+  throw new Error(`El reactivo ${questionNumber} no tiene regla de puntuación.`);
+}
+
+export function calculateGuiaIIIResult(answers: GuiaIIIAnswers): GuiaIIIResult {
+  assertValidGuiaIIIAnswers(answers);
+
+  const skippedQuestions = getGuiaIIISkippedQuestionNumbers({
+    gateClientes: answers.gateClientes,
+    gateJefe: answers.gateJefe,
+  });
+  const skippedSet = new Set(skippedQuestions);
+  const questionScoreMap = new Map<number, number>();
+  const alerts: string[] = [];
+  const validationWarnings: string[] = [];
+
+  for (const [questionNumber, answer] of Object.entries(answers.responses)) {
+    const n = Number(questionNumber);
+    if (skippedSet.has(n)) continue;
+    questionScoreMap.set(n, scoreGuiaIIIAnswer(n, answer as GuiaIILikertAnswer));
+  }
+
+  let finalScore = 0;
+  for (const [questionNumber, score] of questionScoreMap.entries()) {
+    if (skippedSet.has(questionNumber)) continue;
+    finalScore += score;
+  }
+
+  const dimensionScores: GuiaIIIResult["dimensionScores"] = {};
+  const domainScores: GuiaIIIResult["domainScores"] = {};
+  const categoryScores: GuiaIIIResult["categoryScores"] = {};
+
+  for (const category of GUIA_III_GROUPS) {
+    let categoryScore = 0;
+
+    for (const domain of category.domains) {
+      let domainScore = 0;
+
+      for (const dimension of domain.dimensions) {
+        const dimensionScore = dimension.questions.reduce((acc, questionNumber) => {
+          if (skippedSet.has(questionNumber)) return acc;
+          return acc + (questionScoreMap.get(questionNumber) ?? 0);
+        }, 0);
+
+        dimensionScores[dimension.name] = { score: dimensionScore };
+        domainScore += dimensionScore;
+      }
+
+      const domainThresholds = GUIA_III_DOMAIN_THRESHOLDS[domain.name];
+      if (!domainThresholds) {
+        throw new Error(`Umbral de dominio Guía III ausente: ${domain.name}`);
+      }
+
+      domainScores[domain.name] = {
+        score: domainScore,
+        riskLevel: getRiskLevelFromThresholds(domainScore, domainThresholds),
+      };
+      categoryScore += domainScore;
+    }
+
+    const categoryThresholds = GUIA_III_CATEGORY_THRESHOLDS[category.name];
+    if (!categoryThresholds) {
+      throw new Error(`Umbral de categoría Guía III ausente: ${category.name}`);
+    }
+
+    categoryScores[category.name] = {
+      score: categoryScore,
+      riskLevel: getRiskLevelFromThresholds(categoryScore, categoryThresholds),
+    };
+  }
+
+  const finalRiskLevel = getRiskLevelFromThresholds(finalScore, GUIA_III_FINAL_THRESHOLDS);
+  if (["medio", "alto", "muy_alto"].includes(finalRiskLevel)) {
+    alerts.push("Se recomienda programa de intervención.");
+  }
+  if (domainScores.Violencia && ["medio", "alto", "muy_alto"].includes(domainScores.Violencia.riskLevel)) {
+    alerts.push("Revisar posibles condiciones de violencia laboral.");
+  }
+
+  const answerCount = questionScoreMap.size;
+  const applicableQuestionCount = 72 - skippedQuestions.length;
+
+  return {
+    questionnaireCode: "GUIA_III",
+    finalScore,
+    finalRiskLevel,
+    categoryScores,
+    domainScores,
+    dimensionScores,
+    skippedQuestions,
+    applicableQuestionCount,
+    answerCount,
+    alerts,
+    scoringVersion: NOM035_GUIA_III_SCORING_VERSION,
+    questionnaireVersion: NOM035_GUIA_III_QUESTIONNAIRE_VERSION,
+    calculatedAt: new Date().toISOString(),
+    validationWarnings,
+    sourceSha256: "8d5c2c63e703e7d6154a7f71a1aec9ec1741f25a7bbc6eec4303cbe8a38d7a76",
+  };
+}
+
 export function calculateNom035Result(
   questionnaireType: QuestionnaireType,
   responses: EvaluationResponse[]
@@ -270,4 +400,9 @@ export function getScoringVersionLabel(
   return result?.scoringVersion ?? "versión no registrada";
 }
 
-export { NOM035_SCORING_VERSION, NOM035_QUESTIONNAIRE_VERSION };
+export {
+  NOM035_SCORING_VERSION,
+  NOM035_QUESTIONNAIRE_VERSION,
+  NOM035_GUIA_III_SCORING_VERSION,
+  NOM035_GUIA_III_QUESTIONNAIRE_VERSION,
+};

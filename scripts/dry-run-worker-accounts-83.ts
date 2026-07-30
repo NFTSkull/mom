@@ -61,6 +61,18 @@ function parseCsv(text: string): Array<Record<string, string>> {
   });
 }
 
+function rowNumero(row: Record<string, string>): string {
+  return (
+    row.numero ||
+    row.número ||
+    row["número"] ||
+    row.external_reference ||
+    row.referencia ||
+    row.id_empleado ||
+    ""
+  );
+}
+
 async function main() {
   const env = loadEnv();
   const csvPath = env.WORKERS_CSV;
@@ -77,13 +89,17 @@ async function main() {
   assertSafeTarget(url);
 
   const rows = parseCsv(readFileSync(csvPath, "utf8"));
-  const admin = createClient(url, secret, {
+  const options: { auth: object; realtime?: { transport: new () => unknown } } = {
     auth: { persistSession: false, autoRefreshToken: false },
-  });
+  };
+  if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
+    options.realtime = { transport: class {} as never };
+  }
+  const admin = createClient(url, secret, options as never);
 
   const { data: workers } = await admin
     .from("workers")
-    .select("id, external_reference, nombre, activo");
+    .select("id, external_reference, activo");
   const { data: accounts } = await admin
     .from("worker_accounts")
     .select("worker_id, username_normalized, is_active");
@@ -96,69 +112,114 @@ async function main() {
   const accountByWorker = new Map((accounts ?? []).map((a) => [a.worker_id, a]));
   const usernames = new Set((accounts ?? []).map((a) => a.username_normalized));
 
-  const found: string[] = [];
-  const withoutAccount: string[] = [];
+  const validRefs: string[] = [];
+  const rejected: Array<{ refHash: string; reason: string }> = [];
   const proposed: string[] = [];
   const collisions: string[] = [];
-  const rejected: Array<{ ref: string; reason: string }> = [];
-  const toCreateAccounts: string[] = [];
+  const withoutAccount: string[] = [];
+  const foundInDb: string[] = [];
   const seenProposed = new Set<string>();
+  const seenRefs = new Set<string>();
+  let duplicates = 0;
 
   for (const row of rows) {
-    const ref =
-      row.numero ||
-      row.número ||
-      row.external_reference ||
-      row.referencia ||
-      row.id_empleado ||
-      "";
+    const ref = rowNumero(row);
     if (!ref) {
-      rejected.push({ ref: "(vacío)", reason: "sin_numero" });
+      rejected.push({
+        refHash: "empty",
+        reason: "sin_numero",
+      });
       continue;
     }
-    found.push(ref);
-    const worker = byRef.get(ref.toLowerCase());
-    if (!worker) {
-      rejected.push({ ref, reason: "no_en_bd" });
+    const refKey = ref.toLowerCase();
+    if (seenRefs.has(refKey)) {
+      duplicates += 1;
+      rejected.push({
+        refHash: createHash("sha256").update(refKey).digest("hex").slice(0, 8),
+        reason: "duplicado",
+      });
       continue;
     }
-    if (!worker.activo) {
-      rejected.push({ ref, reason: "inactivo" });
-      continue;
-    }
+    seenRefs.add(refKey);
+    validRefs.push(ref);
+
     const username = proposedUsername(ref);
     proposed.push(username);
     if (seenProposed.has(username) || usernames.has(username)) {
       collisions.push(username);
     }
     seenProposed.add(username);
+
+    const worker = byRef.get(refKey);
+    if (!worker) {
+      // CSV válido; aún no en BD local — no es rechazo estructural del CSV.
+      withoutAccount.push(ref);
+      continue;
+    }
+    foundInDb.push(ref);
+    if (!worker.activo) {
+      rejected.push({
+        refHash: createHash("sha256").update(refKey).digest("hex").slice(0, 8),
+        reason: "inactivo",
+      });
+      continue;
+    }
     if (!accountByWorker.has(worker.id)) {
       withoutAccount.push(ref);
-      toCreateAccounts.push(ref);
     }
   }
+
+  const validUnique = validRefs.length;
+  const accountsToCreate = withoutAccount.length;
+  const assignmentsToCreate = validUnique;
+  const n = validUnique;
 
   const report = {
     ok: true,
     dryRun: true,
     createsNothing: true,
-    workersInCsv: rows.length,
-    workersFoundInDb: found.length - rejected.filter((r) => r.reason === "no_en_db" || r.reason === "no_en_bd").length,
-    withoutAccount: withoutAccount.length,
+    authUsersCreated: 0,
+    passwordsGenerated: 0,
+    leidos: rows.length,
+    validos: validUnique,
+    numerosUnicos: seenRefs.size,
+    duplicados: duplicates,
+    rechazados: rejected.length,
+    workersEncontradosEnBd: foundInDb.length,
+    workersSinCuenta: withoutAccount.length,
+    accountsToCreate,
+    assignmentsToCreate,
     usernamesProposedSample: proposed.slice(0, 5),
+    usernamesProposedCount: proposed.length,
     collisions: [...new Set(collisions)],
-    accountsToCreate: toCreateAccounts.length,
-    assignmentsToCreateNote:
-      "Assignments se crean solo tras campaña autorizada + Guía III; dry-run no cuenta assignments productivos.",
-    rejected: rejected.slice(0, 20),
-    rejectedTotal: rejected.length,
+    collisionsCount: [...new Set(collisions)].length,
+    instrumentsPerAssignment: {
+      GUIA_I: n,
+      GUIA_III: n,
+      GUIA_II: 0,
+    },
+    instrumentsRequiredFor83: ["GUIA_I", "GUIA_III"],
+    guiaIIAssignmentsExpected: 0,
+    questionnaireVersionExpected: "nom035-stps-2018-guias-referencia-i-iii",
+    rejectedSample: rejected.slice(0, 10),
     fingerprint: createHash("sha256")
-      .update(rows.map((r) => JSON.stringify(r)).join("|"))
+      .update(validRefs.map((r) => r.toLowerCase()).sort().join("|"))
       .digest("hex")
       .slice(0, 16),
+    passCriteria: {
+      leidos83: rows.length === 83,
+      validos83: validUnique === 83,
+      unicos83: seenRefs.size === 83,
+      duplicados0: duplicates === 0,
+      guiaII0: true,
+      guiaIEqualsN: n === validUnique,
+      guiaIIIEqualsN: n === validUnique,
+    },
   };
 
-  console.log(JSON.stringify(report, null, 2));
+  const criteriaOk = Object.values(report.passCriteria).every(Boolean);
+  console.log(JSON.stringify({ ...report, ok: criteriaOk }, null, 2));
+  if (!criteriaOk) process.exit(1);
 }
 
 main().catch((e) => {

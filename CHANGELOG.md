@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-07-30 (B4.10 — cierre: CI WebKit + dry-run 83)
+
+- Workflow `.github/workflows/guia-iii-webkit.yml` (stack local en ubuntu, cero Cloud).
+- Dry-run CSV externo: 83 I+III / 0 II; sin Auth ni passwords.
+- Secret-scan: permite passwords sintéticos en `e2e/` / seeds.
+- Veredicto pendiente de CI WebKit verde en el mismo SHA.
+
+## 2026-07-30 (B4.10 — Guía III end-to-end local)
+
+- Migración `007_guia_iii_wiring.sql`: `assignment_questionnaires`, `result_snapshot`, allowlist I+III.
+- UI `/evaluacion/contestar` orientada por `questionnaireVersion` (I→II o I→III desde manifiesto).
+- Submit servidor resuelve FRP desde assignment (cliente no elige instrumento).
+- Campañas/emisión usan `getRequiredQuestionnaires` / tamaño de plantilla.
+- Seed/cleanup/backup local `EMPRESA_GUIA_III_TEST` + E2E/pgTAP/Vitest B4.10.
+- **Sin** 83 cuentas reales, **sin** deploy Production, **sin** ConCasa.
+
+## 2026-07-30 (B4.9 — Guía III motor + trazabilidad)
+
+- Manifiesto Guía III (72 reactivos, Tablas 5–7), `calculateGuiaIIIResult`, validación de compuertas.
+- `getRequiredQuestionnaires(>50)` → `GUIA_I` + `GUIA_III` (sin Guía II para N>50).
+- Doc `docs/GUIDE_III_SCORING_TRACEABILITY.md`.
+- **Pendiente:** UI/submit productivo Guía III, E2E 83, crear cuentas reales.
+
 ## 2026-07-30 (B4.9 — portal autenticado trabajador, LOCAL)
 
 - Migración `006_worker_auth_portal.sql`: `worker_accounts`, RLS, RPCs de login/sesión.

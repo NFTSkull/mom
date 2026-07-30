@@ -65,6 +65,12 @@ for path in ROOT.rglob("*"):
                 and ("__tests__" in rel or "/tests/" in rel or rel.startswith("e2e"))
             ):
                 continue
+            # Contraseñas sintéticas de E2E / fixtures de prueba (nunca prod).
+            if label == "password_assignment" and (
+                rel.startswith("e2e/") or "/__tests__/" in rel or rel.startswith("scripts/seed-")
+                or rel.startswith("scripts/cleanup-")
+            ):
+                continue
             hits.append((rel, label))
 
 seen: set[tuple[str, str]] = set()

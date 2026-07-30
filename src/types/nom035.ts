@@ -120,6 +120,48 @@ export interface GuiaIIResult {
   validationWarnings?: string[];
 }
 
+export interface GuiaIIIQuestion {
+  id: string;
+  questionnaireCode: "GUIA_III";
+  questionNumber: number;
+  text: string;
+  responseType: "likert";
+  order: number;
+}
+
+export interface GuiaIIIGateQuestion {
+  id: "guia_iii_gate_clientes" | "guia_iii_gate_jefe";
+  questionnaireCode: "GUIA_III";
+  text: string;
+  responseType: "yes_no";
+  order: number;
+  controlsQuestions: number[];
+}
+
+export type GuiaIIIAnswers = {
+  gateClientes: GuiaIIGateAnswer;
+  gateJefe: GuiaIIGateAnswer;
+  responses: Record<number, GuiaIILikertAnswer>;
+};
+
+export interface GuiaIIIResult {
+  questionnaireCode: "GUIA_III";
+  finalScore: number;
+  finalRiskLevel: RiskLevelNom035;
+  categoryScores: Record<string, { score: number; riskLevel: RiskLevelNom035 }>;
+  domainScores: Record<string, { score: number; riskLevel: RiskLevelNom035 }>;
+  dimensionScores: Record<string, { score: number }>;
+  skippedQuestions: number[];
+  applicableQuestionCount: number;
+  answerCount: number;
+  alerts: string[];
+  scoringVersion?: string;
+  questionnaireVersion?: string;
+  calculatedAt?: string;
+  validationWarnings?: string[];
+  sourceSha256?: string;
+}
+
 export interface GuiaIIAnswers {
   gateClientes: GuiaIIGateAnswer;
   gateJefe: GuiaIIGateAnswer;

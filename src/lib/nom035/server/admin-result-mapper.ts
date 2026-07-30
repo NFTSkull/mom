@@ -22,6 +22,8 @@ export type MappedResultDetail = {
   startedAt: string | null;
   guiaIAnswers: AdminAnswerRow[];
   guiaIIAnswers: AdminAnswerRow[];
+  guiaIIIAnswers: AdminAnswerRow[];
+  frpGuideType: "GUIA_II" | "GUIA_III" | null;
   skippedNote: string;
   guiaIRequiresClinicalAttention: boolean | null;
   guiaIRiskLabel: string | null;
@@ -43,7 +45,22 @@ export function mapResultDetail(rpc: Record<string, unknown>): MappedResultDetai
   if (!detail) return null;
 
   const answers = (detail.answers as AdminAnswerRow[]) ?? [];
-  const { guiaI: guiaIAnswers, guiaII: guiaIIAnswers } = splitAnswersByGuide(answers);
+  const {
+    guiaI: guiaIAnswers,
+    guiaII: guiaIIAnswers,
+    guiaIII: guiaIIIAnswers,
+  } = splitAnswersByGuide(answers);
+  const qVersion = (detail.questionnaireVersion as string | null) ?? null;
+  const frpGuideType =
+    guiaIIIAnswers.length > 0
+      ? ("GUIA_III" as const)
+      : guiaIIAnswers.length > 0
+        ? ("GUIA_II" as const)
+        : qVersion?.includes("i-iii")
+          ? ("GUIA_III" as const)
+          : qVersion?.includes("i-ii")
+            ? ("GUIA_II" as const)
+            : null;
 
   return {
     id: String(detail.id),
@@ -55,6 +72,8 @@ export function mapResultDetail(rpc: Record<string, unknown>): MappedResultDetai
     startedAt: (detail.startedAt as string | null) ?? null,
     guiaIAnswers,
     guiaIIAnswers,
+    guiaIIIAnswers,
+    frpGuideType,
     skippedNote:
       "Las preguntas no aplicables (skipped) no se almacenan como contestadas.",
     guiaIRequiresClinicalAttention:
@@ -76,20 +95,24 @@ export function mapResultDetail(rpc: Record<string, unknown>): MappedResultDetai
   };
 }
 
-/** Separación Guía I / II según códigos usados en submit público. */
+/** Separación Guía I / II / III según códigos usados en submit público. */
 export function splitAnswersByGuide(answers: AdminAnswerRow[]): {
   guiaI: AdminAnswerRow[];
   guiaII: AdminAnswerRow[];
+  guiaIII: AdminAnswerRow[];
 } {
   const guiaI: AdminAnswerRow[] = [];
   const guiaII: AdminAnswerRow[] = [];
+  const guiaIII: AdminAnswerRow[] = [];
   for (const a of answers) {
     const code = String(a.questionnaireCode).toUpperCase();
     if (code === "GUIA_I" || code === "I") {
       guiaI.push(a);
+    } else if (code === "GUIA_III" || code === "III") {
+      guiaIII.push(a);
     } else {
       guiaII.push(a);
     }
   }
-  return { guiaI, guiaII };
+  return { guiaI, guiaII, guiaIII };
 }

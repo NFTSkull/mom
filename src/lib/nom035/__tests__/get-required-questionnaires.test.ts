@@ -11,6 +11,8 @@ describe("getRequiredQuestionnaires", () => {
   });
 
   it("asigna las tres guias para empresa grande", () => {
-    expect(getRequiredQuestionnaires(120)).toEqual(["GUIA_I", "GUIA_II", "GUIA_III"]);
+    expect(getRequiredQuestionnaires(120)).toEqual(["GUIA_I", "GUIA_III"]);
+    expect(getRequiredQuestionnaires(83)).toEqual(["GUIA_I", "GUIA_III"]);
+    expect(getRequiredQuestionnaires(51)).toEqual(["GUIA_I", "GUIA_III"]);
   });
 });

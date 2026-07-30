@@ -171,6 +171,53 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_questionnaires: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          id: string
+          last_saved_at: string | null
+          questionnaire_type: string
+          questionnaire_version: string
+          started_at: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          id?: string
+          last_saved_at?: string | null
+          questionnaire_type: string
+          questionnaire_version: string
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          last_saved_at?: string | null
+          questionnaire_type?: string
+          questionnaire_version?: string
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_questionnaires_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -526,6 +573,7 @@ export type Database = {
           guia_ii_final_score: number | null
           id: string
           questionnaire_version: string
+          result_snapshot: Json
           scoring_version: string
           submission_id: string
           validation_warnings: Json
@@ -548,6 +596,7 @@ export type Database = {
           guia_ii_final_score?: number | null
           id?: string
           questionnaire_version?: string
+          result_snapshot?: Json
           scoring_version: string
           submission_id: string
           validation_warnings?: Json
@@ -570,6 +619,7 @@ export type Database = {
           guia_ii_final_score?: number | null
           id?: string
           questionnaire_version?: string
+          result_snapshot?: Json
           scoring_version?: string
           submission_id?: string
           validation_warnings?: Json
@@ -1473,6 +1523,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ensure_assignment_questionnaires: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
+      }
       exchange_evaluation_token: {
         Args: {
           p_session_expires_at: string
@@ -1491,6 +1545,10 @@ export type Database = {
       }
       is_active_admin_user: { Args: never; Returns: boolean }
       nom035_current_aal: { Args: never; Returns: string }
+      nom035_is_supported_questionnaire_version: {
+        Args: { p: string }
+        Returns: boolean
+      }
       nom035_is_valid_email: { Args: { p: string }; Returns: boolean }
       nom035_jwt_role: { Args: never; Returns: string }
       nom035_next_complaint_folio: { Args: never; Returns: string }
@@ -1574,6 +1632,10 @@ export type Database = {
           p_submission_id: string
         }
         Returns: Json
+      }
+      sync_assignment_instruments_from_draft: {
+        Args: { p_assignment_id: string; p_payload: Json }
+        Returns: undefined
       }
       worker_clear_must_change_password: {
         Args: { p_auth_user_id: string }

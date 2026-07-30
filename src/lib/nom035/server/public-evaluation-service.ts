@@ -1,30 +1,38 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { GUIA_I_QUESTIONS, GUIA_I_SECTION_I_ID } from "@/data/nom035/guia-i";
 import {
+  GUIA_II_MANIFEST,
   NOM035_QUESTIONNAIRE_VERSION,
   NOM035_SCORING_VERSION,
 } from "@/data/nom035/guia-ii-manifest";
 import {
+  GUIA_III_MANIFEST,
+  NOM035_I_III_QUESTIONNAIRE_VERSION,
+  NOM035_I_III_SCORING_VERSION,
+  NOM035_SOURCE_SHA256,
+} from "@/data/nom035/guia-iii-manifest";
+import {
   calculateGuiaIIResult,
+  calculateGuiaIIIResult,
   calculateGuiaIResult,
 } from "@/lib/nom035/scoring-engine";
 import {
   getSkippedQuestionNumbers,
   validateGuiaIIAnswers,
 } from "@/lib/nom035/validate-guia-ii";
+import {
+  assertValidGuiaIIIAnswers,
+  getGuiaIIISkippedQuestionNumbers,
+} from "@/lib/nom035/validate-guia-iii";
 import type {
   EvaluationResponse,
   GuiaIIAnswers,
   GuiaIIGateAnswer,
   GuiaIILikertAnswer,
+  GuiaIIIAnswers,
 } from "@/types/nom035";
-
-/**
- * Servicio server-only: valida el instrumento y ejecuta el motor CERTIFICADO.
- * El cliente NUNCA es autoridad del cálculo. Los campos de puntaje/identidad que
- * pudiera enviar el navegador se ignoran explícitamente (se registran como warning).
- */
 
 export class EvaluationValidationError extends Error {
   readonly code = "invalid_payload";
@@ -36,7 +44,6 @@ export class EvaluationValidationError extends Error {
   }
 }
 
-/** Campos que el cliente jamás puede imponer. */
 export const CLIENT_AUTHORITATIVE_FIELDS = [
   "finalScore",
   "riskLevel",
@@ -51,9 +58,16 @@ export const CLIENT_AUTHORITATIVE_FIELDS = [
   "assignmentId",
 ] as const;
 
+export type FrpInstrument = "GUIA_II" | "GUIA_III";
+
 export interface RawEvaluationInput {
   guiaI?: { responses?: Record<string, unknown> } | null;
   guiaII?: {
+    gateClientes?: unknown;
+    gateJefe?: unknown;
+    responses?: Record<string, unknown> | null;
+  } | null;
+  guiaIII?: {
     gateClientes?: unknown;
     gateJefe?: unknown;
     responses?: Record<string, unknown> | null;
@@ -62,7 +76,7 @@ export interface RawEvaluationInput {
 }
 
 export interface CanonicalAnswerRow {
-  questionnaire_code: "GUIA_I" | "GUIA_II";
+  questionnaire_code: "GUIA_I" | "GUIA_II" | "GUIA_III";
   question_id: string;
   answer_value: string;
 }
@@ -77,6 +91,7 @@ export interface CanonicalResultPayload {
   guia_ii_dimension_scores: unknown;
   alerts: string[];
   validation_warnings: string[];
+  result_snapshot: Record<string, unknown>;
 }
 
 export interface PreparedSubmission {
@@ -86,18 +101,17 @@ export interface PreparedSubmission {
   questionnaireVersion: string;
   calculatedAt: string;
   validationWarnings: string[];
-  // Expuestos para verificación server-side; NUNCA se devuelven al trabajador.
   serverFinalScore: number | null;
   serverFinalRiskLevel: string | null;
 }
 
-/** Detecta y elimina campos de autoridad del cliente; devuelve las advertencias. */
 export function detectIgnoredClientFields(raw: RawEvaluationInput): string[] {
   const warnings: string[] = [];
   const scopes: Array<Record<string, unknown> | null | undefined> = [
     raw,
     raw?.guiaI as Record<string, unknown> | undefined,
     raw?.guiaII as Record<string, unknown> | undefined,
+    raw?.guiaIII as Record<string, unknown> | undefined,
   ];
   for (const scope of scopes) {
     if (!scope || typeof scope !== "object") continue;
@@ -122,18 +136,45 @@ function toGate(value: unknown): GuiaIIGateAnswer | null {
   return null;
 }
 
+export function resolveFrpFromQuestionnaireVersion(
+  version: string | null | undefined
+): FrpInstrument | null {
+  if (version === NOM035_QUESTIONNAIRE_VERSION) return "GUIA_II";
+  if (version === NOM035_I_III_QUESTIONNAIRE_VERSION) return "GUIA_III";
+  return null;
+}
+
+function questionSetHash(ids: string[]): string {
+  return createHash("sha256").update(ids.join("|")).digest("hex");
+}
+
 /**
- * Valida el instrumento completo y produce el resultado CERTIFICADO + respuestas
- * canónicas listas para persistir. Lanza EvaluationValidationError si algo falla.
+ * Valida el instrumento y produce resultado CERTIFICADO.
+ * El FRP (II o III) lo decide el servidor vía questionnaireVersion del assignment.
  */
 export function prepareCanonicalSubmission(
   raw: RawEvaluationInput,
-  options: { requireGuiaII: boolean }
+  options: {
+    requireGuiaII?: boolean;
+    frp?: FrpInstrument | null;
+    questionnaireVersion?: string;
+  }
 ): PreparedSubmission {
+  const frp =
+    options.frp ??
+    (options.requireGuiaII === true ? "GUIA_II" : undefined) ??
+    resolveFrpFromQuestionnaireVersion(options.questionnaireVersion) ??
+    null;
+
   const errors: string[] = [];
   const validationWarnings = detectIgnoredClientFields(raw);
 
-  // ---- Guía I ----
+  if (!frp) {
+    throw new EvaluationValidationError([
+      "Instrumento FRP no resuelto: falta questionnaireVersion de assignment válida.",
+    ]);
+  }
+
   const guiaIResponsesRaw = raw?.guiaI?.responses ?? {};
   if (typeof guiaIResponsesRaw !== "object" || guiaIResponsesRaw === null) {
     throw new EvaluationValidationError(["Guía I: formato de respuestas inválido."]);
@@ -159,10 +200,11 @@ export function prepareCanonicalSubmission(
     guiaIResponses.push({ questionId: question.id, value: bin });
   }
 
-  // ---- Guía II ----
   let guiaIIAnswers: GuiaIIAnswers | null = null;
-  const rawGuiaII = raw?.guiaII;
-  if (options.requireGuiaII || rawGuiaII) {
+  let guiaIIIAnswers: GuiaIIIAnswers | null = null;
+
+  if (frp === "GUIA_II") {
+    const rawGuiaII = raw?.guiaII;
     if (!rawGuiaII || typeof rawGuiaII !== "object") {
       errors.push("Guía II: sección requerida ausente.");
     } else {
@@ -181,17 +223,48 @@ export function prepareCanonicalSubmission(
       const responses: Partial<Record<number, GuiaIILikertAnswer>> = {};
       for (const [key, value] of Object.entries(responsesRaw)) {
         const n = Number(key);
-        if (!Number.isInteger(n)) continue;
-        // Limpieza de preguntas no aplicables: no se toman aunque el cliente las mande.
-        if (skipped.has(n)) continue;
+        if (!Number.isInteger(n) || skipped.has(n)) continue;
         responses[n] = value as GuiaIILikertAnswer;
       }
 
       if (gateClientes !== null && gateJefe !== null) {
         guiaIIAnswers = { gateClientes, gateJefe, responses };
         const validation = validateGuiaIIAnswers(guiaIIAnswers);
-        if (!validation.valid) {
-          errors.push(...validation.errors);
+        if (!validation.valid) errors.push(...validation.errors);
+      }
+    }
+  }
+
+  if (frp === "GUIA_III") {
+    const rawGuiaIII = raw?.guiaIII ?? raw?.guiaII;
+    if (!rawGuiaIII || typeof rawGuiaIII !== "object") {
+      errors.push("Guía III: sección requerida ausente.");
+    } else {
+      const gateClientes = toGate(rawGuiaIII.gateClientes);
+      const gateJefe = toGate(rawGuiaIII.gateJefe);
+      if (gateClientes === null) errors.push("Guía III: compuerta de clientes inválida.");
+      if (gateJefe === null) errors.push("Guía III: compuerta de jefatura inválida.");
+
+      const responsesRaw = (rawGuiaIII.responses ?? {}) as Record<string, unknown>;
+      const skipped = new Set(
+        getGuiaIIISkippedQuestionNumbers({
+          gateClientes: gateClientes ?? "no",
+          gateJefe: gateJefe ?? "no",
+        })
+      );
+      const responses: Record<number, GuiaIILikertAnswer> = {};
+      for (const [key, value] of Object.entries(responsesRaw)) {
+        const n = Number(key);
+        if (!Number.isInteger(n) || skipped.has(n)) continue;
+        responses[n] = value as GuiaIILikertAnswer;
+      }
+
+      if (gateClientes !== null && gateJefe !== null) {
+        guiaIIIAnswers = { gateClientes, gateJefe, responses };
+        try {
+          assertValidGuiaIIIAnswers(guiaIIIAnswers);
+        } catch (e) {
+          errors.push(e instanceof Error ? e.message : "Guía III inválida.");
         }
       }
     }
@@ -201,11 +274,11 @@ export function prepareCanonicalSubmission(
     throw new EvaluationValidationError([...new Set(errors)]);
   }
 
-  // ---- Motor certificado (solo servidor) ----
   const guiaIResult = calculateGuiaIResult(guiaIResponses);
   const guiaIIResult = guiaIIAnswers ? calculateGuiaIIResult(guiaIIAnswers) : null;
+  const guiaIIIResult = guiaIIIAnswers ? calculateGuiaIIIResult(guiaIIIAnswers) : null;
+  const frpResult = guiaIIIResult ?? guiaIIResult;
 
-  // ---- Respuestas canónicas (skipped NO se insertan) ----
   const answers: CanonicalAnswerRow[] = [];
   for (const response of guiaIResponses) {
     answers.push({
@@ -214,7 +287,8 @@ export function prepareCanonicalSubmission(
       answer_value: response.value === 1 ? "si" : "no",
     });
   }
-  if (guiaIIAnswers) {
+
+  if (guiaIIAnswers && guiaIIResult) {
     answers.push({
       questionnaire_code: "GUIA_II",
       question_id: "guia_ii_gate_clientes",
@@ -225,7 +299,7 @@ export function prepareCanonicalSubmission(
       question_id: "guia_ii_gate_jefe",
       answer_value: guiaIIAnswers.gateJefe,
     });
-    const skipped = new Set(guiaIIResult?.skippedQuestions ?? []);
+    const skipped = new Set(guiaIIResult.skippedQuestions);
     for (const [key, value] of Object.entries(guiaIIAnswers.responses)) {
       const n = Number(key);
       if (skipped.has(n) || value === undefined) continue;
@@ -237,33 +311,121 @@ export function prepareCanonicalSubmission(
     }
   }
 
-  const alerts = [...guiaIResult.alerts, ...(guiaIIResult?.alerts ?? [])];
+  if (guiaIIIAnswers && guiaIIIResult) {
+    answers.push({
+      questionnaire_code: "GUIA_III",
+      question_id: "guia_iii_gate_clientes",
+      answer_value: guiaIIIAnswers.gateClientes,
+    });
+    answers.push({
+      questionnaire_code: "GUIA_III",
+      question_id: "guia_iii_gate_jefe",
+      answer_value: guiaIIIAnswers.gateJefe,
+    });
+    const skipped = new Set(guiaIIIResult.skippedQuestions);
+    for (const [key, value] of Object.entries(guiaIIIAnswers.responses)) {
+      const n = Number(key);
+      if (skipped.has(n) || value === undefined) continue;
+      answers.push({
+        questionnaire_code: "GUIA_III",
+        question_id: `guia_iii_${n}`,
+        answer_value: value,
+      });
+    }
+  }
+
+  const alerts = [...guiaIResult.alerts, ...(frpResult?.alerts ?? [])];
   const combinedWarnings = [
     ...validationWarnings,
     ...(guiaIResult.validationWarnings ?? []),
-    ...(guiaIIResult?.validationWarnings ?? []),
+    ...(frpResult?.validationWarnings ?? []),
   ];
+
+  const frpManifestIds =
+    frp === "GUIA_III"
+      ? GUIA_III_MANIFEST.map((i) => i.id)
+      : GUIA_II_MANIFEST.map((i) => i.id);
+
+  const result_snapshot: Record<string, unknown> = {
+    guide_id: frp === "GUIA_III" ? "guia-referencia-iii" : "guia-referencia-ii",
+    guide_type: frp,
+    guide_version:
+      frp === "GUIA_III"
+        ? NOM035_I_III_QUESTIONNAIRE_VERSION
+        : NOM035_QUESTIONNAIRE_VERSION,
+    scoring_version:
+      frp === "GUIA_III" ? NOM035_I_III_SCORING_VERSION : NOM035_SCORING_VERSION,
+    source_sha256: NOM035_SOURCE_SHA256,
+    question_set_hash: questionSetHash(frpManifestIds),
+    algorithm_version: frp === "GUIA_III" ? "calculateGuiaIIIResult@v1" : "calculateGuiaIIResult@v1",
+    answer_count: frpResult && "answerCount" in frpResult ? frpResult.answerCount : null,
+    applicable_question_count:
+      frpResult && "applicableQuestionCount" in frpResult
+        ? frpResult.applicableQuestionCount
+        : frp === "GUIA_II"
+          ? 46 - (guiaIIResult?.skippedQuestions.length ?? 0)
+          : null,
+    final_score: frpResult?.finalScore ?? null,
+    final_risk_level: frpResult?.finalRiskLevel ?? null,
+    category_scores: frpResult?.categoryScores ?? {},
+    domain_scores: frpResult?.domainScores ?? {},
+    dimension_scores: frpResult?.dimensionScores ?? {},
+    conditional_state: {
+      gateClientes: guiaIIIAnswers?.gateClientes ?? guiaIIAnswers?.gateClientes ?? null,
+      gateJefe: guiaIIIAnswers?.gateJefe ?? guiaIIAnswers?.gateJefe ?? null,
+      skippedQuestions: frpResult?.skippedQuestions ?? [],
+    },
+    calculated_at: new Date().toISOString(),
+  };
 
   const result: CanonicalResultPayload = {
     guia_i_requires_clinical_attention: guiaIResult.requiresClinicalAttention,
     guia_i_risk_label: guiaIResult.riskLabel,
-    guia_ii_final_score: guiaIIResult?.finalScore ?? null,
-    guia_ii_final_risk_level: guiaIIResult?.finalRiskLevel ?? null,
-    guia_ii_category_scores: guiaIIResult?.categoryScores ?? {},
-    guia_ii_domain_scores: guiaIIResult?.domainScores ?? {},
-    guia_ii_dimension_scores: guiaIIResult?.dimensionScores ?? {},
+    // Columnas legacy guia_ii_* almacenan el FRP activo (II o III) para agregados.
+    guia_ii_final_score: frpResult?.finalScore ?? null,
+    guia_ii_final_risk_level: frpResult?.finalRiskLevel ?? null,
+    guia_ii_category_scores: frpResult?.categoryScores ?? {},
+    guia_ii_domain_scores: frpResult?.domainScores ?? {},
+    guia_ii_dimension_scores: frpResult?.dimensionScores ?? {},
     alerts,
     validation_warnings: combinedWarnings,
+    result_snapshot,
   };
 
   return {
     answers,
     result,
-    scoringVersion: NOM035_SCORING_VERSION,
-    questionnaireVersion: NOM035_QUESTIONNAIRE_VERSION,
+    scoringVersion:
+      frp === "GUIA_III" ? NOM035_I_III_SCORING_VERSION : NOM035_SCORING_VERSION,
+    questionnaireVersion:
+      frp === "GUIA_III"
+        ? NOM035_I_III_QUESTIONNAIRE_VERSION
+        : NOM035_QUESTIONNAIRE_VERSION,
     calculatedAt: new Date().toISOString(),
     validationWarnings: combinedWarnings,
-    serverFinalScore: guiaIIResult?.finalScore ?? null,
-    serverFinalRiskLevel: guiaIIResult?.finalRiskLevel ?? null,
+    serverFinalScore: frpResult?.finalScore ?? null,
+    serverFinalRiskLevel: frpResult?.finalRiskLevel ?? null,
+  };
+}
+
+/** Recalcula desde answers canónicas y compara con snapshot (sin mutar). */
+export function recalculateFrpSnapshotMatch(input: {
+  frp: FrpInstrument;
+  guiaIResponses: EvaluationResponse[];
+  frpAnswers: GuiaIIAnswers | GuiaIIIAnswers;
+  snapshot: Record<string, unknown>;
+}): { match: boolean; expectedScore: number; snapshotScore: number | null } {
+  const frpResult =
+    input.frp === "GUIA_III"
+      ? calculateGuiaIIIResult(input.frpAnswers as GuiaIIIAnswers)
+      : calculateGuiaIIResult(input.frpAnswers as GuiaIIAnswers);
+  const snapshotScore =
+    typeof input.snapshot.final_score === "number" ? input.snapshot.final_score : null;
+  return {
+    match:
+      snapshotScore === frpResult.finalScore &&
+      input.snapshot.final_risk_level === frpResult.finalRiskLevel,
+    expectedScore: frpResult.finalScore,
+    snapshotScore,
   };
 }

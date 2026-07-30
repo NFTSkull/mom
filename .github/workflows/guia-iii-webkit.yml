@@ -1,0 +1,103 @@
+name: Guía III WebKit (local stack)
+
+# Certifica I→III en WebKit sobre Supabase + Next locales en el runner.
+# Nunca usa Production, ConCasa, ni secrets STAGING_*/Cloud.
+on:
+  push:
+    branches:
+      - "release/**"
+  pull_request:
+    branches:
+      - "release/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guia3-webkit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
+  PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+  GUIDE_III_TEST_PASSWORD: "Nom035-G3#CiWebKit2026!"
+
+jobs:
+  guia-iii-webkit:
+    name: guia-iii-webkit
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.110.0
+
+      - name: Start Supabase local
+        run: npx supabase start
+
+      - name: Write .env.local (CI local only)
+        run: node scripts/ci-write-local-env.mjs
+
+      - name: Guard — no Cloud / ConCasa / Production
+        run: |
+          set -euo pipefail
+          url=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' .env.local | cut -d= -f2-)
+          echo "$url" | grep -qiE 'supabase\.co|concasa|production|agbl|fvtq' && exit 1 || true
+          echo "$url" | grep -qiE '127\.0\.0\.1|localhost'
+          echo "LOCAL_STACK_OK"
+
+      - name: Reset DB
+        run: npm run db:reset
+
+      - name: Install WebKit + OS deps
+        run: npx playwright install --with-deps webkit
+
+      - name: Seed auth admin (panel) + Guía III workers
+        run: |
+          npm run auth:seed:test
+          npm run guia3:seed:local
+
+      - name: Playwright WebKit Guía III
+        env:
+          CI: "true"
+          PLAYWRIGHT_BASE_URL: ${{ env.PLAYWRIGHT_BASE_URL }}
+          GUIDE_III_TEST_PASSWORD: ${{ env.GUIDE_III_TEST_PASSWORD }}
+        run: npx playwright test --project=webkit-guia3
+
+      - name: Cleanup sintéticos (siempre)
+        if: always()
+        run: |
+          npm run guia3:cleanup:local || true
+          npm run auth:cleanup:test || true
+
+      - name: Verificar cero residuos Guía III
+        if: always()
+        run: |
+          set -euo pipefail
+          DB_URL=$(npx supabase status -o env | sed -n 's/^DB_URL="\(.*\)"/\1/p')
+          test -n "$DB_URL"
+          count=$(psql "$DB_URL" -Atc "select count(*) from public.evaluation_campaigns where nombre = 'CAMPAÑA_GUIA_III_TEST'")
+          test "${count:-0}" = "0"
+          echo "CLEANUP_RESIDUE_OK"
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guia-iii-webkit-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

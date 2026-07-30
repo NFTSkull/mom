@@ -92,7 +92,12 @@ export async function saveDraft(
 export async function submitEvaluation(payload: {
   submissionId: string;
   guiaI: { responses: Record<string, number> };
-  guiaII: {
+  guiaII?: {
+    gateClientes: string;
+    gateJefe: string;
+    responses: Record<number, string>;
+  };
+  guiaIII?: {
     gateClientes: string;
     gateJefe: string;
     responses: Record<number, string>;

@@ -28,8 +28,8 @@ export default defineConfig({
     },
     {
       name: "chromium-mobile",
-      testMatch: /worker-portal\.spec\.ts/,
-      grep: /W1\.|W2-W4/,
+      testMatch: /worker-portal\.spec\.ts|guia-iii-evaluation\.spec\.ts/,
+      grep: /W1\.|W2-W4|I→III draft/,
       use: { ...devices["Pixel 5"] },
     },
     {
@@ -38,12 +38,21 @@ export default defineConfig({
       grep: /W1\./,
       use: { ...devices["Desktop Firefox"] },
     },
-    // WebKit local (macOS antiguo): Protocol error PushAPIEnabled — smoke en CI WebKit.
+    ...(process.env.CI
+      ? [
+          {
+            // Solo CI Linux (ubuntu-latest). Local macOS: PushAPIEnabled.
+            name: "webkit-guia3",
+            testMatch: /guia-iii-webkit\.spec\.ts|guia-iii-evaluation\.spec\.ts/,
+            use: { ...devices["Desktop Safari"] },
+          },
+        ]
+      : []),
   ],
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
     url: "http://127.0.0.1:3000",
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 });

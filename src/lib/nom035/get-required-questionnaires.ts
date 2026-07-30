@@ -7,5 +7,7 @@ import type { QuestionnaireType } from "@/types/nom035";
 export function getRequiredQuestionnaires(employeeCount: number): QuestionnaireType[] {
   if (employeeCount <= 15) return ["GUIA_I"];
   if (employeeCount <= 50) return ["GUIA_I", "GUIA_II"];
-  return ["GUIA_I", "GUIA_II", "GUIA_III"];
+  // >50: Guía I (eventos traumáticos) + Guía III (FRP y entorno organizacional).
+  // Guía II no aplica como instrumento productivo para N>50.
+  return ["GUIA_I", "GUIA_III"];
 }

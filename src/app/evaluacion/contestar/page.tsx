@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GUIA_I_QUESTIONS, GUIA_I_SECTION_I_ID } from "@/data/nom035/guia-i";
-import { GUIA_II_QUESTIONS } from "@/data/nom035/guia-ii";
-import {
-  GUIA_II_GATE_CLIENTES_TEXT,
-  GUIA_II_GATE_JEFE_TEXT,
-} from "@/data/nom035/guia-ii-manifest";
+import { NOM035_QUESTIONNAIRE_VERSION } from "@/data/nom035/guia-ii-manifest";
+import { NOM035_I_III_QUESTIONNAIRE_VERSION } from "@/data/nom035/guia-iii-manifest";
 import {
   clearSession,
   fetchSessionContext,
@@ -15,7 +12,21 @@ import {
   startEvaluation,
   submitEvaluation,
 } from "@/lib/nom035/client/public-evaluation-api";
+import {
+  buildFrpBlocks,
+  buildFrpQuestionMap,
+  clearGateAnswers,
+  frpGateTexts,
+  frpRadioNamePrefix,
+  frpStageName,
+  type FrpKind,
+} from "@/lib/nom035/frp-ui-blocks";
+import { resolveFrpInstrument } from "@/lib/nom035/resolve-questionnaire-version";
 import { getSkippedQuestionNumbers, validateGuiaIIAnswers } from "@/lib/nom035/validate-guia-ii";
+import {
+  assertValidGuiaIIIAnswers,
+  getGuiaIIISkippedQuestionNumbers,
+} from "@/lib/nom035/validate-guia-iii";
 import type { GuiaIIGateAnswer, GuiaIILikertAnswer } from "@/types/nom035";
 
 const OPTIONS = [
@@ -39,57 +50,15 @@ const LIKERT_LABEL: Record<GuiaIILikertAnswer, string> = {
   nunca: "Nunca",
 };
 
-type FlowStage = "loading" | "welcome" | "guia_i" | "guia_ii" | "review" | "session_error";
+type FlowStage =
+  | "loading"
+  | "welcome"
+  | "guia_i"
+  | "guia_ii"
+  | "guia_iii"
+  | "review"
+  | "session_error";
 type SaveState = "idle" | "saving" | "saved" | "error";
-
-interface GuiaIIBlock {
-  id: string;
-  title: string;
-  description: string;
-  questionNumbers: number[];
-  gate?: "clientes" | "jefe";
-}
-
-const GUIA_II_BLOCKS: GuiaIIBlock[] = [
-  {
-    id: "guia-ii-b1",
-    title: "Guía II - Bloque 1",
-    description: "Condiciones iniciales de trabajo.",
-    questionNumbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  },
-  {
-    id: "guia-ii-b2",
-    title: "Guía II - Bloque 2",
-    description: "Demandas y tiempo de trabajo.",
-    questionNumbers: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-  },
-  {
-    id: "guia-ii-b3",
-    title: "Guía II - Bloque 3",
-    description: "Control, desarrollo y funciones.",
-    questionNumbers: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-  },
-  {
-    id: "guia-ii-b4",
-    title: "Guía II - Bloque 4",
-    description: "Relaciones y violencia laboral.",
-    questionNumbers: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
-  },
-  {
-    id: "guia-ii-b5",
-    title: "Guía II - Atención a clientes o usuarios",
-    description: "Primero responde la compuerta y después, si aplica, las preguntas de esta sección.",
-    questionNumbers: [41, 42, 43],
-    gate: "clientes",
-  },
-  {
-    id: "guia-ii-b6",
-    title: "Guía II - Supervisión de personal",
-    description: "Primero responde la compuerta y después, si aplica, las preguntas de esta sección.",
-    questionNumbers: [44, 45, 46],
-    gate: "jefe",
-  },
-];
 
 function newSubmissionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -98,16 +67,24 @@ function newSubmissionId(): string {
   return `sub_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
 }
 
+function skippedFor(kind: FrpKind, gateClientes: GuiaIIGateAnswer, gateJefe: GuiaIIGateAnswer) {
+  if (kind === "GUIA_III") {
+    return getGuiaIIISkippedQuestionNumbers({ gateClientes, gateJefe });
+  }
+  return getSkippedQuestionNumbers({ gateClientes, gateJefe });
+}
+
 export default function EvaluacionContestarPage() {
   const router = useRouter();
   const [stage, setStage] = useState<FlowStage>("loading");
   const [sessionMessage, setSessionMessage] = useState("");
   const [workerName, setWorkerName] = useState<string | undefined>();
+  const [questionnaireVersion, setQuestionnaireVersion] = useState(NOM035_QUESTIONNAIRE_VERSION);
   const [guiaIAnswers, setGuiaIAnswers] = useState<Record<string, number>>({});
   const [guiaIError, setGuiaIError] = useState("");
-  const [guiaIIAnswers, setGuiaIIAnswers] = useState<Record<number, GuiaIILikertAnswer>>({});
-  const [guiaIIError, setGuiaIIError] = useState("");
-  const [guiaIIStep, setGuiaIIStep] = useState(0);
+  const [frpAnswers, setFrpAnswers] = useState<Record<number, GuiaIILikertAnswer>>({});
+  const [frpError, setFrpError] = useState("");
+  const [frpStep, setFrpStep] = useState(0);
   const [gateClientes, setGateClientes] = useState<GuiaIIGateAnswer | undefined>();
   const [gateJefe, setGateJefe] = useState<GuiaIIGateAnswer | undefined>();
   const [showFullInstructions, setShowFullInstructions] = useState(false);
@@ -121,35 +98,53 @@ export default function EvaluacionContestarPage() {
   const submissionIdRef = useRef(newSubmissionId());
   const errorFocusRef = useRef<HTMLParagraphElement | null>(null);
 
+  const frpKind: FrpKind = resolveFrpInstrument(questionnaireVersion) ?? "GUIA_II";
+  const frpBlocks = useMemo(() => buildFrpBlocks(frpKind), [frpKind]);
+  const frpQuestionMap = useMemo(() => buildFrpQuestionMap(frpKind), [frpKind]);
+  const gateTexts = useMemo(() => frpGateTexts(frpKind), [frpKind]);
+  const radioPrefix = frpRadioNamePrefix(frpKind);
+  const frpStage = frpStageName(frpKind);
+  const frpLabel = frpKind === "GUIA_III" ? "Guía III" : "Guía II";
+
   const orderedQuestions = [...GUIA_I_QUESTIONS].sort((a, b) => a.order - b.order);
   const sectionIQuestions = orderedQuestions.filter((q) => q.section === "I");
   const remainingQuestions = orderedQuestions.filter((q) => q.section !== "I");
   const hasTraumaticEvent = guiaIAnswers[GUIA_I_SECTION_I_ID] === 1;
   const visibleQuestions = hasTraumaticEvent ? orderedQuestions : sectionIQuestions;
-  const currentGuiaIIBlock = GUIA_II_BLOCKS[guiaIIStep];
-  const guiaIIProgress = Math.round(((guiaIIStep + 1) / GUIA_II_BLOCKS.length) * 100);
-  const guiaIIQuestionMap = new Map(GUIA_II_QUESTIONS.map((q) => [q.questionNumber, q]));
+  const currentFrpBlock = frpBlocks[frpStep];
+  const frpProgress = Math.round(((frpStep + 1) / frpBlocks.length) * 100);
 
   function restoreDraft(draft: Record<string, unknown> | null | undefined) {
     if (!draft || typeof draft !== "object") return;
     const stageDraft = typeof draft.stage === "string" ? draft.stage : undefined;
     const guiaI = draft.guiaI as { responses?: Record<string, number> } | undefined;
     if (guiaI?.responses) setGuiaIAnswers(guiaI.responses);
-    const guiaII = draft.guiaII as {
-      gateClientes?: GuiaIIGateAnswer;
-      gateJefe?: GuiaIIGateAnswer;
-      responses?: Record<string, GuiaIILikertAnswer>;
-      step?: number;
-    } | undefined;
-    if (guiaII?.gateClientes) setGateClientes(guiaII.gateClientes);
-    if (guiaII?.gateJefe) setGateJefe(guiaII.gateJefe);
-    if (guiaII?.responses) {
-      const mapped: Record<number, GuiaIILikertAnswer> = {};
-      for (const [k, v] of Object.entries(guiaII.responses)) mapped[Number(k)] = v;
-      setGuiaIIAnswers(mapped);
+
+    const frpDraft =
+      (draft.guiaIII as Record<string, unknown> | undefined) ??
+      (draft.guiaII as Record<string, unknown> | undefined);
+    if (frpDraft) {
+      if (frpDraft.gateClientes === "si" || frpDraft.gateClientes === "no") {
+        setGateClientes(frpDraft.gateClientes);
+      }
+      if (frpDraft.gateJefe === "si" || frpDraft.gateJefe === "no") {
+        setGateJefe(frpDraft.gateJefe);
+      }
+      const responses = frpDraft.responses as Record<string, GuiaIILikertAnswer> | undefined;
+      if (responses) {
+        const mapped: Record<number, GuiaIILikertAnswer> = {};
+        for (const [k, v] of Object.entries(responses)) mapped[Number(k)] = v;
+        setFrpAnswers(mapped);
+      }
+      if (typeof frpDraft.step === "number") setFrpStep(frpDraft.step);
     }
-    if (typeof guiaII?.step === "number") setGuiaIIStep(guiaII.step);
-    if (stageDraft === "guia_i" || stageDraft === "guia_ii" || stageDraft === "review") {
+
+    if (
+      stageDraft === "guia_i" ||
+      stageDraft === "guia_ii" ||
+      stageDraft === "guia_iii" ||
+      stageDraft === "review"
+    ) {
       setStage(stageDraft);
     } else if (guiaI?.responses && Object.keys(guiaI.responses).length > 0) {
       setStage("guia_i");
@@ -169,6 +164,9 @@ export default function EvaluacionContestarPage() {
         return;
       }
       setWorkerName(session.data.context.workerName);
+      const version =
+        session.data.context.questionnaireVersion ?? NOM035_QUESTIONNAIRE_VERSION;
+      setQuestionnaireVersion(version);
       restoreDraft(session.data.context.draft as Record<string, unknown> | null);
       if (!session.data.context.draft) setStage("welcome");
     }
@@ -179,38 +177,46 @@ export default function EvaluacionContestarPage() {
   }, []);
 
   useEffect(() => {
-    if (guiaIError || guiaIIError || reviewError) {
+    if (guiaIError || frpError || reviewError) {
       errorFocusRef.current?.focus();
     }
-  }, [guiaIError, guiaIIError, reviewError]);
+  }, [guiaIError, frpError, reviewError]);
 
   const buildDraftPayload = useCallback(
     (nextStage: FlowStage) => {
       const skipped = new Set(
-        getSkippedQuestionNumbers({
-          gateClientes: gateClientes ?? "no",
-          gateJefe: gateJefe ?? "no",
-        })
+        skippedFor(frpKind, gateClientes ?? "no", gateJefe ?? "no")
       );
       const responses: Record<number, GuiaIILikertAnswer> = {};
-      for (const [k, v] of Object.entries(guiaIIAnswers)) {
+      for (const [k, v] of Object.entries(frpAnswers)) {
         const n = Number(k);
         if (skipped.has(n)) continue;
         responses[n] = v;
       }
+      const frpPayload = {
+        gateClientes: gateClientes ?? null,
+        gateJefe: gateJefe ?? null,
+        responses,
+        step: frpStep,
+      };
       return {
         stage: nextStage,
-        questionnaireVersion: "nom035-stps-2018-guias-referencia-i-ii",
+        questionnaireVersion,
         guiaI: { responses: guiaIAnswers },
-        guiaII: {
-          gateClientes: gateClientes ?? null,
-          gateJefe: gateJefe ?? null,
-          responses,
-          step: guiaIIStep,
-        },
+        ...(frpKind === "GUIA_III"
+          ? { guiaIII: frpPayload }
+          : { guiaII: frpPayload }),
       };
     },
-    [gateClientes, gateJefe, guiaIAnswers, guiaIIAnswers, guiaIIStep]
+    [
+      frpKind,
+      gateClientes,
+      gateJefe,
+      guiaIAnswers,
+      frpAnswers,
+      frpStep,
+      questionnaireVersion,
+    ]
   );
 
   const persistDraft = useCallback(
@@ -222,7 +228,11 @@ export default function EvaluacionContestarPage() {
           const result = await saveDraft(buildDraftPayload(nextStage), draftUpdatedAtRef.current);
           if (seq !== saveSeqRef.current) return;
           if (!result.ok) {
-            if (result.code === "session_expired" || result.code === "session_revoked" || result.code === "no_session") {
+            if (
+              result.code === "session_expired" ||
+              result.code === "session_revoked" ||
+              result.code === "no_session"
+            ) {
               setSessionMessage(result.message);
               setStage("session_error");
             }
@@ -256,6 +266,35 @@ export default function EvaluacionContestarPage() {
     void persistDraft("guia_i");
   }
 
+  function buildFrpPayload() {
+    const skipped = new Set(skippedFor(frpKind, gateClientes ?? "no", gateJefe ?? "no"));
+    const responses: Record<number, GuiaIILikertAnswer> = {};
+    for (const [key, value] of Object.entries(frpAnswers)) {
+      const n = Number(key);
+      if (skipped.has(n)) continue;
+      responses[n] = value;
+    }
+    return {
+      gateClientes: (gateClientes ?? "no") as GuiaIIGateAnswer,
+      gateJefe: (gateJefe ?? "no") as GuiaIIGateAnswer,
+      responses,
+    };
+  }
+
+  function validateFrpComplete(): string | null {
+    const payload = buildFrpPayload();
+    if (frpKind === "GUIA_III") {
+      try {
+        assertValidGuiaIIIAnswers(payload);
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "Hay respuestas incompletas o inválidas.";
+      }
+    }
+    const validation = validateGuiaIIAnswers(payload);
+    return validation.valid ? null : (validation.errors[0] ?? "Hay respuestas incompletas o inválidas.");
+  }
+
   async function onSubmitGuiaI(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const hasMissing = visibleQuestions.some((q) => guiaIAnswers[q.id] === undefined);
@@ -263,111 +302,74 @@ export default function EvaluacionContestarPage() {
       setGuiaIError("Debes responder todas las preguntas visibles antes de continuar.");
       return;
     }
-    // Si Guía II ya está completa (p.ej. tras editar desde revisión), volver a revisión.
-    if (gateClientes && gateJefe) {
-      const payload = buildGuiaIIPayload();
-      const validation = validateGuiaIIAnswers(payload);
-      if (validation.valid) {
-        setStage("review");
-        await persistDraft("review");
-        return;
-      }
+    if (gateClientes && gateJefe && !validateFrpComplete()) {
+      setStage("review");
+      await persistDraft("review");
+      return;
     }
-    setGuiaIIStep(0);
-    setStage("guia_ii");
-    await persistDraft("guia_ii");
+    setFrpStep(0);
+    setStage(frpStage);
+    await persistDraft(frpStage);
   }
 
-  function buildGuiaIIPayload() {
-    const skipped = new Set(
-      getSkippedQuestionNumbers({
-        gateClientes: gateClientes ?? "no",
-        gateJefe: gateJefe ?? "no",
-      })
-    );
-    const responses: Partial<Record<number, GuiaIILikertAnswer>> = {};
-    for (const [key, value] of Object.entries(guiaIIAnswers)) {
-      const n = Number(key);
-      if (skipped.has(n)) continue;
-      responses[n] = value;
-    }
-    return {
-      gateClientes: gateClientes ?? "no",
-      gateJefe: gateJefe ?? "no",
-      responses,
-    };
-  }
-
-  function updateGuiaIIAnswer(questionNumber: number, value: GuiaIILikertAnswer): void {
-    setGuiaIIError("");
-    setGuiaIIAnswers((prev) => ({ ...prev, [questionNumber]: value }));
+  function updateFrpAnswer(questionNumber: number, value: GuiaIILikertAnswer): void {
+    setFrpError("");
+    setFrpAnswers((prev) => ({ ...prev, [questionNumber]: value }));
   }
 
   function getCurrentGateValue(): GuiaIIGateAnswer | undefined {
-    if (!currentGuiaIIBlock.gate) return undefined;
-    return currentGuiaIIBlock.gate === "clientes" ? gateClientes : gateJefe;
+    if (!currentFrpBlock?.gate) return undefined;
+    return currentFrpBlock.gate === "clientes" ? gateClientes : gateJefe;
   }
 
   function setCurrentGateValue(value: GuiaIIGateAnswer): void {
-    setGuiaIIError("");
-    if (currentGuiaIIBlock.gate === "clientes") {
+    setFrpError("");
+    if (currentFrpBlock?.gate === "clientes") {
       setGateClientes(value);
-      if (value === "no") {
-        setGuiaIIAnswers((prev) => {
-          const next = { ...prev };
-          delete next[41];
-          delete next[42];
-          delete next[43];
-          return next;
-        });
-      }
+      setFrpAnswers((prev) =>
+        clearGateAnswers(prev, frpKind, "clientes", value) as Record<number, GuiaIILikertAnswer>
+      );
     }
-    if (currentGuiaIIBlock.gate === "jefe") {
+    if (currentFrpBlock?.gate === "jefe") {
       setGateJefe(value);
-      if (value === "no") {
-        setGuiaIIAnswers((prev) => {
-          const next = { ...prev };
-          delete next[44];
-          delete next[45];
-          delete next[46];
-          return next;
-        });
-      }
+      setFrpAnswers((prev) =>
+        clearGateAnswers(prev, frpKind, "jefe", value) as Record<number, GuiaIILikertAnswer>
+      );
     }
   }
 
-  function validateCurrentGuiaIIBlock(): boolean {
+  function validateCurrentFrpBlock(): boolean {
+    if (!currentFrpBlock) return false;
     const gateValue = getCurrentGateValue();
-    if (currentGuiaIIBlock.gate && !gateValue) {
-      setGuiaIIError("Debes responder la pregunta de compuerta para continuar.");
+    if (currentFrpBlock.gate && !gateValue) {
+      setFrpError("Debes responder la pregunta de compuerta para continuar.");
       return false;
     }
-    if (currentGuiaIIBlock.gate && gateValue === "no") return true;
-    const missing = currentGuiaIIBlock.questionNumbers.some((n) => guiaIIAnswers[n] === undefined);
+    if (currentFrpBlock.gate && gateValue === "no") return true;
+    const missing = currentFrpBlock.questionNumbers.some((n) => frpAnswers[n] === undefined);
     if (missing) {
-      setGuiaIIError("Debes responder todas las preguntas visibles del bloque actual.");
+      setFrpError("Debes responder todas las preguntas visibles del bloque actual.");
       return false;
     }
     return true;
   }
 
-  function onPreviousGuiaIIBlock(): void {
-    setGuiaIIError("");
-    setGuiaIIStep((prev) => Math.max(0, prev - 1));
+  function onPreviousFrpBlock(): void {
+    setFrpError("");
+    setFrpStep((prev) => Math.max(0, prev - 1));
   }
 
-  async function onNextGuiaIIBlock(): Promise<void> {
-    if (!validateCurrentGuiaIIBlock()) return;
-    setGuiaIIStep((prev) => Math.min(GUIA_II_BLOCKS.length - 1, prev + 1));
-    await persistDraft("guia_ii");
+  async function onNextFrpBlock(): Promise<void> {
+    if (!validateCurrentFrpBlock()) return;
+    setFrpStep((prev) => Math.min(frpBlocks.length - 1, prev + 1));
+    await persistDraft(frpStage);
   }
 
-  async function onFinishGuiaII(): Promise<void> {
-    if (!validateCurrentGuiaIIBlock()) return;
-    const payload = buildGuiaIIPayload();
-    const validation = validateGuiaIIAnswers(payload);
-    if (!validation.valid) {
-      setGuiaIIError(validation.errors[0] ?? "Hay respuestas incompletas o inválidas.");
+  async function onFinishFrp(): Promise<void> {
+    if (!validateCurrentFrpBlock()) return;
+    const err = validateFrpComplete();
+    if (err) {
+      setFrpError(err);
       return;
     }
     setReviewConfirmed(false);
@@ -390,7 +392,7 @@ export default function EvaluacionContestarPage() {
     setReviewError("");
     try {
       await saveQueueRef.current;
-      const guiaIIPayload = buildGuiaIIPayload();
+      const frpPayload = buildFrpPayload();
       const result = await submitEvaluation({
         submissionId: submissionIdRef.current,
         guiaI: {
@@ -398,11 +400,21 @@ export default function EvaluacionContestarPage() {
             visibleQuestions.map((q) => [q.id, guiaIAnswers[q.id] ?? 0])
           ),
         },
-        guiaII: {
-          gateClientes: guiaIIPayload.gateClientes,
-          gateJefe: guiaIIPayload.gateJefe,
-          responses: guiaIIPayload.responses as Record<number, string>,
-        },
+        ...(frpKind === "GUIA_III"
+          ? {
+              guiaIII: {
+                gateClientes: frpPayload.gateClientes,
+                gateJefe: frpPayload.gateJefe,
+                responses: frpPayload.responses,
+              },
+            }
+          : {
+              guiaII: {
+                gateClientes: frpPayload.gateClientes,
+                gateJefe: frpPayload.gateJefe,
+                responses: frpPayload.responses,
+              },
+            }),
       });
       if (!result.ok) {
         setIsSubmitting(false);
@@ -418,9 +430,8 @@ export default function EvaluacionContestarPage() {
         setReviewError(result.message);
         return;
       }
-      // Limpia estado sensible en memoria.
       setGuiaIAnswers({});
-      setGuiaIIAnswers({});
+      setFrpAnswers({});
       setGateClientes(undefined);
       setGateJefe(undefined);
       await clearSession();
@@ -453,6 +464,8 @@ export default function EvaluacionContestarPage() {
       </div>
     );
   }
+
+  const isFrpStage = stage === "guia_ii" || stage === "guia_iii";
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -489,6 +502,9 @@ export default function EvaluacionContestarPage() {
               Contesta el cuestionario completo, con sinceridad y considerando las condiciones de
               los dos últimos meses. Tiempo estimado: 15 a 25 minutos.
             </p>
+            <p className="text-sm text-slate-600">
+              Instrumentos de esta evaluación: Guía I y {frpLabel}.
+            </p>
             <button
               type="button"
               onClick={() => setShowFullInstructions((prev) => !prev)}
@@ -521,7 +537,7 @@ export default function EvaluacionContestarPage() {
         {stage === "guia_i" ? (
           <form className="mt-5 space-y-4" onSubmit={(e) => void onSubmitGuiaI(e)}>
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Guía I (Paso 1 de 2)
+              Guía I (Paso 1 de 2) · luego {frpLabel}
             </div>
             {visibleQuestions.map((question, index) => {
               const previousSection = index > 0 ? visibleQuestions[index - 1]?.section : null;
@@ -583,31 +599,29 @@ export default function EvaluacionContestarPage() {
               type="submit"
               className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
             >
-              Continuar a Guía II
+              Continuar a {frpLabel}
             </button>
           </form>
         ) : null}
 
-        {stage === "guia_ii" ? (
-          <section className="mt-5 space-y-4">
+        {isFrpStage && currentFrpBlock ? (
+          <section className="mt-5 space-y-4" data-testid={`frp-stage-${frpKind}`}>
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">
-                Guía II - Paso {guiaIIStep + 1} de {GUIA_II_BLOCKS.length}
+                {frpLabel} - Paso {frpStep + 1} de {frpBlocks.length}
               </p>
               <div className="h-2 rounded-full bg-slate-200">
-                <div className="h-2 rounded-full bg-slate-700" style={{ width: `${guiaIIProgress}%` }} />
+                <div className="h-2 rounded-full bg-slate-700" style={{ width: `${frpProgress}%` }} />
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-lg font-semibold text-slate-900">{currentGuiaIIBlock.title}</h2>
-              <p className="mt-1 text-sm text-slate-700">{currentGuiaIIBlock.description}</p>
+              <h2 className="text-lg font-semibold text-slate-900">{currentFrpBlock.title}</h2>
+              <p className="mt-1 text-sm text-slate-700">{currentFrpBlock.description}</p>
             </div>
-            {currentGuiaIIBlock.gate ? (
+            {currentFrpBlock.gate ? (
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <p className="font-medium text-slate-900">
-                  {currentGuiaIIBlock.gate === "clientes"
-                    ? GUIA_II_GATE_CLIENTES_TEXT
-                    : GUIA_II_GATE_JEFE_TEXT}
+                  {currentFrpBlock.gate === "clientes" ? gateTexts.clientes : gateTexts.jefe}
                 </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {(["si", "no"] as const).map((value) => (
@@ -617,7 +631,7 @@ export default function EvaluacionContestarPage() {
                     >
                       <input
                         type="radio"
-                        name={`gate-${currentGuiaIIBlock.gate}`}
+                        name={`gate-${currentFrpBlock.gate}`}
                         checked={getCurrentGateValue() === value}
                         onChange={() => setCurrentGateValue(value)}
                         className="accent-slate-700"
@@ -628,9 +642,9 @@ export default function EvaluacionContestarPage() {
                 </div>
               </div>
             ) : null}
-            {(!currentGuiaIIBlock.gate || getCurrentGateValue() === "si") &&
-              currentGuiaIIBlock.questionNumbers.map((questionNumber) => {
-                const question = guiaIIQuestionMap.get(questionNumber);
+            {(!currentFrpBlock.gate || getCurrentGateValue() === "si") &&
+              currentFrpBlock.questionNumbers.map((questionNumber) => {
+                const question = frpQuestionMap.get(questionNumber);
                 if (!question) return null;
                 return (
                   <fieldset
@@ -648,9 +662,9 @@ export default function EvaluacionContestarPage() {
                         >
                           <input
                             type="radio"
-                            name={`guia-ii-${question.questionNumber}`}
-                            checked={guiaIIAnswers[question.questionNumber] === option.value}
-                            onChange={() => updateGuiaIIAnswer(question.questionNumber, option.value)}
+                            name={`${radioPrefix}${question.questionNumber}`}
+                            checked={frpAnswers[question.questionNumber] === option.value}
+                            onChange={() => updateFrpAnswer(question.questionNumber, option.value)}
                             className="accent-slate-700"
                           />
                           {option.label}
@@ -660,34 +674,34 @@ export default function EvaluacionContestarPage() {
                   </fieldset>
                 );
               })}
-            {currentGuiaIIBlock.gate && getCurrentGateValue() === "no" ? (
+            {currentFrpBlock.gate && getCurrentGateValue() === "no" ? (
               <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                 Este bloque se marcará como no aplicable según la compuerta seleccionada.
               </p>
             ) : null}
-            {guiaIIError ? (
+            {frpError ? (
               <p
                 ref={errorFocusRef}
                 tabIndex={-1}
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
                 role="alert"
               >
-                {guiaIIError}
+                {frpError}
               </p>
             ) : null}
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={onPreviousGuiaIIBlock}
-                disabled={guiaIIStep === 0}
+                onClick={onPreviousFrpBlock}
+                disabled={frpStep === 0}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Anterior
               </button>
-              {guiaIIStep < GUIA_II_BLOCKS.length - 1 ? (
+              {frpStep < frpBlocks.length - 1 ? (
                 <button
                   type="button"
-                  onClick={() => void onNextGuiaIIBlock()}
+                  onClick={() => void onNextFrpBlock()}
                   className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
                 >
                   Siguiente
@@ -695,7 +709,7 @@ export default function EvaluacionContestarPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => void onFinishGuiaII()}
+                  onClick={() => void onFinishFrp()}
                   className="rounded-md bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700"
                 >
                   Finalizar bloque y revisar
@@ -732,19 +746,20 @@ export default function EvaluacionContestarPage() {
               </button>
             </div>
             <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-              <h3 className="font-semibold text-slate-900">Guía II</h3>
+              <h3 className="font-semibold text-slate-900">{frpLabel}</h3>
               <p className="text-sm text-slate-700">
-                {GUIA_II_GATE_CLIENTES_TEXT} {gateClientes === "si" ? "Sí" : "No"}
+                {gateTexts.clientes} {gateClientes === "si" ? "Sí" : "No"}
               </p>
               <p className="text-sm text-slate-700">
-                {GUIA_II_GATE_JEFE_TEXT} {gateJefe === "si" ? "Sí" : "No"}
+                {gateTexts.jefe} {gateJefe === "si" ? "Sí" : "No"}
               </p>
-              {GUIA_II_QUESTIONS.map((question) => {
-                const skipped = getSkippedQuestionNumbers({
-                  gateClientes: gateClientes ?? "no",
-                  gateJefe: gateJefe ?? "no",
-                }).includes(question.questionNumber);
-                const answer = guiaIIAnswers[question.questionNumber];
+              {[...frpQuestionMap.values()].map((question) => {
+                const skipped = skippedFor(
+                  frpKind,
+                  gateClientes ?? "no",
+                  gateJefe ?? "no"
+                ).includes(question.questionNumber);
+                const answer = frpAnswers[question.questionNumber];
                 return (
                   <div key={question.id} className="border-t border-slate-100 pt-2 text-sm">
                     <p className="text-slate-800">
@@ -761,12 +776,12 @@ export default function EvaluacionContestarPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setGuiaIIStep(0);
-                  setStage("guia_ii");
+                  setFrpStep(0);
+                  setStage(frpStage);
                 }}
                 className="mt-2 text-sm font-medium text-slate-900 underline"
               >
-                Editar Guía II
+                Editar {frpLabel}
               </button>
             </div>
             <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
@@ -802,6 +817,11 @@ export default function EvaluacionContestarPage() {
           </section>
         ) : null}
       </main>
+      <span className="sr-only" data-questionnaire-version={questionnaireVersion}>
+        {questionnaireVersion === NOM035_I_III_QUESTIONNAIRE_VERSION
+          ? "instrumento-i-iii"
+          : "instrumento-i-ii"}
+      </span>
     </div>
   );
 }

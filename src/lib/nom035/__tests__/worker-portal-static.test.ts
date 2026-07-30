@@ -36,7 +36,10 @@ describe("B4.9 · portal trabajador (estático)", () => {
     expect(open).toContain("openWorkerEvaluationSession");
   });
 
-  it("Guía III permanece P0 (sin archivos guia-iii)", () => {
-    expect(existsSync(join(ROOT, "src/data/nom035/guia-iii.ts"))).toBe(false);
+  it("Guía III existe como manifiesto certificado (72 reactivos)", () => {
+    expect(existsSync(join(ROOT, "src/data/nom035/guia-iii-manifest.ts"))).toBe(true);
+    const manifest = read("src/data/nom035/guia-iii-manifest.ts");
+    expect(manifest).toContain("nom035-stps-2018-guia-iii-v1");
+    expect(manifest).toMatch(/GUIA_III_MANIFEST/);
   });
 });
