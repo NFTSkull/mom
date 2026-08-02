@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-02 - B4.10 unblock RC Quality (secret-scan)
+
+### Decisiones
+
+- RC Quality `1d27d76` falló en quality/security: `password_assignment` sobre `GUIDE_III_TEST_PASSWORD` del workflow WebKit.
+- WebKit job del mismo SHA ya estaba en success; e2e RC quedó skipped por el gate.
+- Allowlist acotada: solo líneas con `GUIDE_III_TEST_PASSWORD` en `.github/workflows/` (no passwords genéricos).
+- No se tocó ConCasa ni Production; no se crearon cuentas reales.
+
 ## 2026-07-30 - B4.10 cierre CI WebKit + dry-run 83
 
 ### Decisiones

@@ -67,8 +67,15 @@ for path in ROOT.rglob("*"):
                 continue
             # Contraseñas sintéticas de E2E / fixtures de prueba (nunca prod).
             if label == "password_assignment" and (
-                rel.startswith("e2e/") or "/__tests__/" in rel or rel.startswith("scripts/seed-")
+                rel.startswith("e2e/")
+                or "/__tests__/" in rel
+                or rel.startswith("scripts/seed-")
                 or rel.startswith("scripts/cleanup-")
+                # CI local WebKit: GUIDE_III_TEST_PASSWORD sintético en workflow (no Cloud).
+                or (
+                    rel.startswith(".github/workflows/")
+                    and "GUIDE_III_TEST_PASSWORD" in text[max(0, m.start() - 80) : m.end()]
+                )
             ):
                 continue
             hits.append((rel, label))

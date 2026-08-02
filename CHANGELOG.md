@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-08-02 (B4.10 — fix secret-scan WebKit CI)
+
+- `ci-secret-scan.py`: permite `GUIDE_III_TEST_PASSWORD` sintético en `.github/workflows/` (falso positivo que bloqueaba RC Quality en `1d27d76`).
+- Sin cambios de producto; WebKit local stack intacto.
+
 ## 2026-07-30 (B4.10 — cierre: CI WebKit + dry-run 83)
 
 - Workflow `.github/workflows/guia-iii-webkit.yml` (stack local en ubuntu, cero Cloud).
