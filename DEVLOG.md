@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-02 - B4.11 certificación 83 sintéticos locales
+
+### Decisiones
+
+- B4.10 cerrado en SHA `c179e29` (RC + WebKit verdes) antes de B4.11.
+- Workload solo localhost; constantes en `b411-constants` para evitar side-effect de seed al importar cleanup.
+- Lecturas de drafts/results vía SQL (REST service_role sin GRANT SELECT).
+- Logins concurrentes antes de submits masivos; cliente Auth aislado por worker.
+- Cleanup transaccional filtrado por `CAMPANA_B411_*` / `TST-B411-%`; creds solo en `.tmp/` ignorado.
+- No cuentas reales; CSV dry-run fuera de Git.
+
 ## 2026-08-02 - B4.10 e2e RC: WebKit/Firefox sin binarios
 
 ### Decisiones

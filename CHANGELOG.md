@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-02 (B4.11 — certificación local 83 sintéticos I+III)
+
+- Scripts locales `b411:seed|cleanup|certify` con guardas anti-Cloud/ConCasa.
+- Carga 83/`TST-B411-*`, I+III (0 II), aislamiento, drafts, concurrencia, 33 snapshots, backup lógico, cleanup a cero.
+- Dry-run CSV externo sin escritura Auth.
+- **Sin** cuentas reales, **sin** mutar Production, **sin** ConCasa.
+
 ## 2026-08-02 (B4.10 — aislar WebKit del e2e RC)
 
 - `playwright.config`: proyecto `webkit-guia3` solo con `PLAYWRIGHT_WEBKIT_GUIA3=1`.

@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "supabase/.temp/**",
     ".tmp/**",
+    "scripts/lib/stub-server-only.cjs",
   ]),
 ]);
 
