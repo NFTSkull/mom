@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-03 (B4.12.1 — endurecer y versionar herramientas piloto)
+
+- Guardas `ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY` + `EXPECTED`/`CONFIRM` project ref.
+- Política piloto solo `TST-PROD-PILOT-001`; dry-run; tests de rechazo.
+- Eliminado `activate-prod-worker-prueba.sql` (IDs hardcodeados). `assign-prod-*` fuera de Git.
+
+## 2026-08-03 (B4.12 — cutover productivo + piloto; GO bloqueado)
+
+- Migración `007` en Production; deploy Vercel SHA `42d7286…`; piloto `TST-PROD-PILOT-001` I→III + cleanup 0.
+- Guardas productivas y scripts `b412:pilot:*`; secrets `STAGING_*` retirados.
+- **Veredicto: PRODUCCIÓN BLOQUEADA** (empresa prueba, MFA ausente, assignments I+II, sin PITR).
+- Sin 83 cuentas reales / sin campaña real / ConCasa intacto.
+
 ## 2026-08-02 (B4.11 — certificación local 83 sintéticos I+III)
 
 - Scripts locales `b411:seed|cleanup|certify` con guardas anti-Cloud/ConCasa.

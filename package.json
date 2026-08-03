@@ -41,6 +41,11 @@
     "production:residue:audit": "npx --yes tsx scripts/production-residue-audit.ts",
     "production:residue:cleanup": "CONFIRM_PRODUCTION_CLEANUP=YES npx --yes tsx scripts/production-cleanup-staging-residues.ts",
     "production:backup:dump": "CONFIRM_PRODUCTION_BACKUP=YES node scripts/production-backup-dump.mjs",
+    "b412:pilot:seed": "ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production npx --yes tsx scripts/seed-b412-prod-pilot.ts",
+    "b412:pilot:seed:dry-run": "ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production B412_PILOT_DRY_RUN=1 npx --yes tsx scripts/seed-b412-prod-pilot.ts",
+    "b412:pilot:smoke": "ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production npx --yes tsx --require ./scripts/lib/stub-server-only.cjs scripts/smoke-b412-prod-pilot.ts",
+    "b412:pilot:storage": "ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production npx --yes tsx scripts/smoke-b412-prod-storage.ts",
+    "b412:pilot:cleanup": "ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production npx --yes tsx scripts/cleanup-b412-prod-pilot.ts",
     "test:e2e:staging": "playwright test -c playwright.staging.config.ts",
     "test:e2e:staging:webkit": "FORCE_STAGING_WEBKIT=1 playwright test -c playwright.staging.config.ts --project=webkit-public",
     "ci:secret-scan": "python3 scripts/ci-secret-scan.py"

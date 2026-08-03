@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-08-03 - B4.12.1 harden tooling
+
+### Decisiones
+
+- Confirmación piloto: solo `B412_PILOT_ONLY` (rechaza yes/true/YES).
+- Refs: `EXPECTED_SUPABASE_PROJECT_REF` + `CONFIRM_SUPABASE_PROJECT_REF` exactos; logs sanitizados.
+- Cleanup por marcador exacto; dry-run sin escrituras; tests unitarios sin Cloud.
+- `activate-prod-worker-prueba.sql` eliminado del repo (UUID/email hardcodeados, sin secretos → commit normal).
+- `assign-prod-worker-prueba.sql` permanece off-repo, no versionar.
+
+## 2026-08-03 - B4.12 cutover + piloto productivo
+
+### Decisiones
+
+- Deploy solo desde worktree limpio del SHA certificado.
+- Peppers off-repo (B4.8); `vercel env pull` vacío (limitación CLI) — sin afirmar re-rotación.
+- Piloto no sobrescribe `company_settings`; limpia solo marcadores PILOT.
+- Secrets `STAGING_*` borrados (ref promovido).
+- GO bloqueado: empresa sintética, MFA=0, 167×I+II, PITR off.
+
 ## 2026-08-02 - B4.11 certificación 83 sintéticos locales
 
 ### Decisiones
