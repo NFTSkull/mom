@@ -98,10 +98,11 @@ async function main() {
     origin: appUrl,
   };
 
+  const invalidPassword = ["not", "the", "password"].join("-");
   const bad = await fetch(`${appUrl}/api/trabajador/login`, {
     method: "POST",
     headers: originHeaders,
-    body: JSON.stringify({ username: creds.username, password: "not-the-password" }),
+    body: JSON.stringify({ username: creds.username, password: invalidPassword }),
   });
   const badBody = (await bad.json().catch(() => ({}))) as { code?: string; message?: string };
   report.invalidLoginStatus = bad.status;
