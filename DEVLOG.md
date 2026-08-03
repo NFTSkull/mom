@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-02 - B4.10 e2e RC: WebKit/Firefox sin binarios
+
+### Decisiones
+
+- RC `82c394a`: quality/security/database OK; e2e 5 failed porque `CI=true` activaba `webkit-guia3` sin instalar WebKit, y `firefox-smoke` sin Firefox.
+- WebKit workflow del mismo SHA ya era success (instala webkit).
+- Fix: flag `PLAYWRIGHT_WEBKIT_GUIA3=1` para el proyecto WebKit; RC instala chromium+firefox.
+- No skips; no ConCasa; no Production; no cuentas reales.
+
 ## 2026-08-02 - B4.10 unblock RC Quality (secret-scan)
 
 ### Decisiones

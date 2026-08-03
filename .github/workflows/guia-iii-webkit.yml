@@ -71,6 +71,7 @@ jobs:
       - name: Playwright WebKit Guía III
         env:
           CI: "true"
+          PLAYWRIGHT_WEBKIT_GUIA3: "1"
           PLAYWRIGHT_BASE_URL: ${{ env.PLAYWRIGHT_BASE_URL }}
           GUIDE_III_TEST_PASSWORD: ${{ env.GUIDE_III_TEST_PASSWORD }}
         run: npx playwright test --project=webkit-guia3

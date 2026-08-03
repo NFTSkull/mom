@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-02 (B4.10 — aislar WebKit del e2e RC)
+
+- `playwright.config`: proyecto `webkit-guia3` solo con `PLAYWRIGHT_WEBKIT_GUIA3=1`.
+- RC Quality instala `chromium`+`firefox`; WebKit permanece en workflow dedicado.
+- Causa del fallo e2e en `82c394a`: RC intentaba lanzar WebKit/Firefox sin binarios.
+
 ## 2026-08-02 (B4.10 — fix secret-scan WebKit CI)
 
 - `ci-secret-scan.py`: permite `GUIDE_III_TEST_PASSWORD` sintético en `.github/workflows/` (falso positivo que bloqueaba RC Quality en `1d27d76`).

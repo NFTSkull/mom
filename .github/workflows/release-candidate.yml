@@ -99,10 +99,11 @@ jobs:
       - name: Write .env.local from status (CI only)
         run: node scripts/ci-write-local-env.mjs
       - run: npm run db:reset
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox
       - name: Seed auth test users
         run: npm run auth:seed:test
       - name: Playwright local
+        # WebKit vive en workflow dedicado (PLAYWRIGHT_WEBKIT_GUIA3); aquí chromium+firefox.
         run: npm run test:e2e
       - name: Cleanup auth test users
         if: always()

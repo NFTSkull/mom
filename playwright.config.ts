@@ -38,10 +38,11 @@ export default defineConfig({
       grep: /W1\./,
       use: { ...devices["Desktop Firefox"] },
     },
-    ...(process.env.CI
+    // WebKit solo con flag explícito (workflow Guía III WebKit).
+    // No incluirlo en RC Quality: ese job instala chromium+firefox, no WebKit.
+    ...(process.env.PLAYWRIGHT_WEBKIT_GUIA3 === "1"
       ? [
           {
-            // Solo CI Linux (ubuntu-latest). Local macOS: PushAPIEnabled.
             name: "webkit-guia3",
             testMatch: /guia-iii-webkit\.spec\.ts|guia-iii-evaluation\.spec\.ts/,
             use: { ...devices["Desktop Safari"] },
