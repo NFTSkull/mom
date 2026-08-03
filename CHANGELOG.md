@@ -1,10 +1,10 @@
 # Changelog
 
-## 2026-08-03 (B4.15.3 — UI awaiting_campaign)
+## 2026-08-03 (B4.15.3 — UI awaiting_campaign publicada)
 
-- Portal: título «Evaluación asignada» + copy de campaña pendiente.
-- Sin botón Comenzar en `awaiting_campaign`. Vitest UI 250.
-- Commit local `3c39ec2`. **Push/CI/deploy pendientes de GH_TOKEN.**
+- Portal: «Evaluación asignada» + copy de campaña pendiente; sin botón Comenzar.
+- SHA `f2666b9` — RC + WebKit verdes; deploy Production READY.
+- **Veredicto: UI DE CAMPAÑA DRAFT PUBLICADA** (campaña sigue draft).
 
 ## 2026-08-03 (B4.15.2 — campaña draft + 83 I+III)
 
