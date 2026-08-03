@@ -38,6 +38,8 @@
     "b411:cleanup:local": "npx --yes tsx scripts/cleanup-b411-workload-83-local.ts",
     "b411:certify:local": "npx --yes tsx --require ./scripts/lib/stub-server-only.cjs scripts/certify-b411-workload-83-local.ts",
     "worker:dry-run:83": "npx --yes tsx scripts/dry-run-worker-accounts-83.ts",
+    "b413:sanitize:dry-run": "ALLOW_PRODUCTION_SANITIZE=B413_LEGACY_ONLY NOM035_TARGET_ENV=production npx --yes tsx scripts/b413-apply-minimal-company-and-legacy.ts",
+    "b413:sanitize:execute": "ALLOW_PRODUCTION_SANITIZE=B413_LEGACY_ONLY NOM035_TARGET_ENV=production B413_EXECUTE=1 npx --yes tsx scripts/b413-apply-minimal-company-and-legacy.ts",
     "production:residue:audit": "npx --yes tsx scripts/production-residue-audit.ts",
     "production:residue:cleanup": "CONFIRM_PRODUCTION_CLEANUP=YES npx --yes tsx scripts/production-cleanup-staging-residues.ts",
     "production:backup:dump": "CONFIRM_PRODUCTION_BACKUP=YES node scripts/production-backup-dump.mjs",

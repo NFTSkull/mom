@@ -42,12 +42,10 @@ export default function TrabajadorLoginPage() {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h1 className="text-xl font-semibold text-slate-900">Inicio de sesión</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Ingrese su usuario o número de trabajador y su contraseña.
-      </p>
+      <p className="mt-1 text-sm text-slate-600">Ingrese su usuario y contraseña.</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
         <label className="block text-sm">
-          Usuario o número de trabajador
+          Usuario
           <input
             data-testid="worker-login-username"
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
@@ -80,7 +78,7 @@ export default function TrabajadorLoginPage() {
           disabled={loading}
           className="w-full rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
-          {loading ? "Ingresando…" : "Ingresar"}
+          {loading ? "Iniciando…" : "Iniciar sesión"}
         </button>
       </form>
     </section>

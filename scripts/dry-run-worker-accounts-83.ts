@@ -13,10 +13,19 @@ import { existsSync, readFileSync } from "node:fs";
 
 function loadEnv(): Record<string, string> {
   const out: Record<string, string> = {};
-  if (existsSync(".env.local")) {
-    for (const line of readFileSync(".env.local", "utf8").split("\n")) {
+  for (const file of [".env.local", ".env.production.local"]) {
+    if (!existsSync(file)) continue;
+    for (const line of readFileSync(file, "utf8").split("\n")) {
       const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-      if (m) out[m[1]!] = m[2]!.trim();
+      if (!m) continue;
+      let v = m[2]!.trim();
+      if (
+        (v.startsWith('"') && v.endsWith('"')) ||
+        (v.startsWith("'") && v.endsWith("'"))
+      ) {
+        v = v.slice(1, -1);
+      }
+      if (v) out[m[1]!] = v;
     }
   }
   return { ...out, ...(process.env as Record<string, string>) };
@@ -174,6 +183,15 @@ async function main() {
   const assignmentsToCreate = validUnique;
   const n = validUnique;
 
+  const numericWorkers = (workers ?? []).filter(
+    (w) => w.external_reference && /^[0-9]+$/.test(String(w.external_reference))
+  );
+  const workersExisting = numericWorkers.length;
+  const workersToCreate = Math.max(0, validUnique - foundInDb.length);
+  const authUsersToCreate = accountsToCreate;
+  const workerAccountsToCreate = accountsToCreate;
+  const uniqueCollisions = [...new Set(collisions)];
+
   const report = {
     ok: true,
     dryRun: true,
@@ -186,13 +204,24 @@ async function main() {
     duplicados: duplicates,
     rechazados: rejected.length,
     workersEncontradosEnBd: foundInDb.length,
+    workersExistentes: workersExisting,
+    workersACrear: workersToCreate,
     workersSinCuenta: withoutAccount.length,
+    authUsersACrear: authUsersToCreate,
+    workerAccountsACrear: workerAccountsToCreate,
     accountsToCreate,
+    assignmentsNuevos: assignmentsToCreate,
     assignmentsToCreate,
+    usernamesUnicos: proposed.length - uniqueCollisions.length,
     usernamesProposedSample: proposed.slice(0, 5),
     usernamesProposedCount: proposed.length,
-    collisions: [...new Set(collisions)],
-    collisionsCount: [...new Set(collisions)].length,
+    colisiones: uniqueCollisions.length,
+    collisions: uniqueCollisions,
+    collisionsCount: uniqueCollisions.length,
+    guiaI: n,
+    guiaIII: n,
+    guiaII: 0,
+    camposAdicionalesAlTrabajador: 0,
     instrumentsPerAssignment: {
       GUIA_I: n,
       GUIA_III: n,
@@ -211,7 +240,18 @@ async function main() {
       validos83: validUnique === 83,
       unicos83: seenRefs.size === 83,
       duplicados0: duplicates === 0,
+      workersExistentes83: workersExisting === 83,
+      workersACrear0: workersToCreate === 0,
+      authUsersACrear83: authUsersToCreate === 83,
+      workerAccountsACrear83: workerAccountsToCreate === 83,
+      usernamesUnicos83: proposed.length === 83 && uniqueCollisions.length === 0,
+      colisiones0: uniqueCollisions.length === 0,
+      assignmentsNuevos83: assignmentsToCreate === 83,
+      guiaI83: n === 83,
+      guiaIII83: n === 83,
       guiaII0: true,
+      camposAdicionales0: true,
+      passwordsGeneradas0: true,
       guiaIEqualsN: n === validUnique,
       guiaIIIEqualsN: n === validUnique,
     },

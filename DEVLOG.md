@@ -1,5 +1,38 @@
 # Devlog
 
+## 2026-08-03 - B4.14 GO-LIVE bloqueado
+
+### Decisiones
+
+- Hard-stop: MFA admin `factors_verified=0` y `mfa_required=false` → no crear cuentas ni abrir campaña.
+- Hard-stop: PITR/backups administrados ausentes y sin aceptación explícita de «RIESGO TEMPORAL ACEPTADO».
+- Cuentas futuras: username `empleado.<n>` vinculado 1:1 al worker existente (nombre/puesto/depto ya en DB); no username=nombre.
+- Push CI pendiente de `GH_TOKEN` temporal (gh no autenticado localmente).
+
+## 2026-08-03 - B4.13 flujo mínimo productivo
+
+### Decisiones
+
+- Producto: trabajador solo login user/pass → evaluación I+III; sin formularios de empresa/RFC/domicilio.
+- `company_settings`: solo NOT NULL reales (`razon_social`, `total_trabajadores`); opcionales en NULL; no inventar.
+- Legacy con draft: revocar + preservar (no convertir a III; no borrar).
+- Legacy sin actividad (165): eliminación transaccional tras dry-run (0 sesiones/respuestas/resultados).
+- Sintético: desactivar cuenta/worker; conservar historial; fuera de los 83.
+- MFA admin y PITR no bloquean el veredicto de flujo de trabajadores.
+- No crear Auth/passwords/campaña en esta fase.
+
+## 2026-08-03 - B4.13 bloqueo por drafts legacy
+
+### Decisiones
+
+- Diff tooling → no redeploy de `ac1a54a`.
+- 167 asg no son I+II por instrumento: dos campañas×83 + 1 sintético.
+- Fase 8: cualquier draft/sesión impide saneamiento automático (2 bloquean).
+- `disable_signup` vía API Management.
+- Empresa/MFA requieren datos/acción humana; no inventar.
+- Política 83: reset administrativo hasta SMTP verificado.
+- PITR ausente → riesgo pendiente de aceptación explícita.
+
 ## 2026-08-03 - B4.12.1 harden tooling
 
 ### Decisiones

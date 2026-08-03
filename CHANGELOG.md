@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-03 (B4.14 — GO-LIVE bloqueado: MFA=0)
+
+- Runtime login trabajador finalizado (solo Usuario/Contraseña/«Iniciar sesión»).
+- Herramientas B4.13 versionadas; dry-run 83 PASS.
+- **Veredicto: PRODUCCIÓN BLOQUEADA** — admin MFA factors verificados = 0; sin aceptación explícita de riesgo backups/PITR.
+- Sin crear 83 Auth/accounts/assignments; sin abrir campaña.
+
+## 2026-08-03 (B4.13 — flujo 83 listo; sin crear cuentas)
+
+- Empresa mínima: `NOM035_EMPRESA_OPERATIVA`, `total_trabajadores=83`, opcionales NULL.
+- Login trabajador: solo Usuario + Contraseña + «Iniciar sesión».
+- Legacy: 165 asg sin actividad eliminados; 2 drafts I+II preservados y revocados; sintético desactivado.
+- Dry-run 83: Auth/accounts/assignments I+III listos; 0 II; 0 passwords; sin escritura.
+- **Veredicto: FLUJO DE 83 TRABAJADORES LISTO** (cuentas/campaña aún no creadas).
+
+## 2026-08-03 (B4.13 — auditoría saneamiento; GO bloqueado)
+
+- Redeploy no requerido (`ac1a54a` = tooling). Backup pre-saneamiento off-repo.
+- CSV↔DB 83/83. Explicados 167 asg = 83+83+1 (2 con draft → saneamiento no ejecutado).
+- `disable_signup=true`. Empresa/MFA/PITR pendientes. Sin crear 83 cuentas.
+
 ## 2026-08-03 (B4.12.1 — endurecer y versionar herramientas piloto)
 
 - Guardas `ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY` + `EXPECTED`/`CONFIRM` project ref.
