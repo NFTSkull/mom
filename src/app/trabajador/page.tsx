@@ -77,6 +77,15 @@ export default function TrabajadorHubPage() {
         </p>
       ) : null}
 
+      {status === "awaiting_campaign" ? (
+        <div className="space-y-2" data-testid="worker-awaiting-campaign">
+          <h2 className="text-lg font-medium text-slate-900">Evaluación asignada</h2>
+          <p className="text-sm text-slate-700">
+            Tu evaluación ya fue asignada. Podrás comenzar cuando la campaña sea iniciada.
+          </p>
+        </div>
+      ) : null}
+
       {status === "pending" ? (
         <div className="space-y-3">
           <p className="text-sm text-slate-700">

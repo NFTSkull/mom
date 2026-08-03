@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-03 (B4.15.3 — UI awaiting_campaign publicada)
+
+- Portal trabajador: título «Evaluación asignada» + copy de campaña pendiente de inicio.
+- Sin botón Comenzar en `awaiting_campaign`. Vitest de UI.
+- **Veredicto pendiente de CI + deploy.**
+
+## 2026-08-03 (B4.15.2 — campaña draft + 83 I+III)
+
+- Campaña `Evaluación NOM-035 2026` en **draft**; 83 assignments pending; GUIA_I=83, GUIA_III=83, GUIA_II=0.
+- Portal: `awaiting_campaign` mientras la campaña no esté abierta (migración `009`).
+- Idempotente; passwords intactas; legacy 2 preservados. **APERTURA BLOQUEADA** (MFA=0 / backups).
+- **Veredicto: EVALUACIONES ASIGNADAS — CAMPAÑA DRAFT LISTA**
+
+## 2026-08-03 (B4.15.1 — sin cambio obligatorio de contraseña)
+
+- `must_change_password=false` en los 83 worker_accounts reales (passwords intactas).
+- Default DB `false` (migración `008`); seeds/creación futura ya no fuerzan `true`.
+- Login → `/trabajador` (cambio solo si admin fuerza el flag). E2E/Vitest actualizados.
+- **Veredicto: CAMBIO OBLIGATORIO ELIMINADO**
+
 ## 2026-08-03 (B4.14 — GO-LIVE bloqueado: MFA=0)
 
 - Runtime login trabajador finalizado (solo Usuario/Contraseña/«Iniciar sesión»).

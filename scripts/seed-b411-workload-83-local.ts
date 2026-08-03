@@ -267,7 +267,7 @@ async function main() {
         auth_user_id: authUser.id,
         username_normalized: w.username,
         is_active: true,
-        must_change_password: true,
+        must_change_password: false,
       },
       { onConflict: "worker_id" },
     );

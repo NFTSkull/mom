@@ -207,7 +207,7 @@ async function main() {
       auth_user_id: authUserId,
       username_normalized: B412_PILOT_USERNAME,
       is_active: true,
-      must_change_password: true,
+      must_change_password: false,
     },
     { onConflict: "worker_id" }
   );

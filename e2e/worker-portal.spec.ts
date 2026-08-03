@@ -12,7 +12,6 @@ import {
 
 const USERNAME = "trabajador.prueba";
 const TEMP_PASSWORD = process.env.WORKER_TEST_PASSWORD || "Nom035-Prueba#2026!";
-const NEW_PASSWORD = "Nom035-Cambiada#2026!";
 
 async function ensureWorkerSeed() {
   const env = loadEnvLocal();
@@ -44,7 +43,7 @@ test("W1. Login inválido genérico", async ({ page }) => {
   expect(errors, errors.join("\n")).toEqual([]);
 });
 
-test("W2-W4. Login válido + cambio obligatorio + hub", async ({ page }) => {
+test("W2-W4. Login válido sin cambio obligatorio → hub", async ({ page }) => {
   const errors: string[] = [];
   attachStrictGuards(page, errors);
   await ensureWorkerSeed();
@@ -53,12 +52,8 @@ test("W2-W4. Login válido + cambio obligatorio + hub", async ({ page }) => {
   await page.getByTestId("worker-login-username").fill(USERNAME);
   await page.getByTestId("worker-login-password").fill(TEMP_PASSWORD);
   await page.getByTestId("worker-login-submit").click();
-  await page.waitForURL("**/trabajador/cambiar-contrasena");
-
-  await page.getByTestId("worker-new-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-confirm-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-password-submit").click();
   await page.waitForURL("**/trabajador");
+  expect(page.url()).not.toMatch(/cambiar-contrasena/);
   await expect(page.getByText(/Comenzar evaluación|Continuar evaluación/i)).toBeVisible();
   expect(errors, errors.join("\n")).toEqual([]);
 });
@@ -97,6 +92,7 @@ test("W5. Worker sin assignment", async ({ page }) => {
   await page.getByTestId("worker-login-password").fill(password);
   await page.getByTestId("worker-login-submit").click();
   await page.waitForURL("**/trabajador");
+  expect(page.url()).not.toMatch(/cambiar-contrasena/);
   await expect(
     page.getByText(/No tienes una evaluación activa/i)
   ).toBeVisible();
@@ -110,16 +106,12 @@ test("W6-W15. Abrir evaluación, draft, submit, completado", async ({ page }) =>
   const errors: string[] = [];
   attachStrictGuards(page, errors);
   await ensureWorkerSeed();
-  // Tras seed, password temporal; cambiar primero vía API login flow
   await page.goto("/trabajador/login");
   await page.getByTestId("worker-login-username").fill(USERNAME);
   await page.getByTestId("worker-login-password").fill(TEMP_PASSWORD);
   await page.getByTestId("worker-login-submit").click();
-  await page.waitForURL("**/trabajador/cambiar-contrasena");
-  await page.getByTestId("worker-new-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-confirm-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-password-submit").click();
   await page.waitForURL("**/trabajador");
+  expect(page.url()).not.toMatch(/cambiar-contrasena/);
 
   await page.getByRole("link", { name: /Comenzar evaluación|Continuar evaluación/i }).click();
   await page.waitForURL("**/evaluacion/contestar");
@@ -158,11 +150,8 @@ test("W16-W19. Aislamiento: admin API y scores denegados al worker", async ({
   await page.getByTestId("worker-login-username").fill(USERNAME);
   await page.getByTestId("worker-login-password").fill(TEMP_PASSWORD);
   await page.getByTestId("worker-login-submit").click();
-  await page.waitForURL("**/trabajador/cambiar-contrasena");
-  await page.getByTestId("worker-new-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-confirm-password").fill(NEW_PASSWORD);
-  await page.getByTestId("worker-password-submit").click();
   await page.waitForURL("**/trabajador");
+  expect(page.url()).not.toMatch(/cambiar-contrasena/);
 
   await page.goto("/admin");
   await expect(page).not.toHaveURL(/\/admin$/);
@@ -198,7 +187,27 @@ test("W20. Cuenta bloqueada", async ({ page }) => {
   );
 
   sql(
-    `update public.worker_accounts set is_active=true, must_change_password=true where worker_id='${workerId}'`
+    `update public.worker_accounts set is_active=true, must_change_password=false where worker_id='${workerId}'`
+  );
+});
+
+test("W21. must_change_password forzado por admin sigue redirigiendo", async ({ page }) => {
+  await ensureWorkerSeed();
+  const workerId = sql(
+    `select id from public.workers where external_reference='TST-0001' limit 1`
+  );
+  sql(
+    `update public.worker_accounts set must_change_password=true where worker_id='${workerId}'`
+  );
+
+  await page.goto("/trabajador/login");
+  await page.getByTestId("worker-login-username").fill(USERNAME);
+  await page.getByTestId("worker-login-password").fill(TEMP_PASSWORD);
+  await page.getByTestId("worker-login-submit").click();
+  await page.waitForURL("**/trabajador/cambiar-contrasena");
+
+  sql(
+    `update public.worker_accounts set must_change_password=false where worker_id='${workerId}'`
   );
 });
 
@@ -211,7 +220,6 @@ test("W24. Cero password/tokens en logs de seed", async () => {
   expect(out).not.toContain(TEMP_PASSWORD);
   expect(out).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
   expect(out).not.toContain("Nom035-Prueba");
-  // fingerprint token hashes accidentally printed?
   const hash = createHash("sha256").update(randomBytes(8)).digest("hex");
   void hash;
 });

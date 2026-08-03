@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-08-03 - B4.15.3 UI awaiting_campaign
+
+### Decisiones
+
+- Copy de producto: título + texto fijos; sin IDs; sin CTA de inicio.
+- Deploy Vercel requerido para el mensaje; RPC `awaiting_campaign` ya estaba en Production.
+- No abrir campaña; MFA/backups siguen bloqueando apertura.
+
+## 2026-08-03 - B4.15.2 campaña draft + assignments
+
+### Decisiones
+
+- Campaña sin `company_id` en esquema; vínculo lógico a empresa operativa singleton.
+- Version `…-i-iii`; `ensure_assignment_questionnaires` siembra I+III.
+- Portal distingue draft (`awaiting_campaign`) vs sin assignment (`none`); open session sigue exigiendo campaña `active`.
+- MFA/backups no bloquean draft; sí bloquean apertura.
+
+## 2026-08-03 - B4.15.1 sin cambio obligatorio
+
+### Decisiones
+
+- Fuente del redirect: `worker_accounts.must_change_password` (login UI, hub, open evaluación). No metadata Auth.
+- Producto: passwords entregadas son permanentes; flag=false en los 83; ruta `/trabajador/cambiar-contrasena` queda para forzado admin/voluntario.
+- UPDATE filtrado por empresa operativa + workers numéricos activos; idempotente (2ª vez = 0).
+- Deploy runtime no requerido para el efecto: el redirect ya dependía del flag.
+
 ## 2026-08-03 - B4.14 GO-LIVE bloqueado
 
 ### Decisiones

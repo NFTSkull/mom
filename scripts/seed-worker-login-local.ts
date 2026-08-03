@@ -232,7 +232,7 @@ async function main() {
       auth_user_id: authUser.id,
       username_normalized: USERNAME,
       is_active: true,
-      must_change_password: true,
+      must_change_password: false,
     },
     { onConflict: "worker_id" }
   );
@@ -245,7 +245,7 @@ async function main() {
       username: USERNAME,
       workerRef: WORKER_REF,
       campaign: CAMPAIGN,
-      mustChangePassword: true,
+      mustChangePassword: false,
       guiaNote: "GUIA_I+II only; GUIA_III P0 pending",
     })
   );

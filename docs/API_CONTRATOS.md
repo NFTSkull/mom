@@ -7,7 +7,7 @@
 | POST | `/api/trabajador/login` | Usuario/número + password; mensaje genérico |
 | POST | `/api/trabajador/logout` | Cierra Auth + cookie de evaluación |
 | GET | `/api/trabajador/me` | Estado portal (assignment) |
-| POST | `/api/trabajador/password/change` | Cambio obligatorio |
+| POST | `/api/trabajador/password/change` | Cambio voluntario (o forzado solo si admin marca `must_change_password`) |
 | POST | `/api/trabajador/evaluacion/open` | Emite cookie de sesión y reutiliza `/evaluacion/contestar` |
 
 UI: `/trabajador/login`, `/trabajador`, `/trabajador/cambiar-contrasena`, `/trabajador/evaluacion`, `/trabajador/completado`.
