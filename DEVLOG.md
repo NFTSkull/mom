@@ -1,5 +1,48 @@
 # Devlog
 
+## 2026-08-04 - B4.17.1 desbloqueo bloqueado
+
+### Decisiones
+
+- No crear `backup-policy-accepted.txt` sin autorización expresa del usuario.
+- No setear `mfa_required=true` sin factor verified + AAL2.
+- Con MFA=0 detener antes de backup/apertura (orden de precondiciones).
+
+## 2026-08-04 - B4.17 apertura bloqueada
+
+### Decisiones
+
+- No abrir sin MFA verified ≥1 + AAL2 + mfa_required + (PITR o BACKUP_POLICY_ACCEPTED).
+- Valores medidos en Auth/DB/archivo off-repo; no simulados.
+- Columna real de apertura: `activated_at` (no `opened_at`).
+- Dry-run/execute en `b417-open-real-campaign.ts`; execute aborta si precondiciones fallan.
+
+## 2026-08-04 - B4.16 certificación final
+
+### Decisiones
+
+- Sintético en campaña separada `TST-PROD-FINAL-CAMPAIGN` active; nunca tocar la real draft.
+- Flujo UI secuencial: draft `guia_iii` marca Guía I submitted; submit final atómico I+III.
+- Scoring persistido: `nom035-stps-2018-guia-i-iii-v1`; algoritmo FRP: `…-guia-iii-v1`.
+- Respuestas individuales: disponibles en código/RBAC; AAL2 bloqueado por MFA=0.
+- Apertura real bloqueada aunque el flujo funcional pase.
+
+## 2026-08-04 - B4.15.4B NOM+número
+
+### Decisiones
+
+- Password = `NOM` + canónico pad-4; sin `!` ni símbolos; cumple Auth min 6 (len 7).
+- No tocar `worker_accounts`/usernames/assignments; solo Auth password + audit_log.
+- Paquete `worker-credentials-b4154b`; no entregar credenciales todavía.
+- Smoke vía API con Origin permitido; UI «Evaluación asignada» = `awaiting_campaign`.
+
+## 2026-08-04 - B4.15.4 passwords = número empleado
+
+### Decisiones
+
+- Password = solo número falló Auth min 6; bloqueo correcto sin bajar política.
+- Sonda de política debe usar `updateUserById`.
+
 ## 2026-08-03 - B4.15.3 UI awaiting_campaign
 
 ### Decisiones

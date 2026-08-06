@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-08-04 (B4.17.1 — desbloqueo MFA/backup)
+
+- MFA verified=0; backup-policy file ausente; AAL2=false.
+- No se inventó aceptación de backup; no se abrió campaña; draft intacto.
+- **Veredicto: APERTURA BLOQUEADA**
+
+## 2026-08-04 (B4.17 — apertura campaña real)
+
+- Precondiciones MFA/AAL2/backup/PITR medidas en vivo: **todas fallan**.
+- Cero escritura; campaña permanece **draft**.
+- Script `scripts/b417-open-real-campaign.ts` con guardas.
+- **Veredicto: APERTURA BLOQUEADA**
+
+## 2026-08-04 (B4.16 — certificación final Production)
+
+- Certificación sintética `TST-PROD-FINAL-001` I→III completa; snapshot PASS; limpieza 0.
+- **SISTEMA FUNCIONAL CERTIFICADO PARA 83 TRABAJADORES**
+- **RESPUESTAS INDIVIDUALES DISPONIBLES** (detalle admin + AAL2)
+- **APERTURA DE CAMPAÑA BLOQUEADA** (MFA=0 / backups / PITR)
+- 83 reales intactos; campaña real sigue draft.
+
+## 2026-08-04 (B4.15.4B — passwords NOM+número)
+
+- Password = `NOM` + número canónico (sin `!`); 83 Auth actualizadas; must_change=false.
+- Paquete cifrado off-repo `worker-credentials-b4154b/`; smoke 3 OK; campaña draft.
+- **Veredicto: PASSWORDS ACTUALIZADAS A NOM + NÚMERO** (credenciales no entregadas aún).
+
+## 2026-08-04 (B4.15.4 — passwords = número de empleado)
+
+- Decisión inicial: password = solo número; Auth min 6 vs len 4 → bloqueo; 0 actualizadas.
+- Superado por B4.15.4B (`NOM`+número).
+
 ## 2026-08-03 (B4.15.3 — UI awaiting_campaign publicada)
 
 - Portal: «Evaluación asignada» + copy de campaña pendiente; sin botón Comenzar.
