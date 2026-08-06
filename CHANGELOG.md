@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-06 (UI — saludo hub: reales vs prueba)
+
+- Hub `/trabajador`: trabajadores reales «Hola, {nombre}»; cuenta prueba (`prueba.trabajador` / `SYN-PRUEBA-LOGIN`) «BIENVENIDO!».
+
 ## 2026-08-06 (UI — saludo hub trabajador)
 
 - Hub `/trabajador`: título fijo «BIENVENIDO!» (ya no «Hola, {nombre}»).

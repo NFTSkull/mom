@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-08-06 - Saludo hub: reales vs prueba
+
+### Decisiones
+
+- Helper `workerPortalGreeting`: reales = «Hola, {nombre}»; prueba = «BIENVENIDO!».
+- Identificación por username (`prueba.trabajador` / `trabajador.prueba`) o `externalReference` (`SYN-PRUEBA-LOGIN` / `TST-0001`), campos ya expuestos por `worker_get_portal_state`.
+
 ## 2026-08-06 - Saludo hub trabajador
 
 ### Decisiones

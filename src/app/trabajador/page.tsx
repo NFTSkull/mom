@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { workerPortalGreeting } from "@/lib/nom035/worker-portal-greeting";
 
 type PortalState = {
   ok: boolean;
   mustChangePassword?: boolean;
   evaluationStatus?: string;
   assignment?: { status: string; campaignName?: string } | null;
-  worker?: { nombre?: string };
+  account?: { username?: string };
+  worker?: { nombre?: string; externalReference?: string };
   message?: string;
   code?: string;
 };
@@ -69,7 +71,7 @@ export default function TrabajadorHubPage() {
 
   return (
     <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-semibold">BIENVENIDO!</h1>
+      <h1 className="text-xl font-semibold">{workerPortalGreeting(state)}</h1>
 
       {status === "none" ? (
         <p className="text-sm text-slate-700">
