@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-06 (UI — saludo hub trabajador)
+
+- Hub `/trabajador`: título fijo «BIENVENIDO!» (ya no «Hola, {nombre}»).
+
 ## 2026-08-06 (UI — encabezado portal trabajador)
 
 - Encabezado del layout trabajador: de «Portal del trabajador · NOM-035» a «BIENVENIDO!».

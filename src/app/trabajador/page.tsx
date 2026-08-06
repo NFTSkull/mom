@@ -69,7 +69,7 @@ export default function TrabajadorHubPage() {
 
   return (
     <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-semibold">Hola{state.worker?.nombre ? `, ${state.worker.nombre}` : ""}</h1>
+      <h1 className="text-xl font-semibold">BIENVENIDO!</h1>
 
       {status === "none" ? (
         <p className="text-sm text-slate-700">

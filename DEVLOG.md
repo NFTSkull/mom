@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-08-06 - Saludo hub trabajador
+
+### Decisiones
+
+- En `src/app/trabajador/page.tsx` el h1 deja de personalizar con el nombre; copy único «BIENVENIDO!» alineado al header del layout.
+
 ## 2026-08-06 - Encabezado portal trabajador
 
 ### Decisiones
