@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-06 (UI — encabezado portal trabajador)
+
+- Encabezado del layout trabajador: de «Portal del trabajador · NOM-035» a «BIENVENIDO!».
+
 ## 2026-08-04 (B4.17.1 — desbloqueo MFA/backup)
 
 - MFA verified=0; backup-policy file ausente; AAL2=false.

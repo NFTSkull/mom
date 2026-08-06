@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-08-06 - Encabezado portal trabajador
+
+### Decisiones
+
+- Copy del header en `src/app/trabajador/layout.tsx` reducido a «BIENVENIDO!» a petición de producto; sin cambios de layout ni rutas.
+
 ## 2026-08-04 - B4.17.1 desbloqueo bloqueado
 
 ### Decisiones
