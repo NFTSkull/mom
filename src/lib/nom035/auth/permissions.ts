@@ -59,7 +59,19 @@ export const AAL2_ALWAYS_PERMISSIONS = new Set<AppPermission>([
   "policies.publish",
 ]);
 
+/**
+ * B4.21: ver resultados (individual/answers/clinical) NO exige AAL2.
+ * Siguen siendo sensibles (`can_view_sensitive_cases`).
+ * Quejas y operaciones críticas sí exigen AAL2.
+ */
 export function permissionRequiresAal2(permission: AppPermission): boolean {
+  if (
+    permission === "results.individual.read" ||
+    permission === "results.answers.read" ||
+    permission === "results.clinical.read"
+  ) {
+    return false;
+  }
   return SENSITIVE_PERMISSIONS.has(permission) || AAL2_ALWAYS_PERMISSIONS.has(permission);
 }
 

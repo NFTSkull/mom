@@ -1,6 +1,13 @@
 # Contratos de API
 
-## Bloque actual: B4.16.2 — Campaña permanente (hasta cierre manual)
+## Bloque actual: B4.21 — Resultados sin MFA/AAL2
+
+- `results.individual.read` / `results.answers.read` / `results.clinical.read`: **sin** AAL2.
+- Siguen exigiendo Auth + permiso RBAC + `can_view_sensitive_cases`.
+- Quejas, `users.manage`, evidencias protegidas y operaciones críticas **mantienen** AAL2.
+- Migración: `011_results_without_aal2.sql`.
+
+## Bloque B4.16.2 — Campaña permanente (hasta cierre manual)
 
 Campaña operativa prevista: `Evaluación NOM-035 2026`.
 

@@ -30,10 +30,13 @@ describe("B4.19.1 worker simple login", () => {
     ).toBe(false);
   });
 
-  it("results.individual.read exige AAL2; dashboard.view no", () => {
-    expect(permissionRequiresAal2("results.individual.read")).toBe(true);
+  it("results.individual.read NO exige AAL2; users.manage sí", () => {
+    expect(permissionRequiresAal2("results.individual.read")).toBe(false);
+    expect(permissionRequiresAal2("results.answers.read")).toBe(false);
+    expect(permissionRequiresAal2("results.clinical.read")).toBe(false);
     expect(permissionRequiresAal2("dashboard.view")).toBe(false);
     expect(permissionRequiresAal2("results.aggregate.read")).toBe(false);
+    expect(permissionRequiresAal2("users.manage")).toBe(true);
     for (const p of ADMIN_AAL2_PERMISSIONS) {
       expect(permissionRequiresAal2(p as AppPermission)).toBe(true);
     }

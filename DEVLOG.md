@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-08-10 - B4.21 resultados sin AAL2
+
+### Decisiones
+
+- Producto: consultar resultados no debe pedir MFA/2FA.
+- Separar sensibilidad (`can_view_sensitive_cases`) de AAL2.
+- No debilitar quejas ni `users.manage` / evidencias / revoke / publish.
+
+## 2026-08-10 - B4.20 activación definitiva campaña real
+
+### Decisiones
+
+- Separar `CAMPAIGN_ACTIVATION` de `ADMIN_SENSITIVE_ACTIONS`: abrir campaña no exige MFA/AAL2.
+- No inventar PITR ni `backup-policy-accepted.txt`; backup lógico pre-apertura + SHA sí.
+- UPDATE único draft→active con `fecha_*`/`closed_at` NULL; permanencia = status.
+- Smoke no inicia evaluación (sesiones/respuestas/resultados permanecen 0).
+
 ## 2026-08-10 - B4.19.1 login simple workers
 
 ### Decisiones

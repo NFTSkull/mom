@@ -11,11 +11,8 @@ export function workerLoginRequiresOnlyUsernamePassword(payloadKeys: string[]): 
 export const WORKER_MFA_REQUIRED = false as const;
 export const ADMIN_MFA_IS_SEPARATE = true as const;
 
-/** Permisos admin que exigen AAL2 (espejo de permissions.ts). */
+/** Permisos admin que exigen AAL2 (espejo de permissions.ts). B4.21: sin results.*. */
 export const ADMIN_AAL2_PERMISSIONS = [
-  "results.individual.read",
-  "results.answers.read",
-  "results.clinical.read",
   "complaints.list",
   "complaints.detail",
   "complaints.contact.read",
@@ -30,6 +27,9 @@ export const ADMIN_AAL2_PERMISSIONS = [
 export const ADMIN_AAL1_OK_EXAMPLES = [
   "dashboard.view",
   "results.aggregate.read",
+  "results.individual.read",
+  "results.answers.read",
+  "results.clinical.read",
   "campaigns.read",
   "workers.read",
 ] as const;

@@ -158,7 +158,13 @@ select lives_ok(
   $$select public.require_admin_permission('workers.write'::public.app_permission)$$,
   'RH workers.write OK');
 
--- Psicólogo sensible OK
+-- Psicólogo AAL1 puede ver resultados individuales (B4.21)
+select pg_temp.set_jwt((select id from _t_users where role = 'psicologo'), 'aal1');
+select lives_ok(
+  $$select public.require_admin_permission('results.individual.read'::public.app_permission)$$,
+  'psicologo AAL1 individual OK (sin MFA)');
+
+-- Psicólogo sensible OK (AAL2 también)
 select pg_temp.set_jwt((select id from _t_users where role = 'psicologo'), 'aal2');
 select lives_ok(
   $$select public.require_admin_permission('results.individual.read'::public.app_permission)$$,

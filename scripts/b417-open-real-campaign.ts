@@ -1,28 +1,36 @@
 /**
- * B4.17 — Apertura controlada de la campaña real (draft → active).
+ * B4.20 / B4.17 — Apertura controlada de la campaña real (draft → active).
  *
- * Dry-run (default):
+ * B4.20: MFA/AAL2/mfa_required NO son gates de activación de campaña.
+ * (AAL2 admin sensible permanece en endpoints — fuera de este script.)
+ *
+ * Dry-run:
  *   ALLOW_PRODUCTION_PILOT=B412_PILOT_ONLY NOM035_TARGET_ENV=production \
  *   EXPECTED_… CONFIRM_… SUPABASE_DB_PASSWORD=… \
  *   npx tsx scripts/b417-open-real-campaign.ts
  *
- * Ejecutar SOLO si precondiciones MFA/AAL2/backup PASS:
- *   … B417_EXECUTE=1 npx tsx scripts/b417-open-real-campaign.ts
+ * Ejecutar (tras backup pre-apertura):
+ *   … B417_PREOPEN_BACKUP_SHA=<sha256> B417_EXECUTE=1 \
+ *   npx tsx scripts/b417-open-real-campaign.ts
  *
- * No imprime secrets. No toca ConCasa. No modifica passwords/assignments.
+ * No imprime secrets. No toca ConCasa. No modifica passwords/usernames/assignments.
  */
-import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   assertProductionPilotGuards,
   loadProductionEnv,
 } from "./lib/assert-production-only";
+import {
+  assertCampaignActivationStructuralOk,
+  type CampaignActivationSnapshot,
+} from "../src/lib/nom035/campaign-activation-gates";
 
 const REAL_CAMPAIGN = "Evaluación NOM-035 2026";
 
 function sqlOne(q: string): Record<string, unknown> {
-  const path = resolve(".tmp", `b417-${Date.now()}.sql`);
+  const path = resolve(".tmp", `b417-${Date.now()}-${Math.random().toString(16).slice(2)}.sql`);
   mkdirSync(resolve(".tmp"), { recursive: true });
   writeFileSync(path, q, { mode: 0o600 });
   try {
@@ -41,65 +49,18 @@ function sqlOne(q: string): Record<string, unknown> {
   }
 }
 
-function backupPolicyAccepted(): boolean {
-  const p = resolve(
-    process.env.HOME ?? "",
-    "Desktop/nom035-production-secrets/backup-policy-accepted.txt"
-  );
-  if (!existsSync(p)) return false;
-  const v = readFileSync(p, "utf8").trim().toUpperCase();
-  return ["TRUE", "YES", "1", "ACCEPTED", "RIESGO TEMPORAL ACEPTADO"].includes(v);
-}
-
-function preconditions() {
+function loadSnapshot(): CampaignActivationSnapshot {
   const row = (
     sqlOne(`
 select jsonb_build_object(
-  'MFA_FACTORS_VERIFIED', (select count(*)::int from auth.mfa_factors where status='verified'),
-  'admin_active', (select count(*)::int from public.admin_profiles where active),
-  'mfa_required_true', (select count(*)::int from public.admin_profiles where active and coalesce(mfa_required,false)=true),
-  'campaign_status', (select status::text from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
-  'activated_at_null', (select activated_at is null from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}')
-) as d;
-`).d ?? {}
-  ) as Record<string, unknown>;
-
-  const mfaFactors = Number(row.MFA_FACTORS_VERIFIED ?? 0);
-  const mfaRequired = Number(row.mfa_required_true ?? 0) > 0;
-  const backupOk = backupPolicyAccepted();
-  const pitrEnabled = process.env.PITR_ENABLED === "true"; // solo si operación lo setea tras verificación Dashboard
-  // AAL2 no medible sin sesión admin; con MFA factors=0 es imposible AAL2=true.
-  const adminAal2 = mfaFactors >= 1 && process.env.ADMIN_AAL2_VERIFIED === "true";
-
-  const blockers: string[] = [];
-  if (mfaFactors < 1) blockers.push("MFA_FACTORS_VERIFIED < 1");
-  if (!adminAal2) blockers.push("ADMIN_AAL2 != true");
-  if (!mfaRequired) blockers.push("mfa_required != true");
-  if (!pitrEnabled && !backupOk) blockers.push("PITR_ENABLED=false y BACKUP_POLICY_ACCEPTED=false");
-
-  return {
-    MFA_FACTORS_VERIFIED: mfaFactors,
-    ADMIN_AAL2: adminAal2,
-    MFA_REQUIRED: mfaRequired,
-    PITR_ENABLED: pitrEnabled,
-    BACKUP_POLICY_ACCEPTED: backupOk,
-    campaignStatus: row.campaign_status,
-    activatedAtNull: row.activated_at_null,
-    adminActive: row.admin_active,
-    blockers,
-    ok: blockers.length === 0,
-  };
-}
-
-function dryRunCounts() {
-  return (
-    sqlOne(`
-select jsonb_build_object(
-  'campaigns_named', (select count(*)::int from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
-  'status', (select status::text from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
+  'campaignStatus', (select status::text from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
+  'campaignsNamed', (select count(*)::int from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
+  'activeCampaigns', (select count(*)::int from public.evaluation_campaigns where status='active'),
+  'workers', (select count(*)::int from public.workers w where w.activo and w.external_reference ~ '^[0-9]+$'),
+  'workerAccounts', (select count(*)::int from public.worker_accounts wa join public.workers w on w.id=wa.worker_id where wa.is_active and w.activo and w.external_reference ~ '^[0-9]+$'),
   'assignments', (select count(*)::int from public.evaluation_assignments ea join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}'),
   'pending', (select count(*)::int from public.evaluation_assignments ea join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and ea.status='pending'),
-  'dup_workers', (select count(*)::int from (
+  'dupWorkers', (select count(*)::int from (
      select ea.worker_id from public.evaluation_assignments ea
      join public.evaluation_campaigns c on c.id=ea.campaign_id
      where c.nombre='${REAL_CAMPAIGN}' group by ea.worker_id having count(*)>1
@@ -107,12 +68,50 @@ select jsonb_build_object(
   'sessions', (select count(*)::int from public.evaluation_sessions es join public.evaluation_assignments ea on ea.id=es.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}'),
   'answers', (select count(*)::int from public.evaluation_answers a join public.evaluation_assignments ea on ea.id=a.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}'),
   'results', (select count(*)::int from public.evaluation_results er join public.evaluation_campaigns c on c.id=er.campaign_id where c.nombre='${REAL_CAMPAIGN}'),
-  'guia_i', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_I'),
-  'guia_ii', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_II'),
-  'guia_iii', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_III')
+  'guiaI', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_I'),
+  'guiaII', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_II'),
+  'guiaIII', (select count(*)::int from public.assignment_questionnaires aq join public.evaluation_assignments ea on ea.id=aq.assignment_id join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and aq.questionnaire_type='GUIA_III'),
+  'asgExpiresSet', (select count(*)::int from public.evaluation_assignments ea join public.evaluation_campaigns c on c.id=ea.campaign_id where c.nombre='${REAL_CAMPAIGN}' and ea.expires_at is not null),
+  'fechaCierreNull', (select fecha_cierre is null from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
+  'fechaInicioNull', (select fecha_inicio is null from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}'),
+  'closedAtNull', (select closed_at is null from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}')
 ) as d;
 `).d ?? {}
-  );
+  ) as Record<string, unknown>;
+
+  return {
+    campaignStatus: String(row.campaignStatus ?? ""),
+    campaignsNamed: Number(row.campaignsNamed ?? 0),
+    activeCampaigns: Number(row.activeCampaigns ?? 0),
+    workers: Number(row.workers ?? 0),
+    workerAccounts: Number(row.workerAccounts ?? 0),
+    assignments: Number(row.assignments ?? 0),
+    pending: Number(row.pending ?? 0),
+    dupWorkers: Number(row.dupWorkers ?? 0),
+    sessions: Number(row.sessions ?? 0),
+    answers: Number(row.answers ?? 0),
+    results: Number(row.results ?? 0),
+    guiaI: Number(row.guiaI ?? 0),
+    guiaII: Number(row.guiaII ?? 0),
+    guiaIII: Number(row.guiaIII ?? 0),
+    asgExpiresSet: Number(row.asgExpiresSet ?? 0),
+    fechaCierreNull: Boolean(row.fechaCierreNull),
+    fechaInicioNull: Boolean(row.fechaInicioNull),
+    closedAtNull: Boolean(row.closedAtNull),
+  };
+}
+
+function assertPreopenBackup(): { sha: string; pathHint: string } {
+  const sha = (process.env.B417_PREOPEN_BACKUP_SHA ?? "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(sha)) {
+    throw new Error(
+      "ABORT: falta B417_PREOPEN_BACKUP_SHA (sha256 del backup pre-apertura)"
+    );
+  }
+  const manifestHint =
+    process.env.B417_PREOPEN_BACKUP_DIR ??
+    "~/Desktop/nom035-production-backups/<stamp>-b420-pre-open/";
+  return { sha, pathHint: manifestHint };
 }
 
 async function main() {
@@ -132,78 +131,116 @@ async function main() {
   });
 
   const execute = process.env.B417_EXECUTE === "1";
-  const pre = preconditions();
-  const counts = dryRunCounts() as Record<string, unknown>;
+  const snap = loadSnapshot();
+  const structural = assertCampaignActivationStructuralOk(snap);
+
+  // MFA documentado (no bloquea)
+  const mfaDoc = (
+    sqlOne(`
+select jsonb_build_object(
+  'MFA_FACTORS_VERIFIED', (select count(*)::int from auth.mfa_factors where status='verified'),
+  'mfa_required_admins', (select count(*)::int from public.admin_profiles where active and coalesce(mfa_required,false))
+) as d;`).d ?? {}
+  ) as Record<string, unknown>;
 
   const report: Record<string, unknown> = {
-    block: "B4.17",
+    block: "B4.20",
     refSanitized: sanitized,
     dryRun: !execute,
-    campaign: REAL_CAMPAIGN,
-    preconditions: pre,
-    dryRunCounts: counts,
+    TARGET_CAMPAIGN: REAL_CAMPAIGN,
+    CURRENT_STATUS: snap.campaignStatus,
+    TARGET_STATUS: "active",
+    snapshot: snap,
+    structural,
+    mfaDocumentedNotGate: {
+      MFA_FACTORS_VERIFIED: mfaDoc.MFA_FACTORS_VERIFIED,
+      mfa_required_admins: mfaDoc.mfa_required_admins,
+      CAMPAIGN_ACTIVATION_REQUIRES_MFA: false,
+      ADMIN_SENSITIVE_AAL2_INTACT: true,
+      WORKER_MFA_REQUIRED: false,
+    },
+    active_campaigns_before: snap.activeCampaigns,
+    rows_to_update: 1,
     campaignOpened: false,
     passwordsModified: 0,
     usernamesModified: 0,
+    assignmentsModified: 0,
     concasaTouched: false,
-    credentialsDelivered: false,
   };
 
-  if (!pre.ok) {
+  if (!structural.ok) {
     report.veredicto = "APERTURA BLOQUEADA";
-    report.reason = pre.blockers;
-    console.log(JSON.stringify(report, null, 2));
-    process.exit(2);
-  }
-
-  if (
-    counts.campaigns_named !== 1 ||
-    counts.status !== "draft" ||
-    Number(counts.assignments) !== 83 ||
-    Number(counts.pending) !== 83 ||
-    Number(counts.dup_workers) !== 0 ||
-    Number(counts.sessions) !== 0 ||
-    Number(counts.answers) !== 0 ||
-    Number(counts.results) !== 0
-  ) {
-    report.veredicto = "APERTURA BLOQUEADA";
-    report.reason = ["dry-run counts mismatch"];
+    report.reason = structural.blockers;
     console.log(JSON.stringify(report, null, 2));
     process.exit(2);
   }
 
   if (!execute) {
-    report.veredicto = "DRY-RUN OK — listo para B417_EXECUTE=1";
+    report.veredicto = "DRY-RUN OK — listo para B417_EXECUTE=1 (+ B417_PREOPEN_BACKUP_SHA)";
     console.log(JSON.stringify(report, null, 2));
     return;
   }
 
-  // Abrir: status=active, activated_at=now() (columna real; no opened_at)
+  const backup = assertPreopenBackup();
+  report.preopenBackup = backup;
+
   const openedAt = new Date().toISOString();
   const sql = `
 begin;
-update public.evaluation_campaigns
-set status = 'active',
-    activated_at = '${openedAt}'::timestamptz,
-    updated_at = timezone('utc', now())
-where nombre = '${REAL_CAMPAIGN}'
-  and status = 'draft'
-  and activated_at is null;
+
 do $$
-declare n int;
+declare
+  v_updated int;
+  v_active int;
 begin
-  get diagnostics n = row_count;
-  -- row_count after UPDATE in DO is not portable; re-check:
-  select count(*) into n from public.evaluation_campaigns
-   where nombre='${REAL_CAMPAIGN}' and status='active' and activated_at is not null;
-  if n <> 1 then
-    raise exception 'ABORT: active count=% esperado 1', n;
+  if exists (select 1 from public.evaluation_campaigns where status='active') then
+    raise exception 'ABORT: ya hay campaña active';
   end if;
+
+  update public.evaluation_campaigns
+  set status = 'active',
+      activated_at = '${openedAt}'::timestamptz,
+      closed_at = null,
+      fecha_inicio = null,
+      fecha_cierre = null,
+      updated_at = timezone('utc', now())
+  where nombre = '${REAL_CAMPAIGN}'
+    and status = 'draft'
+    and activated_at is null;
+
+  get diagnostics v_updated = row_count;
+  if v_updated <> 1 then
+    raise exception 'ABORT: rows_updated=% esperado 1', v_updated;
+  end if;
+
+  select count(*)::int into v_active
+  from public.evaluation_campaigns where status='active';
+  if v_active <> 1 then
+    raise exception 'ABORT: active count=% esperado 1', v_active;
+  end if;
+
+  insert into public.audit_log(action, entity_type, entity_id, metadata)
+  select
+    'b420_campaign_activated',
+    'evaluation_campaign',
+    id,
+    jsonb_build_object(
+      'nombre', nombre,
+      'permanentUntilManualClose', true,
+      'mfaGate', false,
+      'preopenBackupShaPrefix', left('${backup.sha}', 12)
+    )
+  from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}';
 end $$;
+
 commit;
+
 select jsonb_build_object(
-  'status', status,
-  'activated_at', activated_at
+  'status', status::text,
+  'activated_at', activated_at,
+  'closed_at', closed_at,
+  'fecha_inicio', fecha_inicio,
+  'fecha_cierre', fecha_cierre
 ) as d from public.evaluation_campaigns where nombre='${REAL_CAMPAIGN}';
 `;
   const path = resolve(".tmp", "b417-open.sql");
@@ -217,7 +254,8 @@ select jsonb_build_object(
   report.campaignOpened = true;
   report.openedAtUtc = openedAt;
   report.after = parsed.rows?.[parsed.rows.length - 1]?.d ?? parsed.rows?.[0];
-  report.veredicto = "CAMPAÑA ABIERTA — LISTA PARA 83 TRABAJADORES";
+  report.veredicto =
+    "CAMPAÑA NOM-035 ACTIVA PERMANENTEMENTE — 83 TRABAJADORES LISTOS PARA RESPONDER";
   console.log(JSON.stringify(report, null, 2));
 }
 

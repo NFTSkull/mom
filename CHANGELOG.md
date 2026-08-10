@@ -1,10 +1,23 @@
 # Changelog
 
+## 2026-08-10 (B4.21 — resultados sin MFA/AAL2)
+
+- Ver resultados individuales/answers/clinical en AAL1 (sin verificación en 2 pasos).
+- Sigue RBAC + `can_view_sensitive_cases`; quejas/users/evidencias críticas con AAL2.
+- Migración `011_results_without_aal2.sql`.
+
+## 2026-08-10 (B4.20 — campaña real ACTIVE permanente)
+
+- Activada `Evaluación NOM-035 2026` (draft→active); `activated_at=2026-08-10T16:20:43.858Z`.
+- Gate MFA/AAL2 eliminado solo para apertura de campaña; AAL2 admin sensible intacto.
+- Backup pre-apertura off-repo; dry-run + 1 fila; smoke 001/042/083 → Comenzar (sin enviar).
+- **Veredicto: CAMPAÑA NOM-035 ACTIVA PERMANENTEMENTE — 83 TRABAJADORES LISTOS PARA RESPONDER**
+
 ## 2026-08-10 (B4.19.1 — login simple workers)
 
 - Confirmado: 83 workers solo username+password; MFA workers=0; must_change=false.
 - Smoke 001/042/083 ×2 PASS → `awaiting_campaign`; sin MFA/OTP.
-- Admin MFA es flujo separado; detalle `results/[id]` sigue exigiendo AAL2.
+- Admin MFA es flujo separado; detalle `results/[id]` (hasta B4.21) exigía AAL2.
 - **Veredicto: LOGIN SIMPLE USERNAME + PASSWORD CERTIFICADO PARA 83 TRABAJADORES**
 - **ADMIN_MFA_IS_SEPARATE=true**
 
