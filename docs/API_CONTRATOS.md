@@ -24,6 +24,8 @@ UI: `/trabajador/login`, `/trabajador`, `/trabajador/cambiar-contrasena`, `/trab
 
 **Username (B4.18):** identificador de acceso independiente del número de empleado. Formato actual del grupo de 83: `"001"`…`"083"` (string, ceros iniciales). Password permanece `NOM` + número de empleado canónico.
 
+**Login workers (B4.19.1):** únicamente username + password. **WORKER_MFA_REQUIRED=false**. MFA/AAL2 es solo admin (`ADMIN_MFA_IS_SEPARATE=true`).
+
 **P0:** Guía III no implementada — no usar este portal para campaña productiva de 83 hasta cerrar Guía III.
 
 ## Bloque B4.6 — Auth, RBAC y MFA

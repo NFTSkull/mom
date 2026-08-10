@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-10 - B4.19.1 login simple workers
+
+### Decisiones
+
+- MFA/AAL2 no aplica al portal trabajador; no se enrolla ni exige segundo factor.
+- No se modifica política MFA admin en este bloque; solo se documenta.
+- Protección AAL2 de respuestas individuales admin se mantiene.
+
 ## 2026-08-10 - B4.19 cierre sintética / apertura bloqueada
 
 ### Decisiones

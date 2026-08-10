@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-10 (B4.19.1 — login simple workers)
+
+- Confirmado: 83 workers solo username+password; MFA workers=0; must_change=false.
+- Smoke 001/042/083 ×2 PASS → `awaiting_campaign`; sin MFA/OTP.
+- Admin MFA es flujo separado; detalle `results/[id]` sigue exigiendo AAL2.
+- **Veredicto: LOGIN SIMPLE USERNAME + PASSWORD CERTIFICADO PARA 83 TRABAJADORES**
+- **ADMIN_MFA_IS_SEPARATE=true**
+
 ## 2026-08-10 (B4.19 — sintética cerrada; apertura real bloqueada)
 
 - Cerrada `CAMPAÑA_LOGIN_PRUEBA_PROD` (active→closed); overlap 83=0; active=0.
