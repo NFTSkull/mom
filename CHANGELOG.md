@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-10 (B4.16.2 — campaña permanente)
+
+- Disponibilidad = status manual (`active`/`closed`); sin gate por `fecha_cierre`/`fecha_inicio`.
+- Activate limpia fechas de calendario; assignments 83 con `expires_at` NULL.
+- **Veredicto: CAMPAÑA PERMANENTE CERTIFICADA — APERTURA Y CIERRE EXCLUSIVAMENTE MANUALES**
+- Campaña real sigue **draft** (no abierta).
+
 ## 2026-08-10 (B4.18 — usernames 001–083)
 
 - Usernames de los 83: `empleado.<n>` → `"001"`…`"083"` (string; orden lista B4.14).

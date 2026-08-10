@@ -3,6 +3,7 @@
 | Capa | Herramienta | Bloque |
 |------|-------------|--------|
 | Scoring / dominio | Vitest | B4.1+ |
+| Permanencia campaña | Vitest | B4.16.2 (`b4162-campaign-permanence`) |
 | Seguridad estática | Vitest | B4.2–B4.6 |
 | Esquema / RLS / RPC / RBAC | pgTAP | B4.2–B4.6 (`008_*`) |
 | Concurrencia submit | Vitest + Supabase local | B4.3 |

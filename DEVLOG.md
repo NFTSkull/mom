@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 - B4.16.2 campaña permanente
+
+### Decisiones
+
+- Cierre efectivo solo vía `admin_close_campaign` (status), no por calendario.
+- `fecha_inicio`/`fecha_cierre` quedan como metadatos; al activar se fuerzan NULL.
+- `expires_at` de assignment se conserva para invites públicos; los 83 productivos permanecen NULL.
+- Sesión HTTP puede expirar; cuenta/assignment/draft/resultados no.
+
 ## 2026-08-10 - B4.18 usernames 001–083
 
 ### Decisiones

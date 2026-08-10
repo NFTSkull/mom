@@ -1,6 +1,16 @@
 # Contratos de API
 
-## Bloque actual: B4.9 — Portal autenticado del trabajador
+## Bloque actual: B4.16.2 — Campaña permanente (hasta cierre manual)
+
+Campaña operativa prevista: `Evaluación NOM-035 2026`.
+
+- Apertura: `admin_activate_campaign` (manual).
+- Cierre: `admin_close_campaign` (manual).
+- Sin auto-expiración por `fecha_inicio`/`fecha_cierre`.
+- Portal trabajador: login `001`–`083`; assignments durables (`expires_at` NULL).
+- Ver `docs/B4_16_2_PERMANENT_CAMPAIGN.md`.
+
+## Bloque B4.9 — Portal autenticado del trabajador
 
 | Método | Ruta | Notas |
 |--------|------|-------|
