@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 - B4.18 usernames 001–083
+
+### Decisiones
+
+- Solo mutar `worker_accounts.username_normalized`; email Auth y metadata no son autoridad de login.
+- Orden = sort numérico `external_reference` (B4.14), no nombre/UUID/created_at.
+- UPDATE en 2 fases (`x.b418.*` → `001`–`083`) por UNIQUE.
+- Username es identificador de acceso independiente del número de empleado; password sigue NOM+canónico.
+- `proposedUsername(empleado.*)` retirado; no autoasignar `084` sin política.
+
 ## 2026-08-06 - Saludo hub: reales vs prueba
 
 ### Decisiones

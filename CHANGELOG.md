@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-10 (B4.18 — usernames 001–083)
+
+- Usernames de los 83: `empleado.<n>` → `"001"`…`"083"` (string; orden lista B4.14).
+- Passwords / auth_user_id / worker_id / assignments intactos; campaña draft.
+- Login legado `empleado.*` deja de resolver; smoke 001/042/083 PASS.
+- **Veredicto: USERNAMES 001–083 ACTUALIZADOS CORRECTAMENTE**
+
 ## 2026-08-06 (UI — saludo hub: reales vs prueba)
 
 - Hub `/trabajador`: trabajadores reales «Hola, {nombre}»; cuenta prueba (`prueba.trabajador` / `SYN-PRUEBA-LOGIN`) «BIENVENIDO!».

@@ -39,7 +39,7 @@ import {
   assertLocalPasswordPolicy,
   buildPasswordPlan,
   buildWorkerPassword,
-  proposedUsername,
+  legacyEmpleadoUsername,
 } from "./lib/b4154-employee-password";
 
 const ALLOW = "B414_CREATE_83";
@@ -580,7 +580,7 @@ async function main() {
         passwordsPrinted: false,
         credentialsDelivered: false,
         sanityNom0003: buildWorkerPassword("0003") === "NOM0003",
-        usernameHelperSanity: proposedUsername("3") === "empleado.0003",
+        usernameHelperSanity: legacyEmpleadoUsername("3") === "empleado.0003",
       },
       null,
       2

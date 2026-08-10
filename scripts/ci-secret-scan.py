@@ -74,6 +74,9 @@ for path in ROOT.rglob("*"):
                 or rel.startswith("scripts/smoke-b412-")
                 or rel.startswith("scripts/b413-")
                 or rel.startswith("scripts/b415")
+                or rel.startswith("scripts/b416")
+                or rel.startswith("scripts/b417")
+                or rel.startswith("scripts/b418")
                 # CI local WebKit: GUIDE_III_TEST_PASSWORD sintético en workflow (no Cloud).
                 or (
                     rel.startswith(".github/workflows/")

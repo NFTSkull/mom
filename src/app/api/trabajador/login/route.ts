@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return genericUnauthorized(requestId);
 
   const username = normalizeUsername(parsed.data.username);
+  // B4.18: username es string (p.ej. "001"); no Number/parseInt — se preservan ceros.
   const ipHash = hashRateLimitKey(`${clientIp(req)}:${username}`);
   const rate = await consumeRateLimit({
     rawKey: `worker-login:${ipHash}`,

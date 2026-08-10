@@ -4,7 +4,9 @@
  *
  *   WORKERS_CSV=/ruta/fuera/de/git/trabajadores.csv npm run worker:dry-run:83
  *
- * Username propuesto: empleado.<número_normalizado>
+ * Username propuesto (legado B4.14): empleado.<número_normalizado>
+ * B4.18: usernames de acceso pasan a 001–083; este dry-run histórico ya no
+ * debe usarse para crear cuentas nuevas sin política explícita de secuencia.
  * Se niega contra ConCasa / production / cloud salvo flag explícito (aún así no crea).
  */
 import { createClient } from "@supabase/supabase-js";

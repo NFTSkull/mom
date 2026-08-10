@@ -4,13 +4,15 @@
 
 | Método | Ruta | Notas |
 |--------|------|-------|
-| POST | `/api/trabajador/login` | Usuario/número + password; mensaje genérico |
+| POST | `/api/trabajador/login` | Username string (B4.18: `001`–`083`) + password; mensaje genérico; trim OK; sin coerción numérica |
 | POST | `/api/trabajador/logout` | Cierra Auth + cookie de evaluación |
 | GET | `/api/trabajador/me` | Estado portal (assignment) |
 | POST | `/api/trabajador/password/change` | Cambio voluntario (o forzado solo si admin marca `must_change_password`) |
 | POST | `/api/trabajador/evaluacion/open` | Emite cookie de sesión y reutiliza `/evaluacion/contestar` |
 
 UI: `/trabajador/login`, `/trabajador`, `/trabajador/cambiar-contrasena`, `/trabajador/evaluacion`, `/trabajador/completado`.
+
+**Username (B4.18):** identificador de acceso independiente del número de empleado. Formato actual del grupo de 83: `"001"`…`"083"` (string, ceros iniciales). Password permanece `NOM` + número de empleado canónico.
 
 **P0:** Guía III no implementada — no usar este portal para campaña productiva de 83 hasta cerrar Guía III.
 

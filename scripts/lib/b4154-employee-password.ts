@@ -22,8 +22,20 @@ export function normalizeEmployeeNumber(raw: string): string {
   return digits.padStart(4, "0").slice(-8);
 }
 
-export function proposedUsername(externalRef: string): string {
+/**
+ * Legado B4.14: `empleado.<numero>`. Solo para auditoría histórica / mismatch checks.
+ * B4.18: el username de acceso es secuencial 001–083 (independiente del número).
+ */
+export function legacyEmpleadoUsername(externalRef: string): string {
   return `empleado.${normalizeEmployeeNumber(externalRef)}`;
+}
+
+/** @deprecated B4.18 — no crear cuentas nuevas con empleado.<n>. */
+export function proposedUsername(_externalRef?: string): string {
+  void _externalRef;
+  throw new Error(
+    "B4.18: proposedUsername(empleado.<n>) está retirado. Asignar username secuencial explícito (p.ej. 001–083)."
+  );
 }
 
 /**
@@ -104,7 +116,7 @@ export function buildPasswordPlan(rows: Array<{
       continue;
     }
     const canonical = normalizeEmployeeNumber(raw);
-    const expectedUsername = proposedUsername(raw);
+    const expectedUsername = legacyEmpleadoUsername(raw);
     if (r.username !== expectedUsername) {
       usernameMismatches += 1;
     }

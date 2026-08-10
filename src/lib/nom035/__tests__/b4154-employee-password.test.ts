@@ -8,6 +8,7 @@ import {
   normalizeEmployeeNumber,
   passwordFromEmployeeNumber,
   proposedUsername,
+  legacyEmpleadoUsername,
   redactPlanForLog,
 } from "../../../../scripts/lib/b4154-employee-password";
 import {
@@ -21,7 +22,7 @@ describe("B4.15.4B NOM+employee password", () => {
     expect(normalizeEmployeeNumber("0003")).toBe("0003");
     expect(buildWorkerPassword("0003")).toBe("NOM0003");
     expect(passwordFromEmployeeNumber("0003")).toBe("NOM0003");
-    expect(proposedUsername("0003")).toBe("empleado.0003");
+    expect(legacyEmpleadoUsername("0003")).toBe("empleado.0003");
   });
 
   it("nunca convierte a número y no usa !", () => {
@@ -50,8 +51,9 @@ describe("B4.15.4B NOM+employee password", () => {
     );
   });
 
-  it("mantiene username propuesto", () => {
-    expect(proposedUsername("42")).toBe("empleado.0042");
+  it("B4.18 retira proposedUsername empleado.*", () => {
+    expect(() => proposedUsername("42")).toThrow(/B4\.18/);
+    expect(legacyEmpleadoUsername("42")).toBe("empleado.0042");
   });
 
   it("rechaza worker sin número", () => {
