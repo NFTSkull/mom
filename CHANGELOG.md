@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-10 (B4.19 — sintética cerrada; apertura real bloqueada)
+
+- Cerrada `CAMPAÑA_LOGIN_PRUEBA_PROD` (active→closed); overlap 83=0; active=0.
+- Real `Evaluación NOM-035 2026` sigue **draft**.
+- MFA=0 / AAL2=false / backup ausente / PITR=false → sin `B417_EXECUTE`.
+- **Veredicto: CAMPAÑA PERMANENTE CERTIFICADA — APERTURA AÚN BLOQUEADA**
+- RUNTIME_DEPLOY_REQUIRED=false (permanencia en RPC migración 010).
+
 ## 2026-08-10 (B4.16.2 — campaña permanente)
 
 - Disponibilidad = status manual (`active`/`closed`); sin gate por `fecha_cierre`/`fecha_inicio`.

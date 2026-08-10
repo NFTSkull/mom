@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 - B4.19 cierre sintética / apertura bloqueada
+
+### Decisiones
+
+- Cerrar solo `CAMPAÑA_LOGIN_PRUEBA_PROD` tras guarda (nombre exacto, SYN-PRUEBA-LOGIN, overlap 0).
+- No abrir real sin MFA verified + AAL2 + mfa_required + (PITR|backup-policy).
+- No inventar `backup-policy-accepted.txt`.
+- No redeploy: 833b5ca no cambia runtime de portal; 010 ya en Production.
+
 ## 2026-08-10 - B4.16.2 campaña permanente
 
 ### Decisiones
