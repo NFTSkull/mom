@@ -1,6 +1,6 @@
 # B4.22 — Export Excel de avance NOM-035
 
-**Veredicto:** **EXPORT EXCEL DE AVANCE NOM-035 LISTO** (tras QA verde)
+**Veredicto:** **EXPORT EXCEL DE AVANCE NOM-035 LISTO**
 
 ## Qué es
 
@@ -22,3 +22,15 @@ No incluye respuestas, scores, riesgo, categorías, dominios ni datos clínicos.
 
 - **Sí** → assignment `completed`
 - **No** → pending / in_progress / draft / cualquier no-completed
+
+## Smoke Production (2026-08-20)
+
+| Métrica | Valor |
+|---------|-------|
+| Filas | **83** |
+| Respondió Sí | **58** |
+| Respondió No | **25** (24 pending + 1 in_progress) |
+| Username range | 001–083 |
+| Endpoint sin sesión | **401** |
+| Deploy | `b864375` en https://nom035-production.vercel.app |
+| ConCasa | intacto |
