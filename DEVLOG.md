@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-20 - B4.22 Excel avance operativo
+
+### Decisiones
+
+- Bloque numerado B4.22 (B4.21 ya = resultados sin AAL2).
+- `Respondió=Sí` solo con `assignment.status=completed` (no draft ni Guía I sola).
+- Permiso `dashboard.view` (sin AAL2): el archivo no trae datos clínicos.
+- Validación server-side: total=83 y Sí = completed del mismo query.
+
 ## 2026-08-10 - B4.21 resultados sin AAL2
 
 ### Decisiones

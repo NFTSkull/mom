@@ -58,6 +58,8 @@ export default function AdminHomePage() {
   const [secondary, setSecondary] = useState<Secondary | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +109,36 @@ export default function AdminHomePage() {
     return () => window.clearTimeout(timerId);
   }, [load]);
 
+  async function downloadAvanceExcel() {
+    setExporting(true);
+    setExportError("");
+    try {
+      const res = await fetch("/api/admin/nom035/campaigns/avance-excel", {
+        credentials: "same-origin",
+        headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { message?: string } | null;
+        setExportError(json?.message ?? "No se pudo descargar el Excel.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "avance-nom035-2026.xlsx";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("No se pudo descargar el Excel.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className="space-y-4" data-testid="admin-dashboard-page">
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -132,26 +164,51 @@ export default function AdminHomePage() {
       ) : null}
 
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="dashboard-cards">
-          <Card label="Trabajadores activos" value={summary.activeWorkers} testId="card-active-workers" />
-          <Card label="Trabajadores inactivos" value={summary.inactiveWorkers} testId="card-inactive-workers" />
-          <Card
-            label="Campaña activa"
-            value={summary.activeCampaign?.nombre ?? "Sin campaña activa"}
-            testId="card-active-campaign"
-          />
-          <Card label="Sin enlace" value={summary.assignments.noLink} testId="card-no-link" />
-          <Card label="Pendientes" value={summary.assignments.pending} testId="card-pending" />
-          <Card label="En progreso" value={summary.assignments.inProgress} testId="card-in-progress" />
-          <Card label="Completadas" value={summary.assignments.completed} testId="card-completed" />
-          <Card label="Revocadas" value={summary.assignments.revoked} testId="card-revoked" />
-          <Card label="Total resultados" value={summary.totalResults} testId="card-results" />
-          <Card
-            label="Riesgo predominante"
-            value={riskLabel(summary.predominantRisk)}
-            testId="card-risk"
-          />
-        </div>
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="dashboard-cards">
+            <Card label="Trabajadores activos" value={summary.activeWorkers} testId="card-active-workers" />
+            <Card label="Trabajadores inactivos" value={summary.inactiveWorkers} testId="card-inactive-workers" />
+            <Card
+              label="Campaña activa"
+              value={summary.activeCampaign?.nombre ?? "Sin campaña activa"}
+              testId="card-active-campaign"
+            />
+            <Card label="Sin enlace" value={summary.assignments.noLink} testId="card-no-link" />
+            <Card label="Pendientes" value={summary.assignments.pending} testId="card-pending" />
+            <Card label="En progreso" value={summary.assignments.inProgress} testId="card-in-progress" />
+            <Card label="Completadas" value={summary.assignments.completed} testId="card-completed" />
+            <Card label="Revocadas" value={summary.assignments.revoked} testId="card-revoked" />
+            <Card label="Total resultados" value={summary.totalResults} testId="card-results" />
+            <Card
+              label="Riesgo predominante"
+              value={riskLabel(summary.predominantRisk)}
+              testId="card-risk"
+            />
+          </div>
+
+          {summary.activeCampaign?.nombre === "Evaluación NOM-035 2026" ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-700">
+                Export operativo de avance (quién ya completó / quién no). Sin respuestas ni
+                puntuaciones.
+              </p>
+              <button
+                type="button"
+                data-testid="download-avance-excel"
+                disabled={exporting}
+                onClick={() => void downloadAvanceExcel()}
+                className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+              >
+                {exporting ? "Generando…" : "Descargar Excel de respuestas"}
+              </button>
+              {exportError ? (
+                <p className="mt-2 text-sm text-red-700" data-testid="avance-excel-error">
+                  {exportError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       {secondary ? (

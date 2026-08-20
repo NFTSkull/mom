@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-20 (B4.22 — Excel avance NOM-035)
+
+- Botón admin «Descargar Excel de respuestas» en dashboard de `Evaluación NOM-035 2026`.
+- `GET /api/admin/nom035/campaigns/avance-excel` (`dashboard.view`, sin AAL2).
+- XLSX: Nombre | Usuario | Respondió (Sí solo si assignment completed); 83 filas.
+- RPC `admin_export_nom035_avance` (migración 012).
+
 ## 2026-08-10 (B4.21 — resultados sin MFA/AAL2)
 
 - Ver resultados individuales/answers/clinical en AAL1 (sin verificación en 2 pasos).

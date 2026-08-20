@@ -51,6 +51,7 @@ export const ADMIN_ENDPOINT_PERMISSIONS: EndpointPermissionRule[] = [
 
   rule("GET", "/api/admin/nom035/campaigns", "campaigns.read"),
   rule("POST", "/api/admin/nom035/campaigns", "campaigns.write"),
+  rule("GET", "/api/admin/nom035/campaigns/avance-excel", "dashboard.view"),
   rule("GET", "/api/admin/nom035/campaigns/[id]", "campaigns.read"),
   rule("PUT", "/api/admin/nom035/campaigns/[id]", "campaigns.write"),
   rule("POST", "/api/admin/nom035/campaigns/[id]/activate", "campaigns.write"),

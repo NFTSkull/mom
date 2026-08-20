@@ -1,6 +1,18 @@
 # Contratos de API
 
-## Bloque actual: B4.21 — Resultados sin MFA/AAL2
+## Bloque actual: B4.22 — Export Excel de avance NOM-035
+
+| Método | Ruta | Permiso | Notas |
+|--------|------|---------|-------|
+| GET | `/api/admin/nom035/campaigns/avance-excel` | `dashboard.view` | XLSX operativo; **sin** AAL2 |
+
+Archivo: `avance-nom035-2026.xlsx` · hoja `Avance NOM035` · columnas `Nombre \| Usuario \| Respondió`.
+
+Fuente: RPC `admin_export_nom035_avance` → campaña exacta `Evaluación NOM-035 2026` · 83 workers reales · `Respondió=Sí` solo si assignment `completed`.
+
+No exporta answers/scores/risk/passwords/UUIDs.
+
+## Bloque B4.21 — Resultados sin MFA/AAL2
 
 - `results.individual.read` / `results.answers.read` / `results.clinical.read`: **sin** AAL2.
 - Siguen exigiendo Auth + permiso RBAC + `can_view_sensitive_cases`.
