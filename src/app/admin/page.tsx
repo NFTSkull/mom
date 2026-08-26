@@ -7,7 +7,7 @@ import { adminApi } from "@/lib/nom035/admin-client";
 type Summary = {
   activeWorkers: number;
   inactiveWorkers: number;
-  activeCampaign: { nombre: string } | null;
+  activeCampaign: { nombre: string; status?: string } | null;
   assignments: {
     noLink: number;
     pending: number;
@@ -168,11 +168,19 @@ export default function AdminHomePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="dashboard-cards">
             <Card label="Trabajadores activos" value={summary.activeWorkers} testId="card-active-workers" />
             <Card label="Trabajadores inactivos" value={summary.inactiveWorkers} testId="card-inactive-workers" />
-            <Card
-              label="Campaña activa"
-              value={summary.activeCampaign?.nombre ?? "Sin campaña activa"}
-              testId="card-active-campaign"
-            />
+          <Card
+            label="Campaña"
+            value={
+              summary.activeCampaign
+                ? `${summary.activeCampaign.nombre}${
+                    (summary.activeCampaign as { status?: string }).status
+                      ? ` (${(summary.activeCampaign as { status?: string }).status === "closed" ? "Cerrada" : (summary.activeCampaign as { status?: string }).status})`
+                      : ""
+                  }`
+                : "Sin campaña"
+            }
+            testId="card-active-campaign"
+          />
             <Card label="Sin enlace" value={summary.assignments.noLink} testId="card-no-link" />
             <Card label="Pendientes" value={summary.assignments.pending} testId="card-pending" />
             <Card label="En progreso" value={summary.assignments.inProgress} testId="card-in-progress" />

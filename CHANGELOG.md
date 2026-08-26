@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-26 (B4.23 — cierre controlado + test fuera de métricas)
+
+- Cerrada `Evaluación NOM-035 2026`; workers reales `is_active=false`; sesiones=0.
+- `workers.is_test` + filtros en dashboard/results/reports/Excel; SYN-PRUEBA-LOGIN excluido de promedios.
+- Histórico answers/results intacto; test no borrado.
+- **Veredicto: CAMPAÑA NOM-035 CERRADA — HISTÓRICO PROTEGIDO — USUARIO DE PRUEBA EXCLUIDO DE MÉTRICAS**
+
 ## 2026-08-20 (B4.22 — Excel avance NOM-035)
 
 - Botón admin «Descargar Excel de respuestas» en dashboard de `Evaluación NOM-035 2026`.

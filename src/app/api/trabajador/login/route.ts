@@ -10,6 +10,7 @@ import {
 import { consumeRateLimit, hashRateLimitKey } from "@/lib/nom035/server/public-rate-limit";
 import {
   isWorkerAppMetadata,
+  isNom035CampaignClosed,
   markWorkerLogin,
   normalizeUsername,
   resolveWorkerLoginUsername,
@@ -96,6 +97,21 @@ export async function POST(req: NextRequest) {
       NextResponse.json(
         { ok: false, code: "rate_limited", message: "Demasiados intentos.", requestId },
         { status: 429, headers: { "Retry-After": String(rate.retryAfter) } }
+      )
+    );
+  }
+
+  // B4.23: campaña cerrada → no hay acceso operativo (mensaje único, sin enumerar).
+  if (await isNom035CampaignClosed()) {
+    return applyPrivacyHeaders(
+      NextResponse.json(
+        {
+          ok: false,
+          code: "evaluation_unavailable",
+          message: "La evaluación ya no está disponible.",
+          requestId,
+        },
+        { status: 403 }
       )
     );
   }

@@ -1,6 +1,14 @@
 # Contratos de API
 
-## Bloque actual: B4.22 — Export Excel de avance NOM-035
+## Bloque actual: B4.23 — Cierre campaña + exclusión test de métricas
+
+- Campaña `Evaluación NOM-035 2026`: cierre manual → `closed` (histórico legible).
+- `workers.is_test` marca sintéticos; métricas/reportes/Excel **excluyen** `is_test=true`.
+- Login worker con campaña cerrada: `evaluation_unavailable` / «La evaluación ya no está disponible.»
+- Migración: `013_is_test_exclude_metrics.sql`.
+- Script: `scripts/b423-close-campaign.ts`.
+
+## Bloque B4.22 — Export Excel de avance NOM-035
 
 | Método | Ruta | Permiso | Notas |
 |--------|------|---------|-------|

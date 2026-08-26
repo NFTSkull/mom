@@ -47,6 +47,18 @@ export async function resolveWorkerLoginUsername(
   };
 }
 
+/** B4.23: campaña real cerrada → login worker no operativo. */
+export async function isNom035CampaignClosed(): Promise<boolean> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("evaluation_campaigns")
+    .select("status")
+    .eq("nombre", "Evaluación NOM-035 2026")
+    .maybeSingle();
+  if (error || !data) return false;
+  return data.status === "closed";
+}
+
 export async function markWorkerLogin(authUserId: string): Promise<void> {
   const admin = createSupabaseAdminClient();
   await admin.rpc("worker_mark_login", { p_auth_user_id: authUserId });

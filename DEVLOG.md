@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-26 - B4.23 cierre + exclusión test
+
+### Decisiones
+
+- Causa del promedio: SYN-PRUEBA-LOGIN tenía assignment+result en la campaña real (además de campaña prueba).
+- Marcador durable `workers.is_test` (no inferir solo por nombre).
+- Desactivar `worker_accounts` reales sin borrar Auth/workers/assignments/resultados.
+- Login post-cierre: mensaje único de no disponibilidad (sin enumerar).
+
 ## 2026-08-20 - B4.22 Excel avance operativo
 
 ### Decisiones
