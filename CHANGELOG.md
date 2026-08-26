@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-26 (B4.24 — reportes Excel completos NOM-035)
+
+- Sección admin «Reportes NOM-035»: avance Sí/No + Excel completo con 8 hojas y gráficas PNG.
+- `GET /api/admin/nom035/reports/full` y `GET /api/admin/nom035/results/[id]/report`.
+- RPC `admin_export_nom035_full_report` (migración 014); solo reales completed; test excluido.
+- Gráficas web en `/admin/resultados` vía `admin_reports_summary`.
+- **Veredicto: REPORTES NOM-035 COMPLETOS — EXCEL + GRÁFICAS LISTOS**
+
 ## 2026-08-26 (B4.23 — cierre controlado + test fuera de métricas)
 
 - Cerrada `Evaluación NOM-035 2026`; workers reales `is_active=false`; sesiones=0.

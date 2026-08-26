@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/nom035/admin-client";
+import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
 
 type ResultRow = {
   id: string;
@@ -18,6 +19,7 @@ type ResultRow = {
 
 type Detail = {
   id: string;
+  username?: string | null;
   worker: { nombre: string; departamento: string | null; puesto: string | null };
   campaign: { nombre: string; status: string };
   status: string;
@@ -51,6 +53,13 @@ export default function AdminResultadosPage() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exportingIndividual, setExportingIndividual] = useState(false);
+  const [reportSummary, setReportSummary] = useState<{
+    riskLevels: Record<string, number>;
+    categoryAverages: Record<string, number>;
+    domainAverages: Record<string, number>;
+    completion: { completed: number; pending: number; inProgress: number };
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,6 +90,28 @@ export default function AdminResultadosPage() {
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
+      void adminApi.reportsSummary(new URLSearchParams()).then((r) => {
+        if (!r.ok || !r.report) return;
+        const report = r.report as Record<string, unknown>;
+        const assignments = Number(report.assignments ?? 0);
+        const completed = Number(report.completed ?? 0);
+        setReportSummary({
+          riskLevels: (report.riskLevels as Record<string, number>) ?? {},
+          categoryAverages: (report.categoryAverages as Record<string, number>) ?? {},
+          domainAverages: (report.domainAverages as Record<string, number>) ?? {},
+          completion: {
+            completed,
+            pending: Math.max(0, assignments - completed),
+            inProgress: 0,
+          },
+        });
+      });
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, []);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
       void load();
     }, 0);
     return () => window.clearTimeout(timerId);
@@ -93,6 +124,39 @@ export default function AdminResultadosPage() {
       return;
     }
     setDetail(res.detail as Detail);
+  }
+
+  async function downloadIndividualReport(id: string) {
+    setExportingIndividual(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/nom035/results/${id}/report`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { message?: string } | null;
+        setError(json?.message ?? "No se pudo descargar el reporte individual.");
+        return;
+      }
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? "nom035-reporte-2026.xlsx";
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("No se pudo descargar el reporte individual.");
+    } finally {
+      setExportingIndividual(false);
+    }
   }
 
   return (
@@ -152,6 +216,15 @@ export default function AdminResultadosPage() {
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="text-sm">Cargando…</p> : null}
+
+      {reportSummary ? (
+        <AdminReportChartsPanel
+          riskLevels={reportSummary.riskLevels}
+          categoryAverages={reportSummary.categoryAverages}
+          domainAverages={reportSummary.domainAverages}
+          completion={reportSummary.completion}
+        />
+      ) : null}
 
       <div className="overflow-x-auto rounded border border-slate-200 bg-white">
         <table className="min-w-full text-left text-sm">
@@ -279,9 +352,22 @@ export default function AdminResultadosPage() {
               2
             )}
           </pre>
-          <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => setDetail(null)}>
-            Cerrar
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {detail.status === "completed" ? (
+              <button
+                type="button"
+                data-testid="download-individual-report"
+                disabled={exportingIndividual}
+                className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+                onClick={() => void downloadIndividualReport(detail.id)}
+              >
+                {exportingIndividual ? "Generando reporte…" : "Descargar Excel individual"}
+              </button>
+            ) : null}
+            <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => setDetail(null)}>
+              Cerrar
+            </button>
+          </div>
         </article>
       ) : null}
     </section>

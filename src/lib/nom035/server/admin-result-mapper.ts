@@ -15,6 +15,7 @@ export type AdminAnswerRow = {
 export type MappedResultDetail = {
   id: string;
   assignmentId: string;
+  username: string | null;
   worker: { id: string; nombre: string; departamento: string | null; puesto: string | null };
   campaign: { id: string; nombre: string; status: string };
   status: string;
@@ -65,6 +66,7 @@ export function mapResultDetail(rpc: Record<string, unknown>): MappedResultDetai
   return {
     id: String(detail.id),
     assignmentId: String(detail.assignmentId),
+    username: (detail.username as string | null) ?? null,
     worker: detail.worker as MappedResultDetail["worker"],
     campaign: detail.campaign as MappedResultDetail["campaign"],
     status: String(detail.status),

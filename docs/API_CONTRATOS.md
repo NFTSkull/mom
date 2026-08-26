@@ -1,6 +1,22 @@
 # Contratos de API
 
-## Bloque actual: B4.23 — Cierre campaña + exclusión test de métricas
+## Bloque actual: B4.24 — Reportes Excel completos NOM-035
+
+| Método | Ruta | Permiso | Notas |
+|--------|------|---------|-------|
+| GET | `/api/admin/nom035/campaigns/avance-excel` | `dashboard.view` | Avance Sí/No (B4.22) |
+| GET | `/api/admin/nom035/reports/full` | `reports.generate` | XLSX consolidado 8 hojas + gráficas PNG |
+| GET | `/api/admin/nom035/results/[id]/report` | `results.individual.read` | XLSX individual 6 hojas; solo `completed` real |
+
+Archivos: `reporte-completo-nom035-2026.xlsx` · `nom035-<username>-2026.xlsx`.
+
+Fuente: RPC `admin_export_nom035_full_report` + snapshots persistidos; **excluye** `is_test=true` (misma regla que B4.23).
+
+Headers: `Cache-Control: no-store` · `Content-Disposition: attachment`.
+
+Migración: `014_admin_export_nom035_full_report.sql`.
+
+## Bloque B4.23 — Cierre campaña + exclusión test de métricas
 
 - Campaña `Evaluación NOM-035 2026`: cierre manual → `closed` (histórico legible).
 - `workers.is_test` marca sintéticos; métricas/reportes/Excel **excluyen** `is_test=true`.

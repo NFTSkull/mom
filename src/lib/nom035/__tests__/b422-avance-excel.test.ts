@@ -158,7 +158,7 @@ describe("B4.22 avance excel", () => {
 
   it("UI tiene botón de descarga", () => {
     const page = readFileSync("src/app/admin/page.tsx", "utf8");
-    expect(page).toMatch(/Descargar Excel de respuestas/);
+    expect(page).toMatch(/Descargar avance Sí\/No/);
     expect(page).toMatch(/download-avance-excel/);
   });
 });
