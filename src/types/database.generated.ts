@@ -962,6 +962,7 @@ export type Database = {
           email: string | null
           external_reference: string | null
           id: string
+          is_test: boolean
           jefe_directo: string | null
           nombre: string
           normalized_email: string | null
@@ -983,6 +984,7 @@ export type Database = {
           email?: string | null
           external_reference?: string | null
           id?: string
+          is_test?: boolean
           jefe_directo?: string | null
           nombre: string
           normalized_email?: string | null
@@ -1004,6 +1006,7 @@ export type Database = {
           email?: string | null
           external_reference?: string | null
           id?: string
+          is_test?: boolean
           jefe_directo?: string | null
           nombre?: string
           normalized_email?: string | null
@@ -1148,6 +1151,8 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["evidence_items"]["Row"] }
         Returns: Json
       }
+      admin_export_nom035_avance: { Args: never; Returns: Json }
+      admin_export_nom035_full_report: { Args: never; Returns: Json }
       admin_force_worker_password_change: {
         Args: { p_worker_id: string }
         Returns: Json
