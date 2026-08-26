@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-26 - B4.24.1 deploy Production reportes
+
+### Decisiones
+
+- CI requirió sincronizar `database.generated.ts` (is_test + RPC export) y `npm audit fix`.
+- Vercel: `sharp` falló (libvips); hotfix con `pureimage` PNG puro JS.
+- SHA certificado deploy: `fd33d1c` · RC `33020994690` · WebKit `33020994592` · `dpl_75azMDkkB7iKinQxGBeEf3Q5S8oF`.
+
 ## 2026-08-26 - B4.24 reportes Excel completos + gráficas
 
 ### Decisiones

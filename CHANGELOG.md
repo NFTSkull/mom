@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-08-26 (B4.24.1 — deploy reportes + fix gráficas Vercel)
+
+- Hotfix: gráficas PNG con `pureimage` (sin `sharp`/libvips) para serverless Vercel.
+- Deploy Production `nom035-production` SHA certificado tras CI verde.
+
 ## 2026-08-26 (B4.24 — reportes Excel completos NOM-035)
 
 - Sección admin «Reportes NOM-035»: avance Sí/No + Excel completo con 8 hojas y gráficas PNG.
