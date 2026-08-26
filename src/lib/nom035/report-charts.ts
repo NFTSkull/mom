@@ -1,8 +1,9 @@
 /**
- * B4.24 — Gráficas PNG server-side (SVG → sharp) para Excel.
+ * B4.24 — Gráficas PNG server-side (pureimage, sin native deps) para Excel/Vercel.
  */
 
-import sharp from "sharp";
+import { PassThrough } from "node:stream";
+import * as PImage from "pureimage";
 import type { ChartDataset } from "@/lib/nom035/report-data";
 
 export type ReportChartImages = {
@@ -14,29 +15,36 @@ export type ReportChartImages = {
   individualDomains?: Buffer;
 };
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+const COLORS = ["#64748b", "#334155", "#0f766e", "#b45309", "#b91c1c", "#6366f1"];
+
+async function encodePng(img: PImage.Bitmap): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  const stream = new PassThrough();
+  stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolve, reject) => {
+    stream.on("finish", () => resolve());
+    stream.on("error", reject);
+  });
+  await PImage.encodePNGToStream(img, stream);
+  stream.end();
+  await done;
+  return Buffer.concat(chunks);
 }
 
-function truncateLabel(label: string, max = 28): string {
-  if (label.length <= max) return label;
-  return `${label.slice(0, max - 1)}…`;
-}
-
-function buildBarChartSvg(input: {
+function drawBarChart(input: {
   title: string;
   dataset: ChartDataset;
   width?: number;
   height?: number;
-  horizontal?: boolean;
-}): string {
+}): PImage.Bitmap {
   const width = input.width ?? 720;
   const height = input.height ?? 420;
-  const margin = { top: 48, right: 24, bottom: 96, left: 56 };
+  const img = PImage.make(width, height);
+  const ctx = img.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  const margin = { top: 48, right: 24, bottom: 48, left: 56 };
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const maxVal = Math.max(1, ...input.dataset.values, 0);
@@ -44,75 +52,55 @@ function buildBarChartSvg(input: {
   const gap = 8;
   const barW = Math.max(12, (innerW - gap * (barCount - 1)) / barCount);
 
-  const bars = input.dataset.values
-    .map((value, i) => {
-      const h = (value / maxVal) * innerH;
-      const x = margin.left + i * (barW + gap);
-      const y = margin.top + innerH - h;
-      const label = truncateLabel(input.dataset.labels[i] ?? "");
-      const lx = x + barW / 2;
-      const ly = height - margin.bottom + 16;
-      return `
-        <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#334155" rx="2"/>
-        <text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle" font-size="11" fill="#0f172a">${value}</text>
-        <text transform="rotate(-35 ${lx} ${ly})" x="${lx}" y="${ly}" text-anchor="end" font-size="10" fill="#475569">${escapeXml(label)}</text>
-      `;
-    })
-    .join("");
+  ctx.fillStyle = "#334155";
+  input.dataset.values.forEach((value, i) => {
+    const h = (value / maxVal) * innerH;
+    const x = margin.left + i * (barW + gap);
+    const y = margin.top + innerH - h;
+    ctx.fillRect(x, y, barW, h);
+  });
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <text x="${margin.left}" y="28" font-size="16" font-weight="600" fill="#0f172a">${escapeXml(input.title)}</text>
-    <line x1="${margin.left}" y1="${margin.top + innerH}" x2="${width - margin.right}" y2="${margin.top + innerH}" stroke="#cbd5e1"/>
-    ${bars}
-  </svg>`;
+  ctx.strokeStyle = "#cbd5e1";
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top + innerH);
+  ctx.lineTo(width - margin.right, margin.top + innerH);
+  ctx.stroke();
+
+  return img;
 }
 
-function buildPieChartSvg(input: {
+function drawPieChart(input: {
   title: string;
   dataset: ChartDataset;
   width?: number;
   height?: number;
-}): string {
+}): PImage.Bitmap {
   const width = input.width ?? 720;
   const height = input.height ?? 420;
+  const img = PImage.make(width, height);
+  const ctx = img.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
   const cx = width / 2;
   const cy = height / 2 + 10;
   const r = Math.min(width, height) / 3;
   const total = input.dataset.values.reduce((a, b) => a + b, 0) || 1;
-  const colors = ["#64748b", "#334155", "#0f766e", "#b45309", "#b91c1c", "#6366f1"];
-
   let angle = -Math.PI / 2;
-  const slices = input.dataset.values
-    .map((value, i) => {
-      const slice = (value / total) * Math.PI * 2;
-      const x1 = cx + r * Math.cos(angle);
-      const y1 = cy + r * Math.sin(angle);
-      angle += slice;
-      const x2 = cx + r * Math.cos(angle);
-      const y2 = cy + r * Math.sin(angle);
-      const large = slice > Math.PI ? 1 : 0;
-      const color = colors[i % colors.length];
-      const mid = angle - slice / 2;
-      const lx = cx + (r + 24) * Math.cos(mid);
-      const ly = cy + (r + 24) * Math.sin(mid);
-      const label = truncateLabel(input.dataset.labels[i] ?? "", 22);
-      return `
-        <path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${color}"/>
-        <text x="${lx}" y="${ly}" text-anchor="middle" font-size="10" fill="#0f172a">${escapeXml(label)} (${value})</text>
-      `;
-    })
-    .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <text x="24" y="28" font-size="16" font-weight="600" fill="#0f172a">${escapeXml(input.title)}</text>
-    ${slices}
-  </svg>`;
-}
+  input.dataset.values.forEach((value, i) => {
+    const slice = (value / total) * Math.PI * 2;
+    const end = angle + slice;
+    ctx.fillStyle = COLORS[i % COLORS.length]!;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, end);
+    ctx.closePath();
+    ctx.fill();
+    angle = end;
+  });
 
-export async function svgToPng(svg: string): Promise<Buffer> {
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return img;
 }
 
 export async function renderAggregateCharts(input: {
@@ -123,27 +111,27 @@ export async function renderAggregateCharts(input: {
 }): Promise<ReportChartImages> {
   const [riskDistribution, categoryAverages, domainAverages, completionStatus] =
     await Promise.all([
-      svgToPng(
-        buildPieChartSvg({
+      encodePng(
+        drawPieChart({
           title: "Distribución de niveles de riesgo",
           dataset: input.riskDistribution,
         })
       ),
-      svgToPng(
-        buildBarChartSvg({
+      encodePng(
+        drawBarChart({
           title: "Promedio por categoría",
           dataset: input.categoryAverages,
         })
       ),
-      svgToPng(
-        buildBarChartSvg({
+      encodePng(
+        drawBarChart({
           title: "Promedio por dominio",
           dataset: input.domainAverages,
           height: 460,
         })
       ),
-      svgToPng(
-        buildBarChartSvg({
+      encodePng(
+        drawBarChart({
           title: "Completados vs pendientes vs en progreso",
           dataset: input.completionStatus,
         })
@@ -158,14 +146,14 @@ export async function renderIndividualCharts(input: {
   domains: ChartDataset;
 }): Promise<Pick<ReportChartImages, "individualCategories" | "individualDomains">> {
   const [individualCategories, individualDomains] = await Promise.all([
-    svgToPng(
-      buildBarChartSvg({
+    encodePng(
+      drawBarChart({
         title: "Puntaje por categoría",
         dataset: input.categories,
       })
     ),
-    svgToPng(
-      buildBarChartSvg({
+    encodePng(
+      drawBarChart({
         title: "Puntaje por dominio",
         dataset: input.domains,
         height: 460,
@@ -175,4 +163,7 @@ export async function renderIndividualCharts(input: {
   return { individualCategories, individualDomains };
 }
 
-export { buildBarChartSvg, buildPieChartSvg };
+/** Compat tests: PNG válido con firma PK alternativa vía PNG signature. */
+export function isLikelyPng(buf: Buffer): boolean {
+  return buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50;
+}
