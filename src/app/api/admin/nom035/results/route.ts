@@ -6,6 +6,11 @@ import {
   unwrapRpc,
 } from "@/lib/nom035/server/admin-api-helpers";
 import { listResults } from "@/lib/nom035/server/admin-core-service";
+import {
+  RESULTS_PAGE_SIZE,
+  computeTotalPages,
+  normalizePage,
+} from "@/lib/nom035/results-pagination";
 
 export const runtime = "nodejs";
 
@@ -14,11 +19,12 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
   try {
     const url = new URL(req.url);
-    const page = Number(url.searchParams.get("page") ?? "1");
-    const pageSize = Number(url.searchParams.get("pageSize") ?? "20");
-    if (page < 1 || pageSize < 1 || pageSize > 100) {
+    const rawPage = Number(url.searchParams.get("page") ?? "1");
+    const pageSize = Number(url.searchParams.get("pageSize") ?? String(RESULTS_PAGE_SIZE));
+    if (!Number.isFinite(rawPage) || !Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
       return adminJsonError("invalid_payload", requestId);
     }
+    const page = rawPage < 1 ? 1 : Math.floor(rawPage);
     const data = await listResults({
       campaignId: url.searchParams.get("campaignId"),
       workerId: url.searchParams.get("workerId"),
@@ -30,7 +36,18 @@ export async function GET(req: NextRequest) {
     });
     const unwrapped = unwrapRpc(data, requestId);
     if (!unwrapped.ok) return unwrapped.response;
-    return adminJsonOk({ ...unwrapped.value, requestId });
+    const value = unwrapped.value as Record<string, unknown>;
+    const total = Number(value.total ?? 0);
+    const totalPages = computeTotalPages(total, pageSize);
+    const safePage = normalizePage(Number(value.page ?? page), total, pageSize);
+    return adminJsonOk({
+      ...value,
+      page: safePage,
+      pageSize,
+      total,
+      totalPages,
+      requestId,
+    });
   } catch {
     return adminJsonError("internal_error", requestId);
   }

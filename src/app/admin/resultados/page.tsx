@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminApi } from "@/lib/nom035/admin-client";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
+import {
+  RESULTS_PAGE_SIZE,
+  buildResultsListQuery,
+  canGoNext,
+  canGoPrevious,
+  computeTotalPages,
+  normalizePage,
+} from "@/lib/nom035/results-pagination";
 
 type ResultRow = {
   id: string;
@@ -42,13 +51,21 @@ type Detail = {
   disclaimer: string;
 };
 
-export default function AdminResultadosPage() {
+function AdminResultadosInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tableRef = useRef<HTMLDivElement | null>(null);
+
+  const pageFromUrl = Number(searchParams.get("page") ?? "1");
+  const search = searchParams.get("search") ?? "";
+  const riskLevel = searchParams.get("riskLevel") ?? "";
+  const campaignId = searchParams.get("campaignId") ?? "";
+  const page = Number.isFinite(pageFromUrl) && pageFromUrl >= 1 ? Math.floor(pageFromUrl) : 1;
+
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [riskLevel, setRiskLevel] = useState("");
-  const [campaignId, setCampaignId] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
   const [campaigns, setCampaigns] = useState<Array<{ id: string; nombre: string }>>([]);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState("");
@@ -61,23 +78,47 @@ export default function AdminResultadosPage() {
     completion: { completed: number; pending: number; inProgress: number };
   } | null>(null);
 
+  const replaceParams = useCallback(
+    (patch: Record<string, string | null>, opts?: { resetPage?: boolean }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+      if (opts?.resetPage) params.set("page", "1");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const q = new URLSearchParams({ page: String(page), pageSize: "20" });
-    if (search) q.set("search", search);
-    if (riskLevel) q.set("riskLevel", riskLevel);
-    if (campaignId) q.set("campaignId", campaignId);
+    const q = buildResultsListQuery({
+      page,
+      pageSize: RESULTS_PAGE_SIZE,
+      search: search || undefined,
+      riskLevel: riskLevel || undefined,
+      campaignId: campaignId || undefined,
+    });
     const res = await adminApi.listResults(q);
     if (!res.ok) {
       setError(res.message);
       setLoading(false);
       return;
     }
+    const nextTotal = res.total ?? 0;
+    const nextTotalPages = res.totalPages ?? computeTotalPages(nextTotal, RESULTS_PAGE_SIZE);
+    const safePage = normalizePage(res.page ?? page, nextTotal, RESULTS_PAGE_SIZE);
     setItems((res.items as ResultRow[]) ?? []);
-    setTotal(res.total ?? 0);
+    setTotal(nextTotal);
+    setTotalPages(nextTotalPages);
     setLoading(false);
-  }, [page, search, riskLevel, campaignId]);
+    if (safePage !== page) {
+      replaceParams({ page: String(safePage) });
+    }
+  }, [page, search, riskLevel, campaignId, replaceParams]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
@@ -116,6 +157,14 @@ export default function AdminResultadosPage() {
     }, 0);
     return () => window.clearTimeout(timerId);
   }, [load]);
+
+  function goToPage(next: number) {
+    if (loading) return;
+    const safe = normalizePage(next, total, RESULTS_PAGE_SIZE);
+    if (safe === page) return;
+    replaceParams({ page: String(safe) });
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function openDetail(id: string) {
     const res = await adminApi.getResult(id);
@@ -159,6 +208,9 @@ export default function AdminResultadosPage() {
     }
   }
 
+  const prevEnabled = canGoPrevious(page) && !loading;
+  const nextEnabled = canGoNext(page, total, RESULTS_PAGE_SIZE) && !loading;
+
   return (
     <section className="space-y-4" data-testid="admin-results-page">
       <h1 className="text-2xl font-semibold text-slate-900">Resultados</h1>
@@ -173,8 +225,7 @@ export default function AdminResultadosPage() {
           placeholder="Buscar…"
           value={search}
           onChange={(e) => {
-            setPage(1);
-            setSearch(e.target.value);
+            replaceParams({ search: e.target.value || null }, { resetPage: true });
           }}
         />
         <select
@@ -182,8 +233,7 @@ export default function AdminResultadosPage() {
           className="rounded border px-2 py-1.5 text-sm"
           value={riskLevel}
           onChange={(e) => {
-            setPage(1);
-            setRiskLevel(e.target.value);
+            replaceParams({ riskLevel: e.target.value || null }, { resetPage: true });
           }}
         >
           <option value="">Todos los niveles</option>
@@ -198,8 +248,7 @@ export default function AdminResultadosPage() {
           className="rounded border px-2 py-1.5 text-sm"
           value={campaignId}
           onChange={(e) => {
-            setPage(1);
-            setCampaignId(e.target.value);
+            replaceParams({ campaignId: e.target.value || null }, { resetPage: true });
           }}
         >
           <option value="">Todas las campañas</option>
@@ -215,7 +264,7 @@ export default function AdminResultadosPage() {
       </div>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      {loading ? <p className="text-sm">Cargando…</p> : null}
+      {loading ? <p className="text-sm" data-testid="results-loading">Cargando…</p> : null}
 
       {reportSummary ? (
         <AdminReportChartsPanel
@@ -226,7 +275,11 @@ export default function AdminResultadosPage() {
         />
       ) : null}
 
-      <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+      <div
+        ref={tableRef}
+        className="overflow-x-auto rounded border border-slate-200 bg-white"
+        data-testid="results-table"
+      >
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
@@ -273,9 +326,30 @@ export default function AdminResultadosPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-sm text-slate-600">
-        Página {page} · {total} total
-      </p>
+
+      <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="results-pagination">
+        <button
+          type="button"
+          data-testid="results-page-prev"
+          disabled={!prevEnabled}
+          onClick={() => goToPage(page - 1)}
+          className="rounded border px-2 py-1 disabled:opacity-40"
+        >
+          Anterior
+        </button>
+        <span data-testid="results-page-label">
+          Página {page} / {totalPages} · {total} total · {RESULTS_PAGE_SIZE}/página
+        </span>
+        <button
+          type="button"
+          data-testid="results-page-next"
+          disabled={!nextEnabled}
+          onClick={() => goToPage(page + 1)}
+          className="rounded border px-2 py-1 disabled:opacity-40"
+        >
+          Siguiente
+        </button>
+      </div>
 
       {detail ? (
         <article
@@ -371,5 +445,13 @@ export default function AdminResultadosPage() {
         </article>
       ) : null}
     </section>
+  );
+}
+
+export default function AdminResultadosPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-slate-600">Cargando resultados…</p>}>
+      <AdminResultadosInner />
+    </Suspense>
   );
 }

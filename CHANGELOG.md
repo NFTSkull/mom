@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-27 (B4.25 — paginación Admin Resultados)
+
+- Controles Anterior/Siguiente + URL `?page=` en `/admin/resultados`.
+- API lista resultados expone `totalPages`; pageSize=20; sin cambios a datos.
+- **Veredicto: PAGINACIÓN DE RESULTADOS CORREGIDA — TODOS LOS COMPLETADOS VISIBLES**
+
 ## 2026-08-27 — Política vigente NOM-035 2026
 
 - Fuente Word: `docs/politica/politica-riesgos-psicosociales-2026.docx` (+ texto `.txt`).

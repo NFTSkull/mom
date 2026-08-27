@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-27 - B4.25 paginación Resultados
+
+### Decisiones
+
+- Causa raíz: no existían botones de paginación (solo label «Página 1 · N total»).
+- API/RPC ya soportaban `page`/`offset`; fix = UI + URL searchParams + `totalPages`.
+- pageSize=20 (mismo patrón trabajadores/plan-acción); filtros resetean page=1; cambio de page no.
+
 ## 2026-08-27 - Política vigente riesgos psicosociales
 
 ### Decisiones

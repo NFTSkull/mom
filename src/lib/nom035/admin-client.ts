@@ -134,7 +134,14 @@ export const adminApi = {
       body: JSON.stringify({ reason: reason ?? null }),
     }),
   listResults: (q: URLSearchParams) =>
-    adminFetch<{ items: unknown[]; total: number; requestId: string }>(`/results?${q}`),
+    adminFetch<{
+      items: unknown[];
+      total: number;
+      page?: number;
+      pageSize?: number;
+      totalPages?: number;
+      requestId: string;
+    }>(`/results?${q}`),
   getResult: (id: string) =>
     adminFetch<{ detail: unknown; disclaimer?: string; requestId: string }>(`/results/${id}`),
   reportsSummary: (q: URLSearchParams) =>
