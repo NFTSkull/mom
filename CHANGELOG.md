@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-08-27 — Política vigente NOM-035 2026
+
+- Fuente Word: `docs/politica/politica-riesgos-psicosociales-2026.docx` (+ texto `.txt`).
+- Publicada en Production como `policy_documents` status=`publicada`, versionLabel=`2026-v1`.
+
 ## 2026-08-26 (B4.24.1 — deploy reportes + fix gráficas Vercel)
 
 - Hotfix: gráficas PNG con `pureimage` (sin `sharp`/libvips) para serverless Vercel.

@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-27 - Política vigente riesgos psicosociales
+
+### Decisiones
+
+- Contenido tomado del Word entregado por el usuario (Alpha Metals México / NOM-035 2026).
+- Insertada directamente como `publicada` (no había política previa).
+- Artefactos versionados en git bajo `docs/politica/`.
+
 ## 2026-08-26 - B4.24.1 deploy Production reportes
 
 ### Decisiones
@@ -14,7 +22,7 @@
 
 - Misma exclusión `is_test` que B4.23 vía RPC batch (no reglas duplicadas).
 - Fuente primaria: snapshots persistidos (`guia_ii_*_scores`); no recalcular scoring.
-- Gráficas XLSX: SVG→PNG con `sharp` embebidas en ExcelJS (sin APIs externas).
+- Gráficas XLSX: PNG con `pureimage` embebidas en ExcelJS (sin APIs externas).
 - Permisos: consolidado `reports.generate`; individual `results.individual.read` (AAL1, B4.21).
 - Guía III gates 65–72: filas «No aplicable» cuando no hay respuesta condicional.
 
