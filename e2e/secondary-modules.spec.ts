@@ -421,6 +421,8 @@ test("B4.5 · 11 Política versionado", async ({ page }) => {
   await page.getByTestId("policy-save").click();
   page.once("dialog", (d) => d.accept());
   await page.getByTestId("policy-publish").click();
+  await expect(page.getByTestId("policy-published-banner")).toBeVisible();
+  await expect(page.getByTestId("policy-message")).toContainText(/publicad/i);
 
   expect(sql(`select count(*) from public.policy_documents where status='publicada'`)).toBe("1");
   expect(
