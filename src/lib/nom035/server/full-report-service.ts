@@ -1,19 +1,25 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  assertAggregateMath,
+  buildNom035AggregateReport,
+  type Nom035AggregateReport,
+} from "@/lib/nom035/aggregate-report";
 import { buildFullReportXlsxBuffer } from "@/lib/nom035/full-report-xlsx";
 import {
   assertFullReportCounts,
-  buildChartDatasets,
   normalizeFullReportPayload,
   type NormalizedFullReport,
 } from "@/lib/nom035/report-data";
-import { renderAggregateCharts } from "@/lib/nom035/report-charts";
+import { renderExecutiveCharts } from "@/lib/nom035/report-charts";
+import { getCompanySettings } from "@/lib/nom035/server/admin-core-service";
 
 export type FullReportExportOk = {
   ok: true;
   buffer: Buffer;
   report: NormalizedFullReport;
+  aggregate: Nom035AggregateReport;
   generationMs: number;
 };
 
@@ -23,10 +29,10 @@ export type FullReportExportErr = {
   message: string;
 };
 
-export async function exportNom035FullReportExcel(): Promise<
-  FullReportExportOk | FullReportExportErr
+async function loadNormalizedFullReport(): Promise<
+  | { ok: true; report: NormalizedFullReport; companyName: string }
+  | FullReportExportErr
 > {
-  const started = Date.now();
   const client = await createSupabaseServerClient();
   const { data, error } = await client.rpc("admin_export_nom035_full_report");
   if (error) {
@@ -62,14 +68,72 @@ export async function exportNom035FullReportExcel(): Promise<
     return { ok: false, code: "count_mismatch", message: check.reason };
   }
 
-  const chartData = buildChartDatasets(report);
-  const charts = await renderAggregateCharts(chartData);
-  const buffer = await buildFullReportXlsxBuffer({ report, charts });
+  let companyName = "—";
+  try {
+    const company = await getCompanySettings();
+    if (company && typeof company === "object") {
+      const rs =
+        (company as { razonSocial?: string }).razonSocial ??
+        (company as { razon_social?: string }).razon_social;
+      if (rs) companyName = String(rs);
+    }
+  } catch {
+    companyName = "—";
+  }
+
+  return { ok: true, report, companyName };
+}
+
+export async function exportNom035FullReportExcel(): Promise<
+  FullReportExportOk | FullReportExportErr
+> {
+  const started = Date.now();
+  const loaded = await loadNormalizedFullReport();
+  if (!loaded.ok) return loaded;
+
+  const aggregate = buildNom035AggregateReport(loaded.report, {
+    companyName: loaded.companyName,
+  });
+  const math = assertAggregateMath(aggregate);
+  if (!math.ok) {
+    return { ok: false, code: "count_mismatch", message: math.reason };
+  }
+
+  const charts = await renderExecutiveCharts(aggregate);
+  const buffer = await buildFullReportXlsxBuffer({
+    report: loaded.report,
+    aggregate,
+    charts,
+  });
 
   return {
     ok: true,
     buffer,
-    report,
+    report: loaded.report,
+    aggregate,
+    generationMs: Date.now() - started,
+  };
+}
+
+export async function getNom035ExecutiveAggregate(): Promise<
+  | { ok: true; aggregate: Nom035AggregateReport; generationMs: number }
+  | FullReportExportErr
+> {
+  const started = Date.now();
+  const loaded = await loadNormalizedFullReport();
+  if (!loaded.ok) return loaded;
+
+  const aggregate = buildNom035AggregateReport(loaded.report, {
+    companyName: loaded.companyName,
+  });
+  const math = assertAggregateMath(aggregate);
+  if (!math.ok) {
+    return { ok: false, code: "count_mismatch", message: math.reason };
+  }
+
+  return {
+    ok: true,
+    aggregate,
     generationMs: Date.now() - started,
   };
 }

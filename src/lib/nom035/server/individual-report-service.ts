@@ -11,6 +11,8 @@ import {
   type ReportWorkerRow,
 } from "@/lib/nom035/report-data";
 import { renderIndividualCharts } from "@/lib/nom035/report-charts";
+import { getCompanySettings } from "@/lib/nom035/server/admin-core-service";
+import { riskChartHex } from "@/lib/nom035/risk-palette";
 
 export type IndividualReportExportOk = {
   ok: true;
@@ -134,21 +136,39 @@ export async function exportNom035IndividualReportExcel(
     return { ok: false, code: "internal_error", message: "Usuario no disponible." };
   }
 
+  const catEntries = Object.entries(worker.categoryScores);
+  const domEntries = Object.entries(worker.domainScores);
   const charts = await renderIndividualCharts({
     categories: {
-      labels: Object.keys(worker.categoryScores),
-      values: Object.values(worker.categoryScores).map((v) => v.score),
+      labels: catEntries.map(([k]) => k),
+      values: catEntries.map(([, v]) => v.score),
     },
     domains: {
-      labels: Object.keys(worker.domainScores),
-      values: Object.values(worker.domainScores).map((v) => v.score),
+      labels: domEntries.map(([k]) => k),
+      values: domEntries.map(([, v]) => v.score),
     },
+    categoryColors: catEntries.map(([, v]) => riskChartHex(v.riskLevel)),
+    domainColors: domEntries.map(([, v]) => riskChartHex(v.riskLevel)),
   });
+
+  let companyName = "—";
+  try {
+    const company = await getCompanySettings();
+    if (company && typeof company === "object") {
+      const rs =
+        (company as { razonSocial?: string }).razonSocial ??
+        (company as { razon_social?: string }).razon_social;
+      if (rs) companyName = String(rs);
+    }
+  } catch {
+    companyName = "—";
+  }
 
   const buffer = await buildIndividualReportXlsxBuffer({
     worker,
     campaignName: detail.campaign.nombre,
     campaignStatus: detail.campaign.status,
+    companyName,
     generatedAt: new Date().toISOString(),
     charts,
   });

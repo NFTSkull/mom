@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-27 (B4.26 — rediseño ejecutivo reportes NOM-035)
+
+- Excel consolidado 11 hojas (Resumen Ejecutivo, Categorías, Dominios, Distribución Final, ATS, etc.).
+- Dataset compartido `buildNom035AggregateReport` + paleta única de riesgo.
+- `GET /api/admin/nom035/reports/executive` y sección web Resumen Ejecutivo en `/admin/resultados`.
+- Modelo fijo Guía I+III; test excluido; sin % de riesgo inventado (riesgo predominante).
+- **Veredicto: REPORTES NOM-035 REDISEÑADOS — MODELO EJECUTIVO + TABLAS + GRÁFICAS CERTIFICADO**
+
 ## 2026-08-27 (B4.25 — paginación Admin Resultados)
 
 - Controles Anterior/Siguiente + URL `?page=` en `/admin/resultados`.

@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-27 - B4.26 rediseño ejecutivo reportes
+
+### Decisiones
+
+- Plantilla histórica solo referencia visual; datos = Guía I+III productiva (no Guía II / no 21 antiguos).
+- Dataset único `buildNom035AggregateReport` para web + Excel + PNG (evita divergencia).
+- Sin métrica agregada tipo «46% riesgo»; solo **RIESGO PREDOMINANTE** (moda verificable).
+- Paleta centralizada `risk-palette.ts`; gráficas siguen `pureimage` (Vercel-safe).
+- READ-ONLY sobre producción: solo código de reportes/UI/endpoints de lectura.
+
 ## 2026-08-27 - B4.25 paginación Resultados
 
 ### Decisiones

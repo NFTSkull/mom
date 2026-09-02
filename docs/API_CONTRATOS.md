@@ -1,12 +1,32 @@
 # Contratos de API
 
-## Bloque actual: B4.24 — Reportes Excel completos NOM-035
+## Bloque actual: B4.26 — Reportes ejecutivos NOM-035 (Guía I+III)
 
 | Método | Ruta | Permiso | Notas |
 |--------|------|---------|-------|
 | GET | `/api/admin/nom035/campaigns/avance-excel` | `dashboard.view` | Avance Sí/No (B4.22) |
-| GET | `/api/admin/nom035/reports/full` | `reports.generate` | XLSX consolidado 8 hojas + gráficas PNG |
+| GET | `/api/admin/nom035/reports/summary` | `reports.generate` | Resumen/gráficas legacy |
+| GET | `/api/admin/nom035/reports/executive` | `reports.generate` | JSON agregado ejecutivo (mismo dataset que Excel) |
+| GET | `/api/admin/nom035/reports/full` | `reports.generate` | XLSX consolidado 11 hojas + gráficas PNG |
 | GET | `/api/admin/nom035/results/[id]/report` | `results.individual.read` | XLSX individual 6 hojas; solo `completed` real |
+
+Archivos: `reporte-completo-nom035-2026.xlsx` · `nom035-<username>-2026.xlsx`.
+
+Fuente: RPC `admin_export_nom035_full_report` + snapshots + `buildNom035AggregateReport`; **excluye** `is_test=true`.
+
+Modelo mostrado: **GUÍA I Y III DE NOM-035** (nunca Guía II).
+
+Headers: `Cache-Control: no-store` · `Content-Disposition: attachment` (XLSX).
+
+Ver `docs/B4_26_REPORTES_EJECUTIVOS.md`.
+
+## Bloque B4.24 — Reportes Excel completos NOM-035
+
+| Método | Ruta | Permiso | Notas |
+|--------|------|---------|-------|
+| GET | `/api/admin/nom035/campaigns/avance-excel` | `dashboard.view` | Avance Sí/No (B4.22) |
+| GET | `/api/admin/nom035/reports/full` | `reports.generate` | XLSX consolidado (evolucionado en B4.26 a 11 hojas) |
+| GET | `/api/admin/nom035/results/[id]/report` | `results.individual.read` | XLSX individual; solo `completed` real |
 
 Archivos: `reporte-completo-nom035-2026.xlsx` · `nom035-<username>-2026.xlsx`.
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs";
+import { buildNom035AggregateReport, GUIA_III_CATEGORY_ORDER, GUIA_III_DOMAIN_ORDER } from "../aggregate-report";
 import {
   assertFullReportCounts,
   assertReportPayloadHasNoSecrets,
@@ -13,10 +14,26 @@ import {
 import { buildFullReportXlsxBuffer, FULL_REPORT_SHEETS } from "../full-report-xlsx";
 import { buildIndividualReportXlsxBuffer, INDIVIDUAL_REPORT_SHEETS } from "../individual-report-xlsx";
 import { orderedGuiaIIIAnswerRows } from "../report-questions";
-import { renderAggregateCharts, renderIndividualCharts } from "../report-charts";
+import { renderAggregateCharts, renderExecutiveCharts, renderIndividualCharts } from "../report-charts";
 import { isLikelyXlsx } from "../avance-excel-xlsx";
 import { findEndpointPermission } from "../auth/endpoint-permissions";
 import { permissionRequiresAal2 } from "../auth/permissions";
+import type { RiskLevelNom035 } from "@/types/nom035";
+
+function fullScores(level: RiskLevelNom035 = "bajo"): {
+  categoryScores: ReportWorkerRow["categoryScores"];
+  domainScores: ReportWorkerRow["domainScores"];
+} {
+  const categoryScores: ReportWorkerRow["categoryScores"] = {};
+  for (const name of GUIA_III_CATEGORY_ORDER) {
+    categoryScores[name] = { score: 5, riskLevel: level };
+  }
+  const domainScores: ReportWorkerRow["domainScores"] = {};
+  for (const name of GUIA_III_DOMAIN_ORDER) {
+    domainScores[name] = { score: 5, riskLevel: level };
+  }
+  return { categoryScores, domainScores };
+}
 
 function sampleWorker(overrides: Partial<ReportWorkerRow> = {}): ReportWorkerRow {
   return {
@@ -32,12 +49,7 @@ function sampleWorker(overrides: Partial<ReportWorkerRow> = {}): ReportWorkerRow
     guiaIIIStatus: "submitted",
     finalScore: 77.5,
     finalRiskLevel: "medio",
-    categoryScores: {
-      "Ambiente de trabajo": { score: 5, riskLevel: "bajo" },
-    },
-    domainScores: {
-      "Condiciones en el ambiente de trabajo": { score: 5, riskLevel: "bajo" },
-    },
+    ...fullScores("medio"),
     guiaIRequiresClinicalAttention: false,
     guiaIRiskLabel: "sin_alerta",
     scoringVersion: "nom035-stps-2018-guia-i-iii-v1",
@@ -95,13 +107,19 @@ function sampleReport(completed = 2) {
   })!;
 }
 
+async function buildBuf(report = sampleReport(2)) {
+  const aggregate = buildNom035AggregateReport(report, { companyName: "Demo" });
+  const charts = await renderExecutiveCharts(aggregate);
+  return buildFullReportXlsxBuffer({ report, aggregate, charts });
+}
+
 async function readSheetNames(buf: Uint8Array): Promise<string[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf as unknown as ExcelJS.Buffer);
   return wb.worksheets.map((s) => s.name);
 }
 
-describe("B4.24 reportes NOM-035 completos", () => {
+describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
   it("1. solo completed reales en payload normalizado", () => {
     const report = sampleReport(2);
     expect(report.workers.every((w) => w.status === "completed")).toBe(true);
@@ -147,9 +165,7 @@ describe("B4.24 reportes NOM-035 completos", () => {
   });
 
   it("13-14. XLSX válido y todas las hojas existen", async () => {
-    const report = sampleReport(2);
-    const charts = await renderAggregateCharts(buildChartDatasets(report));
-    const buf = await buildFullReportXlsxBuffer({ report, charts });
+    const buf = await buildBuf(sampleReport(2));
     expect(isLikelyXlsx(buf)).toBe(true);
     const names = await readSheetNames(buf);
     for (const sheet of FULL_REPORT_SHEETS) {
@@ -169,11 +185,7 @@ describe("B4.24 reportes NOM-035 completos", () => {
   });
 
   it("17. username 001 conserva ceros en hoja Completados", async () => {
-    const report = sampleReport(1);
-    const buf = await buildFullReportXlsxBuffer({
-      report,
-      charts: await renderAggregateCharts(buildChartDatasets(report)),
-    });
+    const buf = await buildBuf(sampleReport(1));
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as unknown as ExcelJS.Buffer);
     const sheet = wb.getWorksheet("Completados");
@@ -234,10 +246,7 @@ describe("B4.24 reportes NOM-035 completos", () => {
 
   it("24. consolidado incluye filas = realCompleted", async () => {
     const report = sampleReport(2);
-    const buf = await buildFullReportXlsxBuffer({
-      report,
-      charts: await renderAggregateCharts(buildChartDatasets(report)),
-    });
+    const buf = await buildBuf(report);
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as unknown as ExcelJS.Buffer);
     const sheet = wb.getWorksheet("Completados");

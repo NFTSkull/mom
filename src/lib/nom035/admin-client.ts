@@ -146,6 +146,13 @@ export const adminApi = {
     adminFetch<{ detail: unknown; disclaimer?: string; requestId: string }>(`/results/${id}`),
   reportsSummary: (q: URLSearchParams) =>
     adminFetch<{ report: Record<string, unknown>; requestId: string }>(`/reports/summary?${q}`),
+  reportsExecutive: () =>
+    adminFetch<{
+      ok: boolean;
+      aggregate: Record<string, unknown>;
+      generationMs?: number;
+      requestId: string;
+    }>("/reports/executive"),
 
   // —— B4.5 · Plan de acción ——
   listActionPlans: (q: URLSearchParams) =>

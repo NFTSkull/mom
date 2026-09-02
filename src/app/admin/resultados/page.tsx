@@ -5,6 +5,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminApi } from "@/lib/nom035/admin-client";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
 import {
+  AdminExecutiveSummaryPanel,
+  type ExecutiveAggregateView,
+} from "@/components/admin/executive-summary-panel";
+import {
   RESULTS_PAGE_SIZE,
   buildResultsListQuery,
   canGoNext,
@@ -77,6 +81,7 @@ function AdminResultadosInner() {
     domainAverages: Record<string, number>;
     completion: { completed: number; pending: number; inProgress: number };
   } | null>(null);
+  const [executive, setExecutive] = useState<ExecutiveAggregateView | null>(null);
 
   const replaceParams = useCallback(
     (patch: Record<string, string | null>, opts?: { resetPage?: boolean }) => {
@@ -146,6 +151,10 @@ function AdminResultadosInner() {
             inProgress: 0,
           },
         });
+      });
+      void adminApi.reportsExecutive().then((r) => {
+        if (!r.ok || !r.aggregate) return;
+        setExecutive(r.aggregate as unknown as ExecutiveAggregateView);
       });
     }, 0);
     return () => window.clearTimeout(timerId);
@@ -265,6 +274,8 @@ function AdminResultadosInner() {
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="text-sm" data-testid="results-loading">Cargando…</p> : null}
+
+      {executive ? <AdminExecutiveSummaryPanel aggregate={executive} /> : null}
 
       {reportSummary ? (
         <AdminReportChartsPanel

@@ -1,11 +1,17 @@
 /**
- * B4.24 — Utilidades compartidas para hojas Excel.
+ * B4.26 — Utilidades compartidas para hojas Excel.
  */
 import type ExcelJS from "exceljs";
+import { riskExcelArgb } from "@/lib/nom035/risk-palette";
 
 export function styleHeaderRow(sheet: ExcelJS.Worksheet, rowNumber = 1): void {
   const row = sheet.getRow(rowNumber);
-  row.font = { bold: true };
+  row.font = { bold: true, color: { argb: "FF0F172A" } };
+  row.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE2E8F0" },
+  };
   row.alignment = { vertical: "middle", wrapText: true };
   row.commit();
 }
@@ -39,53 +45,87 @@ export function applyAutoFilter(
 }
 
 export function riskFillColor(level: string | null | undefined): string | null {
-  if (!level) return null;
-  if (level === "nulo" || level === "Nulo/despreciable") return "FFE2E8F0";
-  if (level === "bajo" || level === "Bajo") return "FFDCFCE7";
-  if (level === "medio" || level === "Medio") return "FFFEF9C3";
-  if (level === "alto" || level === "Alto") return "FFFED7AA";
-  if (level === "muy_alto" || level === "Muy alto") return "FFFECACA";
-  return null;
+  return riskExcelArgb(level);
 }
 
 export async function embedChartImages(
   workbook: ExcelJS.Workbook,
   sheet: ExcelJS.Worksheet,
-  images: Array<{ buffer: Buffer | Uint8Array; title: string; row: number }>
+  images: Array<{
+    buffer: Buffer | Uint8Array;
+    title: string;
+    row: number;
+    width?: number;
+    height?: number;
+  }>
 ): Promise<void> {
-  let rowCursor = 1;
   for (const img of images) {
-    sheet.getCell(rowCursor, 1).value = img.title;
-    sheet.getCell(rowCursor, 1).font = { bold: true };
-    rowCursor += 1;
+    sheet.getCell(img.row, 1).value = img.title;
+    sheet.getCell(img.row, 1).font = { bold: true, size: 12 };
     const imageId = workbook.addImage({
       buffer: Buffer.from(img.buffer) as unknown as ExcelJS.Buffer,
       extension: "png",
     });
     sheet.addImage(imageId, {
-      tl: { col: 0, row: rowCursor - 1 },
-      ext: { width: 640, height: 360 },
+      tl: { col: 0, row: img.row },
+      ext: {
+        width: img.width ?? 720,
+        height: img.height ?? 380,
+      },
     });
-    rowCursor += 22;
   }
 }
 
 export const FULL_REPORT_SHEETS = [
-  "Resumen",
-  "Completados",
-  "Resultados Individuales",
+  "Resumen Ejecutivo",
   "Categorías",
   "Dominios",
+  "Distribución Final",
+  "Acontecimiento Traumático",
+  "Completados",
+  "Resultados Individuales",
   "Guía I - Respuestas",
   "Guía III - Respuestas",
-  "Gráficas",
+  "Datos para Gráficas",
+  "Metodología",
 ] as const;
 
 export const INDIVIDUAL_REPORT_SHEETS = [
-  "Resumen",
+  "Resumen Individual",
   "Guía I",
   "Guía III",
   "Categorías",
   "Dominios",
   "Gráficas",
 ] as const;
+
+export function paintKpiBox(
+  sheet: ExcelJS.Worksheet,
+  startRow: number,
+  startCol: number,
+  title: string,
+  value: string,
+  fillArgb: string
+): void {
+  const titleCell = sheet.getCell(startRow, startCol);
+  const valueCell = sheet.getCell(startRow + 1, startCol);
+  titleCell.value = title;
+  titleCell.font = { bold: true, size: 9, color: { argb: "FF475569" } };
+  valueCell.value = value;
+  valueCell.font = { bold: true, size: 14, color: { argb: "FF0F172A" } };
+  for (const r of [startRow, startRow + 1]) {
+    const cell = sheet.getCell(r, startCol);
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: fillArgb },
+    };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFCBD5E1" } },
+      left: { style: "thin", color: { argb: "FFCBD5E1" } },
+      bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
+      right: { style: "thin", color: { argb: "FFCBD5E1" } },
+    };
+    cell.alignment = { vertical: "middle", wrapText: true };
+  }
+}

@@ -68,6 +68,7 @@ export const ADMIN_ENDPOINT_PERMISSIONS: EndpointPermissionRule[] = [
   rule("GET", "/api/admin/nom035/results/[id]/report", "results.individual.read"),
   rule("GET", "/api/admin/nom035/reports/summary", "reports.generate"),
   rule("GET", "/api/admin/nom035/reports/full", "reports.generate"),
+  rule("GET", "/api/admin/nom035/reports/executive", "reports.generate"),
 
   rule("GET", "/api/admin/nom035/action-plans", "action_plans.read"),
   rule("POST", "/api/admin/nom035/action-plans", "action_plans.write"),
