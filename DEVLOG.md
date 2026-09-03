@@ -13,6 +13,8 @@
 - Bloque destacado al tope de `/admin/reportes` (`nom035-reportes-excel-export`).
 - Quitar el gate `activeCampaign?.nombre === …` en dashboard (campaña cerrada sigue exportable).
 - Deploy Production obligatorio para que aparezca en la pestaña Reportes.
+- Deploy B4.28.1: `dpl_AwHJNJZrN7HrCpSv5euPhKCxezmx` · SHA `f42caaa` · alias `nom035-production.vercel.app`.
+- Verificado en archivos del deployment: `reportes/page.tsx` contiene `nom035-reportes-excel-export` + «Descargar Excel completo».
 - No tocar agregación, XLSX, RPC ni Production data.
 
 ## 2026-09-02 - B4.27 gráficas Excel visibles
