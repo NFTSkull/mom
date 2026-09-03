@@ -1,6 +1,18 @@
 # Contratos de API
 
-## Bloque actual: B4.26 — Reportes ejecutivos NOM-035 (Guía I+III)
+## Bloque actual: B4.28 — UI descarga Excel consolidado
+
+Misma API que B4.26/B4.24. Superficie UI:
+
+| Pantalla | Control |
+|----------|---------|
+| `/admin` | Reportes NOM-035 → Descargar Excel completo (+ avance Sí/No) |
+| `/admin/resultados` | Descargar Excel completo (+ individual en detalle) |
+| `/admin/reportes` | Descargar Excel completo |
+
+Endpoint: `GET /api/admin/nom035/reports/full` · permiso `reports.generate`.
+
+## Bloque B4.26 — Reportes ejecutivos NOM-035 (Guía I+III)
 
 | Método | Ruta | Permiso | Notas |
 |--------|------|---------|-------|

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/nom035/admin-client";
+import { downloadFullReportExcelFromBrowser } from "@/lib/nom035/download-full-report";
 
 type Summary = {
   activeWorkers: number;
@@ -143,31 +144,9 @@ export default function AdminHomePage() {
   async function downloadFullReportExcel() {
     setExportingFull(true);
     setExportError("");
-    try {
-      const res = await fetch("/api/admin/nom035/reports/full", {
-        credentials: "same-origin",
-        headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-      });
-      if (!res.ok) {
-        const json = (await res.json().catch(() => null)) as { message?: string } | null;
-        setExportError(json?.message ?? "No se pudo descargar el reporte completo.");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "reporte-completo-nom035-2026.xlsx";
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      setExportError("No se pudo descargar el reporte completo.");
-    } finally {
-      setExportingFull(false);
-    }
+    const result = await downloadFullReportExcelFromBrowser();
+    if (!result.ok) setExportError(result.message);
+    setExportingFull(false);
   }
 
   return (
@@ -225,43 +204,42 @@ export default function AdminHomePage() {
             />
           </div>
 
-          {summary.activeCampaign?.nombre === "Evaluación NOM-035 2026" ? (
-            <div
-              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-              data-testid="nom035-reports-section"
-            >
-              <h2 className="text-base font-semibold text-slate-900">Reportes NOM-035</h2>
-              <p className="mt-1 text-sm text-slate-700">
-                Exportaciones administrativas. El avance operativo no incluye respuestas ni
-                puntuaciones; el reporte completo sí incluye resultados certificados y gráficas.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  data-testid="download-avance-excel"
-                  disabled={exportingAvance || exportingFull}
-                  onClick={() => void downloadAvanceExcel()}
-                  className="rounded border border-slate-300 px-4 py-2 text-sm disabled:opacity-60"
-                >
-                  {exportingAvance ? "Generando reporte…" : "Descargar avance Sí/No"}
-                </button>
-                <button
-                  type="button"
-                  data-testid="download-full-report-excel"
-                  disabled={exportingAvance || exportingFull}
-                  onClick={() => void downloadFullReportExcel()}
-                  className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-                >
-                  {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
-                </button>
-              </div>
-              {exportError ? (
-                <p className="mt-2 text-sm text-red-700" data-testid="avance-excel-error">
-                  {exportError}
-                </p>
-              ) : null}
+          <div
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            data-testid="nom035-reports-section"
+          >
+            <h2 className="text-base font-semibold text-slate-900">Reportes NOM-035</h2>
+            <p className="mt-1 text-sm text-slate-700">
+              Exportaciones administrativas (campaña abierta o cerrada). El avance operativo no
+              incluye respuestas ni puntuaciones; el reporte completo sí incluye resultados
+              certificados y gráficas.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                data-testid="download-avance-excel"
+                disabled={exportingAvance || exportingFull}
+                onClick={() => void downloadAvanceExcel()}
+                className="rounded border border-slate-300 px-4 py-2 text-sm disabled:opacity-60"
+              >
+                {exportingAvance ? "Generando reporte…" : "Descargar avance Sí/No"}
+              </button>
+              <button
+                type="button"
+                data-testid="download-full-report-excel"
+                disabled={exportingAvance || exportingFull}
+                onClick={() => void downloadFullReportExcel()}
+                className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+              >
+                {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
+              </button>
             </div>
-          ) : null}
+            {exportError ? (
+              <p className="mt-2 text-sm text-red-700" data-testid="avance-excel-error">
+                {exportError}
+              </p>
+            ) : null}
+          </div>
         </>
       ) : null}
 

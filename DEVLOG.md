@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-09-02 - B4.28 restaurar descarga Excel en UI
+
+### Causa
+
+- El endpoint y el botón en `/admin` existían, pero la sección podía no verse y no estaba en Resultados/Reportes (donde el usuario busca el reporte tras B4.26).
+
+### Decisiones
+
+- Reexponer `GET /api/admin/nom035/reports/full` desde Inicio + Resultados + Reportes.
+- Quitar el gate `activeCampaign?.nombre === …` en dashboard (campaña cerrada sigue exportable).
+- No tocar agregación, XLSX, RPC ni Production data.
+
 ## 2026-09-02 - B4.27 gráficas Excel visibles
 
 ### Causa raíz (B4.26)

@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminApi } from "@/lib/nom035/admin-client";
+import { downloadFullReportExcelFromBrowser } from "@/lib/nom035/download-full-report";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
 import {
   AdminExecutiveSummaryPanel,
@@ -75,6 +76,7 @@ function AdminResultadosInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [exportingIndividual, setExportingIndividual] = useState(false);
+  const [exportingFull, setExportingFull] = useState(false);
   const [reportSummary, setReportSummary] = useState<{
     riskLevels: Record<string, number>;
     categoryAverages: Record<string, number>;
@@ -184,6 +186,14 @@ function AdminResultadosInner() {
     setDetail(res.detail as Detail);
   }
 
+  async function downloadFullReportExcel() {
+    setExportingFull(true);
+    setError("");
+    const result = await downloadFullReportExcelFromBrowser();
+    if (!result.ok) setError(result.message);
+    setExportingFull(false);
+  }
+
   async function downloadIndividualReport(id: string) {
     setExportingIndividual(true);
     setError("");
@@ -274,6 +284,26 @@ function AdminResultadosInner() {
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="text-sm" data-testid="results-loading">Cargando…</p> : null}
+
+      <div
+        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="nom035-full-report-export"
+      >
+        <h2 className="text-base font-semibold text-slate-900">Reporte Excel consolidado</h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Descarga el reporte completo NOM-035 (Resumen Ejecutivo, tablas y gráficas). No modifica
+          datos.
+        </p>
+        <button
+          type="button"
+          data-testid="download-full-report-excel"
+          disabled={exportingFull || exportingIndividual}
+          onClick={() => void downloadFullReportExcel()}
+          className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+        >
+          {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
+        </button>
+      </div>
 
       {executive ? <AdminExecutiveSummaryPanel aggregate={executive} /> : null}
 

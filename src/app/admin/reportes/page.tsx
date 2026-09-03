@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/lib/nom035/admin-client";
+import { downloadFullReportExcelFromBrowser } from "@/lib/nom035/download-full-report";
 import {
   generateExecutiveConclusion,
   generateGeneralRecommendations,
@@ -49,6 +50,7 @@ export default function AdminReportesPage() {
   const [departamento, setDepartamento] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
+  const [exportingFull, setExportingFull] = useState(false);
   const [responsableNombre, setResponsableNombre] = useState("");
   const [responsableCargo, setResponsableCargo] = useState("Coordinación de Recursos Humanos");
 
@@ -119,6 +121,13 @@ export default function AdminReportesPage() {
 
   const intervention = useMemo(() => generateInterventionPlan(), []);
 
+  async function downloadFullReportExcel() {
+    setExportingFull(true);
+    setError("");
+    const result = await downloadFullReportExcelFromBrowser();
+    if (!result.ok) setError(result.message);
+    setExportingFull(false);
+  }
 
   return (
     <section className="space-y-4" data-testid="admin-reports-page">
@@ -155,8 +164,17 @@ export default function AdminReportesPage() {
           </button>
           <button
             type="button"
+            data-testid="download-full-report-excel"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            disabled={exportingFull}
+            onClick={() => void downloadFullReportExcel()}
+          >
+            {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
+          </button>
+          <button
+            type="button"
             data-testid="report-print"
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white"
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm"
             onClick={() => window.print()}
           >
             Imprimir

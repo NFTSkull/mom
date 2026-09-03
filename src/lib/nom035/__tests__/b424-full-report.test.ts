@@ -276,6 +276,25 @@ describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
     expect(page).toMatch(/Reportes NOM-035/);
     expect(page).toMatch(/download-full-report-excel/);
     expect(page).toMatch(/download-avance-excel/);
+    // Visible con campaña abierta o cerrada (sin gate por nombre).
+    expect(page).not.toMatch(
+      /activeCampaign\?\.nombre === "Evaluación NOM-035 2026"/
+    );
+  });
+
+  it("UI Resultados y Reportes incluyen Descargar Excel completo", () => {
+    const resultados = readFileSync("src/app/admin/resultados/page.tsx", "utf8");
+    const reportes = readFileSync("src/app/admin/reportes/page.tsx", "utf8");
+    expect(resultados).toMatch(/download-full-report-excel/);
+    expect(resultados).toMatch(/downloadFullReportExcelFromBrowser/);
+    expect(reportes).toMatch(/download-full-report-excel/);
+    expect(reportes).toMatch(/downloadFullReportExcelFromBrowser/);
+  });
+
+  it("helper de descarga consolida endpoint full", () => {
+    const helper = readFileSync("src/lib/nom035/download-full-report.ts", "utf8");
+    expect(helper).toMatch(/\/api\/admin\/nom035\/reports\/full/);
+    expect(helper).toMatch(/reporte-completo-nom035-2026\.xlsx/);
   });
 
   it("nombre archivo consolidado oficial", () => {

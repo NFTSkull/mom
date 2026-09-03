@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-02 (B4.28 — restaurar descarga Excel consolidado en UI)
+
+- Botón **Descargar Excel completo** visible en Inicio, Resultados y Reportes (mismo endpoint).
+- Sección Reportes NOM-035 en dashboard sin gate por campaña activa.
+- Helper compartido `download-full-report.ts`; sin cambios a generación XLSX ni datos.
+
 ## 2026-09-02 (B4.27 — gráficas Excel visibles y presentation-ready)
 
 - Layout chart-first: Resumen/Categorías/Dominios/Distribución/ATS muestran gráficas arriba.
