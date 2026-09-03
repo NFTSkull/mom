@@ -1,6 +1,19 @@
 # Contratos de API
 
-## Bloque actual: B4.28 — UI descarga Excel consolidado
+## Bloque actual: B4.28.1 — Orden configurable Admin → Resultados
+
+`GET /api/admin/nom035/results` acepta nuevo param `sort`:
+
+| Valor | Orden |
+|-------|-------|
+| `name_asc` (default) | Nombre A–Z (unaccent, tie-breaker id) |
+| `name_desc` | Nombre Z–A |
+| `recent` | completed_at DESC NULLS LAST |
+| `oldest` | completed_at ASC NULLS LAST |
+
+Migración: `015_result_sort.sql`. Función RPC: `admin_list_results(..., p_sort text)`.
+
+## Bloque B4.28 — UI descarga Excel consolidado
 
 Misma API que B4.26/B4.24. Superficie UI:
 

@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-09-03 - B4.28.1 orden configurable en Resultados
+
+### Causa raíz
+
+`admin_list_results` ordenaba por `completed_at DESC`, causando confusión al usuario que esperaba orden alfabético.
+
+### Decisiones
+
+- `unaccent()` sobre `w.nombre` para normalizar acentos/Ñ sin eliminarlos visualmente.
+- Tie-breaker `r.id ASC` en todas las variantes → determinismo garantizado.
+- 4 opciones de sort; default `name_asc`; persistido en URL param.
+- Migración `015_result_sort.sql` — nueva firma `admin_list_results(..., p_sort text default 'name_asc')`.
+- READ-ONLY sobre datos: cero mutaciones en workers/answers/results/scoring.
+
 ## 2026-09-02 - B4.28 restaurar descarga Excel en UI
 
 ### Causa

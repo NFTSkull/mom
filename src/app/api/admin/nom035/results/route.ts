@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       departamento: url.searchParams.get("departamento"),
       riskLevel: url.searchParams.get("riskLevel"),
       search: url.searchParams.get("search"),
+      sort: url.searchParams.get("sort"),
       page,
       pageSize,
     });

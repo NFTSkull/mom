@@ -322,6 +322,7 @@ export async function listResults(params: {
   search?: string | null;
   page: number;
   pageSize: number;
+  sort?: string | null;
 }) {
   const { data, error } = await (await rpcClient()).rpc("admin_list_results", {
     p_campaign_id: params.campaignId ?? null,
@@ -331,6 +332,7 @@ export async function listResults(params: {
     p_search: params.search ?? null,
     p_page: params.page,
     p_page_size: params.pageSize,
+    p_sort: params.sort ?? "name_asc",
   });
   if (error) throw error;
   return data as Record<string, unknown>;

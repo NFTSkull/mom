@@ -10,12 +10,17 @@ import {
   type ExecutiveAggregateView,
 } from "@/components/admin/executive-summary-panel";
 import {
+  DEFAULT_SORT,
   RESULTS_PAGE_SIZE,
+  SORT_OPTIONS,
   buildResultsListQuery,
   canGoNext,
   canGoPrevious,
   computeTotalPages,
   normalizePage,
+  parseResultSort,
+  sortLabel,
+  type ResultSort,
 } from "@/lib/nom035/results-pagination";
 
 type ResultRow = {
@@ -66,6 +71,7 @@ function AdminResultadosInner() {
   const search = searchParams.get("search") ?? "";
   const riskLevel = searchParams.get("riskLevel") ?? "";
   const campaignId = searchParams.get("campaignId") ?? "";
+  const sort: ResultSort = parseResultSort(searchParams.get("sort"));
   const page = Number.isFinite(pageFromUrl) && pageFromUrl >= 1 ? Math.floor(pageFromUrl) : 1;
 
   const [items, setItems] = useState<ResultRow[]>([]);
@@ -108,6 +114,7 @@ function AdminResultadosInner() {
       search: search || undefined,
       riskLevel: riskLevel || undefined,
       campaignId: campaignId || undefined,
+      sort,
     });
     const res = await adminApi.listResults(q);
     if (!res.ok) {
@@ -125,7 +132,7 @@ function AdminResultadosInner() {
     if (safePage !== page) {
       replaceParams({ page: String(safePage) });
     }
-  }, [page, search, riskLevel, campaignId, replaceParams]);
+  }, [page, search, riskLevel, campaignId, sort, replaceParams]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
@@ -277,12 +284,35 @@ function AdminResultadosInner() {
             </option>
           ))}
         </select>
+        <select
+          data-testid="results-sort"
+          className="rounded border px-2 py-1.5 text-sm"
+          value={sort}
+          onChange={(e) => {
+            replaceParams(
+              { sort: e.target.value === DEFAULT_SORT ? null : e.target.value },
+              { resetPage: true }
+            );
+          }}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              Ordenar por: {o.label}
+            </option>
+          ))}
+        </select>
         <button type="button" className="rounded border px-2 py-1.5 text-sm" onClick={() => void load()}>
           Reintentar
         </button>
       </div>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
+
+      {!loading && total > 0 ? (
+        <p className="text-sm text-slate-600" data-testid="results-summary">
+          {total} resultado{total !== 1 ? "s" : ""} · Orden: {sortLabel(sort)}
+        </p>
+      ) : null}
       {loading ? <p className="text-sm" data-testid="results-loading">Cargando…</p> : null}
 
       <div

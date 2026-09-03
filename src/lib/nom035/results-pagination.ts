@@ -1,8 +1,28 @@
 /**
- * B4.25 — Helpers de paginación para Admin → Resultados.
+ * B4.25/B4.28.1 — Helpers de paginación y ordenamiento para Admin → Resultados.
  */
 
 export const RESULTS_PAGE_SIZE = 20;
+
+export type ResultSort = "name_asc" | "name_desc" | "recent" | "oldest";
+export const DEFAULT_SORT: ResultSort = "name_asc";
+export const SORT_OPTIONS: Array<{ value: ResultSort; label: string }> = [
+  { value: "name_asc",  label: "Nombre A–Z"   },
+  { value: "name_desc", label: "Nombre Z–A"   },
+  { value: "recent",    label: "Más recientes" },
+  { value: "oldest",    label: "Más antiguos"  },
+];
+
+export function parseResultSort(raw: string | null | undefined): ResultSort {
+  if (raw === "name_asc" || raw === "name_desc" || raw === "recent" || raw === "oldest") {
+    return raw;
+  }
+  return DEFAULT_SORT;
+}
+
+export function sortLabel(sort: ResultSort): string {
+  return SORT_OPTIONS.find(o => o.value === sort)?.label ?? "Nombre A–Z";
+}
 
 export function computeTotalPages(total: number, pageSize: number = RESULTS_PAGE_SIZE): number {
   const size = Math.max(1, pageSize);
@@ -56,12 +76,15 @@ export function buildResultsListQuery(input: {
   search?: string;
   riskLevel?: string;
   campaignId?: string;
+  sort?: ResultSort;
 }): URLSearchParams {
   const pageSize = input.pageSize ?? RESULTS_PAGE_SIZE;
   const page = Math.max(1, Math.floor(input.page) || 1);
+  const sort = input.sort ?? DEFAULT_SORT;
   const q = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
+    sort,
   });
   if (input.search) q.set("search", input.search);
   if (input.riskLevel) q.set("riskLevel", input.riskLevel);

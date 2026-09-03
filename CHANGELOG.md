@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-03 (B4.28.1 — orden alfabético configurable en Admin → Resultados)
+
+- Default: **Nombre A–Z** (antes era cronológico inverso).
+- Selector «Ordenar por»: Nombre A–Z / Z–A / Más recientes / Más antiguos.
+- URL param `?sort=name_asc|name_desc|recent|oldest`; cambio de sort resetea page=1.
+- Indicador visual: "80 resultados · Orden: Nombre A–Z".
+- Migración `015_result_sort.sql`: `admin_list_results` con `p_sort` + `unaccent()` + tie-breaker `id ASC`.
+- 23 tests B4.28.1 PASS; suite total 395 PASS.
+- Exports Excel/Avance no afectados.
+
 ## 2026-09-02 (B4.28 — restaurar descarga Excel consolidado en UI)
 
 - Botón **Descargar Excel completo** visible en Inicio, Resultados y Reportes (mismo endpoint).
