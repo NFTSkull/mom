@@ -9,6 +9,7 @@
 - Sin métrica agregada tipo «46% riesgo»; solo **RIESGO PREDOMINANTE** (moda verificable).
 - Paleta centralizada `risk-palette.ts`; gráficas siguen `pureimage` (Vercel-safe).
 - READ-ONLY sobre producción: solo código de reportes/UI/endpoints de lectura.
+- Deploy Production: SHA `74b62c8` · dpl `dpl_2DdeDppndLuyuYcJxBbhf85bDaVS` · CI RC `33696583425` verde.
 
 ## 2026-08-27 - B4.25 paginación Resultados
 
