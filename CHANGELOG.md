@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-02 (B4.27 — gráficas Excel visibles y presentation-ready)
+
+- Layout chart-first: Resumen/Categorías/Dominios/Distribución/ATS muestran gráficas arriba.
+- `embedVisibleChart` con ancla tl/br + filas reservadas; `activeTab=0` en Resumen Ejecutivo.
+- PNG 1400×700, labels multilínea (`wrapChartLabel`), tipografía Roboto embebida.
+- Auditoría estructural `xlsx-visual-audit` (media/drawings/anchors/ink).
+- **Veredicto: GRÁFICAS VISUALES NOM-035 INTEGRADAS Y VERIFICADAS EN XLSX**
+
 ## 2026-08-27 (B4.26 — rediseño ejecutivo reportes NOM-035)
 
 - Excel consolidado 11 hojas (Resumen Ejecutivo, Categorías, Dominios, Distribución Final, ATS, etc.).

@@ -1,5 +1,5 @@
 /**
- * B4.26 — XLSX individual NOM-035 (Resumen Individual + guías + gráficas).
+ * B4.27 — XLSX individual: Resumen con gráficas visibles arriba.
  */
 import ExcelJS from "exceljs";
 import {
@@ -24,11 +24,13 @@ import {
 import {
   applyAutoFilter,
   applySheetDefaults,
-  embedChartImages,
+  embedVisibleChart,
   INDIVIDUAL_REPORT_SHEETS,
   paintKpiBox,
   riskFillColor,
+  setLandscapePrint,
   setTextCell,
+  setWorkbookActiveFirstSheet,
   styleHeaderRow,
 } from "@/lib/nom035/report-excel-utils";
 import { riskChartHex } from "@/lib/nom035/risk-palette";
@@ -45,18 +47,24 @@ export async function buildIndividualReportXlsxBuffer(input: {
   const wb = new ExcelJS.Workbook();
   wb.creator = "NOM-035";
   wb.created = new Date();
+  setWorkbookActiveFirstSheet(wb);
 
   const ats = hasGuiaITraumaticEvent(worker.answers);
   const clinica = worker.guiaIRequiresClinicalAttention === true;
 
   const resumen = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[0]);
-  applySheetDefaults(resumen, [28, 40, 22, 22], 0);
-  resumen.mergeCells(1, 1, 1, 4);
+  applySheetDefaults(resumen, [18, 22, 16, 16, 16, 16, 16, 16], {
+    zoomScale: 85,
+    showGridLines: false,
+  });
+  setLandscapePrint(resumen, "A1:H55", 85);
+
+  resumen.mergeCells(1, 1, 1, 8);
   resumen.getCell(1, 1).value = "RESULTADOS NOM-035 2026 — INDIVIDUAL";
-  resumen.getCell(1, 1).font = { bold: true, size: 16 };
+  resumen.getCell(1, 1).font = { bold: true, size: 18 };
   resumen.getCell(1, 1).alignment = { horizontal: "center" };
   if (input.companyName) {
-    resumen.mergeCells(2, 1, 2, 4);
+    resumen.mergeCells(2, 1, 2, 8);
     resumen.getCell(2, 1).value = input.companyName;
     resumen.getCell(2, 1).alignment = { horizontal: "center" };
   }
@@ -68,8 +76,6 @@ export async function buildIndividualReportXlsxBuffer(input: {
     ["DEPARTAMENTO", worker.departamento ?? "—"],
     ["FECHA DE ENVÍO", formatReportDate(worker.completedAt)],
     ["MODELO", NOM035_REPORT_MODEL_LABEL],
-    ["CAMPAÑA", input.campaignName],
-    ["ESTADO CAMPAÑA", input.campaignStatus],
   ];
   let rowIdx = 4;
   for (const [k, v] of info) {
@@ -84,46 +90,64 @@ export async function buildIndividualReportXlsxBuffer(input: {
   paintKpiBox(
     resumen,
     4,
-    3,
-    "RESULTADO FINAL",
-    formatRiskLevelForReport(worker.finalRiskLevel),
-    riskFillColor(worker.finalRiskLevel) ?? "FFE2E8F0"
-  );
-  paintKpiBox(
-    resumen,
-    6,
-    3,
+    4,
     "PUNTAJE",
     String(worker.finalScore ?? "—"),
-    "FFDBEAFE"
+    "FFDBEAFE",
+    { rowSpan: 2, colSpan: 2 }
   );
   paintKpiBox(
     resumen,
-    8,
-    3,
+    4,
+    6,
     "NIVEL DE RIESGO",
     formatRiskLevelForReport(worker.finalRiskLevel),
-    riskFillColor(worker.finalRiskLevel) ?? "FFE2E8F0"
+    riskFillColor(worker.finalRiskLevel) ?? "FFE2E8F0",
+    { rowSpan: 2, colSpan: 2 }
   );
+  paintKpiBox(resumen, 7, 4, "ACONTECIMIENTO TRAUMÁTICO", ats ? "Sí" : "No", ats ? "FFFECACA" : "FFDCFCE7", {
+    rowSpan: 2,
+    colSpan: 2,
+  });
   paintKpiBox(
     resumen,
-    10,
-    3,
-    "ACONTECIMIENTO TRAUMÁTICO",
-    ats ? "Sí" : "No",
-    ats ? "FFFECACA" : "FFDCFCE7"
-  );
-  paintKpiBox(
-    resumen,
-    12,
-    3,
+    7,
+    6,
     "VALORACIÓN CLÍNICA",
     clinica ? "Sí" : "No",
-    clinica ? "FFFED7AA" : "FFDCFCE7"
+    clinica ? "FFFED7AA" : "FFDCFCE7",
+    { rowSpan: 2, colSpan: 2 }
   );
 
+  if (charts.individualCategories) {
+    embedVisibleChart(wb, resumen, {
+      buffer: charts.individualCategories,
+      title: "GRÁFICA DE CATEGORÍAS",
+      titleRow: 11,
+      titleCol: 0,
+      tlCol: 0,
+      tlRow: 11,
+      brCol: 8,
+      brRow: 28,
+      rowHeightPt: 18,
+    });
+  }
+  if (charts.individualDomains) {
+    embedVisibleChart(wb, resumen, {
+      buffer: charts.individualDomains,
+      title: "GRÁFICA DE DOMINIOS",
+      titleRow: 30,
+      titleCol: 0,
+      tlCol: 0,
+      tlRow: 30,
+      brCol: 8,
+      brRow: 48,
+      rowHeightPt: 18,
+    });
+  }
+
   const guiaI = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[1]);
-  applySheetDefaults(guiaI, [10, 60, 24, 12]);
+  applySheetDefaults(guiaI, [10, 60, 24, 12], { freezeRow: 1, zoomScale: 100, showGridLines: true });
   guiaI.addRow(["Número", "Pregunta", "Respuesta", "Valor"]);
   styleHeaderRow(guiaI);
   const guiaIRows = orderedGuiaIAnswerRows(worker.answers);
@@ -139,7 +163,11 @@ export async function buildIndividualReportXlsxBuffer(input: {
   applyAutoFilter(guiaI, 4, guiaIRows.length + 1);
 
   const guiaIII = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[2]);
-  applySheetDefaults(guiaIII, [10, 60, 24, 12, 14]);
+  applySheetDefaults(guiaIII, [10, 60, 24, 12, 14], {
+    freezeRow: 1,
+    zoomScale: 100,
+    showGridLines: true,
+  });
   guiaIII.addRow(["Número", "Pregunta", "Respuesta", "Valor", "Estado"]);
   styleHeaderRow(guiaIII);
   const guiaIIIRows = orderedGuiaIIIAnswerRows(worker.answers);
@@ -156,7 +184,7 @@ export async function buildIndividualReportXlsxBuffer(input: {
   applyAutoFilter(guiaIII, 5, guiaIIIRows.length + 1);
 
   const categorias = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[3]);
-  applySheetDefaults(categorias, [36, 12, 18]);
+  applySheetDefaults(categorias, [36, 12, 18], { freezeRow: 1, zoomScale: 100, showGridLines: true });
   categorias.addRow(["Categoría", "Puntaje", "Nivel/Riesgo"]);
   styleHeaderRow(categorias);
   for (const [name, entry] of Object.entries(worker.categoryScores)) {
@@ -177,7 +205,7 @@ export async function buildIndividualReportXlsxBuffer(input: {
   applyAutoFilter(categorias, 3, Object.keys(worker.categoryScores).length + 1);
 
   const dominios = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[4]);
-  applySheetDefaults(dominios, [36, 12, 18]);
+  applySheetDefaults(dominios, [36, 12, 18], { freezeRow: 1, zoomScale: 100, showGridLines: true });
   dominios.addRow(["Dominio", "Puntaje", "Nivel/Riesgo"]);
   styleHeaderRow(dominios);
   for (const [name, entry] of Object.entries(worker.domainScores)) {
@@ -198,52 +226,46 @@ export async function buildIndividualReportXlsxBuffer(input: {
   applyAutoFilter(dominios, 3, Object.keys(worker.domainScores).length + 1);
 
   const graficas = wb.addWorksheet(INDIVIDUAL_REPORT_SHEETS[5]);
-  applySheetDefaults(graficas, [28, 16]);
+  applySheetDefaults(graficas, [28, 16, 12, 14], {
+    freezeRow: 1,
+    zoomScale: 100,
+    showGridLines: true,
+  });
   graficas.addRow(["Tipo", "Etiqueta", "Valor", "Nivel"]);
   styleHeaderRow(graficas);
   const tableRows: Array<[string, string, number, string]> = [
     ...Object.entries(worker.categoryScores).map(
       ([k, v]) =>
-        [
-          "Categoría",
-          k,
-          v.score,
-          formatRiskLevelForReport(v.riskLevel),
-        ] as [string, string, number, string]
+        ["Categoría", k, v.score, formatRiskLevelForReport(v.riskLevel)] as [
+          string,
+          string,
+          number,
+          string,
+        ]
     ),
     ...Object.entries(worker.domainScores).map(
       ([k, v]) =>
-        [
-          "Dominio",
-          k,
-          v.score,
-          formatRiskLevelForReport(v.riskLevel),
-        ] as [string, string, number, string]
+        ["Dominio", k, v.score, formatRiskLevelForReport(v.riskLevel)] as [
+          string,
+          string,
+          number,
+          string,
+        ]
     ),
   ];
   for (const r of tableRows) graficas.addRow(r);
   applyAutoFilter(graficas, 4, tableRows.length + 1);
-
-  const images = [];
   if (charts.individualCategories) {
-    images.push({
+    embedVisibleChart(wb, graficas, {
       buffer: charts.individualCategories,
-      title: "Gráfica: categorías",
-      row: tableRows.length + 3,
-      width: 780,
-      height: 360,
+      title: "Categorías",
+      titleRow: tableRows.length + 3,
+      tlCol: 0,
+      tlRow: tableRows.length + 3,
+      brCol: 8,
+      brRow: tableRows.length + 20,
     });
   }
-  if (charts.individualDomains) {
-    images.push({
-      buffer: charts.individualDomains,
-      title: "Gráfica: dominios",
-      row: tableRows.length + 26,
-      width: 900,
-      height: 400,
-    });
-  }
-  if (images.length) await embedChartImages(wb, graficas, images);
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
@@ -251,7 +273,6 @@ export async function buildIndividualReportXlsxBuffer(input: {
 
 export { INDIVIDUAL_REPORT_SHEETS };
 
-/** Helper para colores individuales alineados a paleta. */
 export function individualScoreColors(
   entries: Array<{ riskLevel: string }>
 ): string[] {

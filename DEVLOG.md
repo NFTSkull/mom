@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-09-02 - B4.27 gráficas Excel visibles
+
+### Causa raíz (B4.26)
+
+- PNGs existían en `xl/media` pero estaban **debajo** de tablas/listas (`tipRow+2`, `5+catDataRows`).
+- Sin reserva de filas ni `activeTab`; labels truncados (`slice(0,12)`); fuente `bold`/`pt` rompía `fillText` en pureimage.
+
+### Decisiones
+
+- Chart-first + `embedVisibleChart(tl/br)` + zoom/printArea.
+- Validación: unzip drawings/anchors + `pngHasVisibleInk` (LibreOffice no disponible en el host).
+- Font Roboto en `src/lib/nom035/fonts/` + `outputFileTracingIncludes` para Vercel.
+
 ## 2026-08-27 - B4.26 rediseño ejecutivo reportes
 
 ### Decisiones

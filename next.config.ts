@@ -57,6 +57,10 @@ const APP_SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/admin/nom035/reports/full": ["./src/lib/nom035/fonts/**/*"],
+    "/api/admin/nom035/results/[id]/report": ["./src/lib/nom035/fonts/**/*"],
+  },
   async headers() {
     return [
       { source: "/:path*", headers: APP_SECURITY_HEADERS },
