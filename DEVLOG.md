@@ -12,6 +12,7 @@
 - Chart-first + `embedVisibleChart(tl/br)` + zoom/printArea.
 - Validación: unzip drawings/anchors + `pngHasVisibleInk` (LibreOffice no disponible en el host).
 - Font Roboto en `src/lib/nom035/fonts/` + `outputFileTracingIncludes` para Vercel.
+- Deploy: SHA `ba85f1a` · dpl `dpl_4osJMM3dX5rBdacFVigE52fb41r9` · CI RC `33716458393`.
 
 ## 2026-08-27 - B4.26 rediseño ejecutivo reportes
 
