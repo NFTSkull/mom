@@ -133,6 +133,27 @@ export default function AdminReportesPage() {
     <section className="space-y-4" data-testid="admin-reports-page">
       <div className="print:hidden space-y-3">
         <h1 className="text-2xl font-semibold text-slate-900">Reportes</h1>
+
+        <div
+          className="rounded-lg border-2 border-slate-900 bg-white p-4 shadow-sm"
+          data-testid="nom035-reportes-excel-export"
+        >
+          <h2 className="text-base font-semibold text-slate-900">Descargar reporte en Excel</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Excel consolidado NOM-035 (Resumen Ejecutivo, tablas y gráficas). No modifica datos ni
+            la campaña.
+          </p>
+          <button
+            type="button"
+            data-testid="download-full-report-excel"
+            className="mt-3 rounded bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            disabled={exportingFull}
+            onClick={() => void downloadFullReportExcel()}
+          >
+            {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <select
             data-testid="report-campaign-select"
@@ -161,15 +182,6 @@ export default function AdminReportesPage() {
             onClick={() => void load()}
           >
             Actualizar
-          </button>
-          <button
-            type="button"
-            data-testid="download-full-report-excel"
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-            disabled={exportingFull}
-            onClick={() => void downloadFullReportExcel()}
-          >
-            {exportingFull ? "Generando reporte…" : "Descargar Excel completo"}
           </button>
           <button
             type="button"

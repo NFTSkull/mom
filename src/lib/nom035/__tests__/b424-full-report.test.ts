@@ -289,6 +289,8 @@ describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
     expect(resultados).toMatch(/downloadFullReportExcelFromBrowser/);
     expect(reportes).toMatch(/download-full-report-excel/);
     expect(reportes).toMatch(/downloadFullReportExcelFromBrowser/);
+    expect(reportes).toMatch(/nom035-reportes-excel-export/);
+    expect(reportes).toMatch(/Descargar reporte en Excel/);
   });
 
   it("helper de descarga consolida endpoint full", () => {

@@ -5,11 +5,14 @@
 ### Causa
 
 - El endpoint y el botón en `/admin` existían, pero la sección podía no verse y no estaba en Resultados/Reportes (donde el usuario busca el reporte tras B4.26).
+- Tras push a git, Production seguía en B4.27 (sin deploy) → el usuario no veía el botón en vivo.
 
 ### Decisiones
 
 - Reexponer `GET /api/admin/nom035/reports/full` desde Inicio + Resultados + Reportes.
+- Bloque destacado al tope de `/admin/reportes` (`nom035-reportes-excel-export`).
 - Quitar el gate `activeCampaign?.nombre === …` en dashboard (campaña cerrada sigue exportable).
+- Deploy Production obligatorio para que aparezca en la pestaña Reportes.
 - No tocar agregación, XLSX, RPC ni Production data.
 
 ## 2026-09-02 - B4.27 gráficas Excel visibles

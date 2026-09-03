@@ -3,6 +3,7 @@
 ## 2026-09-02 (B4.28 — restaurar descarga Excel consolidado en UI)
 
 - Botón **Descargar Excel completo** visible en Inicio, Resultados y Reportes (mismo endpoint).
+- En `/admin/reportes`: bloque destacado «Descargar reporte en Excel» al inicio de la pestaña.
 - Sección Reportes NOM-035 en dashboard sin gate por campaña activa.
 - Helper compartido `download-full-report.ts`; sin cambios a generación XLSX ni datos.
 
