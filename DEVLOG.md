@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-09-03 - B4.28.2 limpieza SYN-PRUEBA-LOGIN
+
+### Decisiones
+
+- Target único: `external_reference=SYN-PRUEBA-LOGIN AND is_test=true` (ABORT si ≠1).
+- Overlap real verificado = 0 antes de DELETE.
+- Backup vía `psql` JSON (Docker ausente; `pg_dump` local v14 ≠ server v17).
+- Auth borrado solo tras capturar `auth_user_id` pre-delete + verificar no-admin + username no `001–083`.
+- Campaña smoke eliminada solo tras assignments/results=0.
+- `realWorkerRefsSha` idéntico pre/post → sin mutación de reales.
+
 ## 2026-09-03 - B4.28.1 orden configurable en Resultados
 
 ### Causa raíz

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-03 (B4.28.2 — limpieza residuos SYN/SMOKE en Production)
+
+- Eliminado exclusivamente `SYN-PRUEBA-LOGIN` (`is_test=true`) + árbol (answers/sessions/results/assignments/account/Auth).
+- Eliminada `CAMPAÑA_LOGIN_PRUEBA_PROD` (sin datos reales).
+- Reales intactos: 83 workers / 80 results / ATS=2 / clinical=1.
+- Backups off-repo pre/post (psql-json-logical).
+
 ## 2026-09-03 (B4.28.1 — orden alfabético configurable en Admin → Resultados)
 
 - Default: **Nombre A–Z** (antes era cronológico inverso).
