@@ -9,6 +9,12 @@ import {
   generateInterventionPlan,
 } from "@/lib/nom035/report-generator";
 import type { RiskLevelNom035 } from "@/types/nom035";
+import type { Nom035AggregateReport, TopIndicator } from "@/lib/nom035/aggregate-report";
+import {
+  RAW_AVERAGE_LABEL,
+  RAW_AVERAGE_WARNING,
+  UI_DISTRIBUTION_NOTE,
+} from "@/lib/nom035/report-interpretation";
 
 type Report = {
   company: {
@@ -53,6 +59,18 @@ export default function AdminReportesPage() {
   const [exportingFull, setExportingFull] = useState(false);
   const [responsableNombre, setResponsableNombre] = useState("");
   const [responsableCargo, setResponsableCargo] = useState("Coordinación de Recursos Humanos");
+  const [topDomainsAltoPlus, setTopDomainsAltoPlus] = useState<TopIndicator[]>([]);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      void adminApi.reportsExecutive().then((r) => {
+        if (!r.ok || !r.aggregate) return;
+        const agg = r.aggregate as unknown as Pick<Nom035AggregateReport, "topDomainsHighRisk">;
+        setTopDomainsAltoPlus(agg.topDomainsHighRisk ?? []);
+      });
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, []);
 
   const load = useCallback(async () => {
     setError("");
@@ -109,15 +127,12 @@ export default function AdminReportesPage() {
   }, [report, dominantRisk]);
 
   const recommendations = useMemo(() => {
-    const domains = Object.entries(report?.domainAverages ?? {})
-      .sort((a, b) => Number(b[1]) - Number(a[1]))
-      .slice(0, 5)
-      .map(([domain]) => ({
-        domain,
-        recommendation: `Atender el dominio "${domain}" con acciones preventivas documentadas.`,
-      }));
+    const domains = topDomainsAltoPlus.map((d) => ({
+      domain: d.name,
+      recommendation: `Atender el dominio "${d.name}" (${d.count} de ${d.total} · ${d.percentage}% Alto/Muy alto) con acciones preventivas documentadas.`,
+    }));
     return generateGeneralRecommendations(domains);
-  }, [report]);
+  }, [topDomainsAltoPlus]);
 
   const intervention = useMemo(() => generateInterventionPlan(), []);
 
@@ -253,17 +268,23 @@ export default function AdminReportesPage() {
             <p className="mt-2 text-xs text-slate-500">
               El reporte general no incluye respuestas individuales completas.
             </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3 text-xs">
-              <pre className="overflow-auto rounded bg-slate-50 p-2">
-                Categorías: {JSON.stringify(report.categoryAverages, null, 2)}
-              </pre>
-              <pre className="overflow-auto rounded bg-slate-50 p-2">
-                Dominios: {JSON.stringify(report.domainAverages, null, 2)}
-              </pre>
-              <pre className="overflow-auto rounded bg-slate-50 p-2">
-                Dimensiones: {JSON.stringify(report.dimensionAverages, null, 2)}
-              </pre>
-            </div>
+            <p className="mt-2 text-xs text-slate-600">{UI_DISTRIBUTION_NOTE}</p>
+            <details className="mt-3 text-xs" data-testid="report-raw-averages">
+              <summary className="cursor-pointer text-slate-600">
+                {RAW_AVERAGE_LABEL} · {RAW_AVERAGE_WARNING}
+              </summary>
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <pre className="overflow-auto rounded bg-slate-50 p-2">
+                  Categorías: {JSON.stringify(report.categoryAverages, null, 2)}
+                </pre>
+                <pre className="overflow-auto rounded bg-slate-50 p-2">
+                  Dominios: {JSON.stringify(report.domainAverages, null, 2)}
+                </pre>
+                <pre className="overflow-auto rounded bg-slate-50 p-2">
+                  Dimensiones: {JSON.stringify(report.dimensionAverages, null, 2)}
+                </pre>
+              </div>
+            </details>
           </section>
 
           <section>

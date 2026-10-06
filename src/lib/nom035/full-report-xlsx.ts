@@ -33,25 +33,103 @@ import {
   setWorkbookActiveFirstSheet,
   styleHeaderRow,
 } from "@/lib/nom035/report-excel-utils";
-import { RISK_LEVEL_ORDER } from "@/lib/nom035/risk-palette";
+import {
+  RISK_DISPLAY_LABEL,
+  RISK_EXCEL_ARGB,
+  RISK_LEVEL_ORDER,
+} from "@/lib/nom035/risk-palette";
+import {
+  ALTO_PLUS_DEFINITION,
+  describeAltoPlus,
+  describeMedioPlus,
+  INTERPRETATION_LINES,
+  MEDIO_PLUS_DEFINITION,
+  PLUS_NOT_OFFICIAL_NOTE,
+} from "@/lib/nom035/report-interpretation";
+import type { NamedLevelMatrix } from "@/lib/nom035/aggregate-report";
+import { EXECUTIVE_CHART_TITLES } from "@/lib/nom035/report-charts";
 
-function levelHeaders(): string[] {
+export const LEVEL_TABLE_TAIL_HEADERS = [
+  "Medio+ #",
+  "Medio+ %",
+  "Alto+ #",
+  "Alto+ %",
+  "Total",
+] as const;
+
+export function levelHeaders(): string[] {
   const out: string[] = [];
   for (const level of RISK_LEVEL_ORDER) {
-    const label =
-      level === "nulo"
-        ? "Nulo"
-        : level === "bajo"
-          ? "Bajo"
-          : level === "medio"
-            ? "Medio"
-            : level === "alto"
-              ? "Alto"
-              : "Muy Alto";
+    const label = RISK_DISPLAY_LABEL[level];
     out.push(`${label} #`, `${label} %`);
   }
   return out;
 }
+
+function levelRowValues(m: NamedLevelMatrix): number[] {
+  const vals: number[] = [];
+  for (const level of RISK_LEVEL_ORDER) {
+    vals.push(m.levels[level].count, m.levels[level].percentage);
+  }
+  vals.push(
+    m.medioPlus.count,
+    m.medioPlus.percentage,
+    m.altoPlus.count,
+    m.altoPlus.percentage,
+    m.total
+  );
+  return vals;
+}
+
+/** Tabla nivel×fila con Medio+/Alto+; devuelve la última fila escrita. */
+function writeLevelTable(
+  sheet: ExcelJS.Worksheet,
+  startRow: number,
+  leadHeaders: string[],
+  rows: Array<{ lead: string[]; matrix: NamedLevelMatrix }>
+): number {
+  const header = [...leadHeaders, ...levelHeaders(), ...LEVEL_TABLE_TAIL_HEADERS];
+  sheet.getRow(startRow).values = header;
+  styleHeaderRow(sheet, startRow);
+  const offset = leadHeaders.length;
+  RISK_LEVEL_ORDER.forEach((level, i) => {
+    for (const c of [offset + 1 + i * 2, offset + 2 + i * 2]) {
+      sheet.getRow(startRow).getCell(c).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: RISK_EXCEL_ARGB[level] },
+      };
+    }
+  });
+  rows.forEach((r, i) => {
+    const row = sheet.getRow(startRow + 1 + i);
+    row.values = [...r.lead, ...levelRowValues(r.matrix)];
+    row.getCell(1).font = { bold: true };
+    row.alignment = { vertical: "middle", wrapText: true };
+  });
+  const last = startRow + rows.length;
+  applyAutoFilter(sheet, header.length, last, startRow);
+  return last;
+}
+
+function writeNotes(sheet: ExcelJS.Worksheet, startRow: number, lines: string[], colSpan: number): number {
+  lines.forEach((line, i) => {
+    const r = startRow + i;
+    sheet.mergeCells(r, 1, r, colSpan);
+    const cell = sheet.getCell(r, 1);
+    cell.value = line;
+    cell.font = { italic: true, size: 10, color: { argb: "FF475569" } };
+    cell.alignment = { wrapText: true, vertical: "top" };
+    sheet.getRow(r).height = 28;
+  });
+  return startRow + lines.length - 1;
+}
+
+const DEFINITION_NOTES = [
+  MEDIO_PLUS_DEFINITION,
+  ALTO_PLUS_DEFINITION,
+  PLUS_NOT_OFFICIAL_NOTE,
+];
 
 export async function buildFullReportXlsxBuffer(input: {
   report: NormalizedFullReport;
@@ -62,6 +140,7 @@ export async function buildFullReportXlsxBuffer(input: {
   const wb = new ExcelJS.Workbook();
   wb.creator = "NOM-035";
   wb.created = new Date();
+  wb.description = `Versión de reporte ${agg.presentationVersion}`;
   setWorkbookActiveFirstSheet(wb);
 
   // —— 1. Resumen Ejecutivo (dashboard) ——
@@ -71,7 +150,7 @@ export async function buildFullReportXlsxBuffer(input: {
     [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14],
     { zoomScale: 85, showGridLines: false }
   );
-  setLandscapePrint(resumen, "A1:L40", 85);
+  setLandscapePrint(resumen, "A1:L44", 85);
 
   resumen.mergeCells(1, 1, 1, 12);
   resumen.getCell(1, 1).value = "RESULTADOS NOM-035 2026";
@@ -83,6 +162,11 @@ export async function buildFullReportXlsxBuffer(input: {
   resumen.getCell(2, 1).value = agg.companyName;
   resumen.getCell(2, 1).font = { size: 14, color: { argb: "FF334155" } };
   resumen.getCell(2, 1).alignment = { horizontal: "center" };
+
+  resumen.mergeCells(3, 1, 3, 12);
+  resumen.getCell(3, 1).value = `GENERADO: ${formatReportDate(agg.generatedAt)} · VERSIÓN DE REPORTE: ${agg.presentationVersion}`;
+  resumen.getCell(3, 1).font = { size: 10, color: { argb: "FF64748B" } };
+  resumen.getCell(3, 1).alignment = { horizontal: "center" };
 
   paintKpiBox(resumen, 4, 1, "MODELO", agg.modelLabel, "FFDBEAFE", {
     rowSpan: 3,
@@ -157,42 +241,102 @@ export async function buildFullReportXlsxBuffer(input: {
     { rowSpan: 5, colSpan: 3 }
   );
 
-  resumen.getCell(28, 1).value =
-    "DOMINIOS CON MAYOR CONCENTRACIÓN DE RIESGO ALTO / MUY ALTO";
-  resumen.getCell(28, 1).font = { bold: true, size: 11 };
-  resumen.mergeCells(28, 1, 28, 6);
-  const tipRow = 29;
+  // —— Lectura prioritaria (distribución por nivel; nunca puntaje bruto) ——
+  resumen.mergeCells(28, 1, 28, 12);
+  resumen.getCell(28, 1).value = "LECTURA PRIORITARIA";
+  resumen.getCell(28, 1).font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
+  resumen.getCell(28, 1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE2E8F0" },
+  };
+  const pDom = agg.priorityReading.domainHighestAltoPlus;
+  const pCat = agg.priorityReading.categoryHighestMedioPlus;
+  paintKpiBox(
+    resumen,
+    29,
+    1,
+    "DOMINIO CON MAYOR ALTO+ (ALTO + MUY ALTO)",
+    pDom
+      ? `${pDom.name}\n${pDom.count}/${pDom.total}\n${pDom.percentage}%`
+      : "Sin trabajadores en Alto/Muy alto",
+    "FFFED7AA",
+    { rowSpan: 4, colSpan: 6 }
+  );
+  paintKpiBox(
+    resumen,
+    29,
+    7,
+    "CATEGORÍA CON MAYOR MEDIO+ (MEDIO + ALTO + MUY ALTO)",
+    pCat
+      ? `${pCat.name}\n${pCat.count}/${pCat.total}\n${pCat.percentage}%`
+      : "Sin trabajadores en Medio o superior",
+    "FFFEF9C3",
+    { rowSpan: 4, colSpan: 6 }
+  );
+  const readingLines: string[] = [];
+  if (pDom) readingLines.push(`${pDom.name}: ${describeAltoPlus(pDom.percentage, "dominio")}`);
+  if (pCat) readingLines.push(`${pCat.name}: ${describeMedioPlus(pCat.percentage, "categoría")}`);
+  readingLines.push(DEFINITION_NOTES.join(" "));
+  writeNotes(resumen, 33, readingLines, 12);
+
+  const rankHead = 33 + readingLines.length + 1;
+  resumen.mergeCells(rankHead, 1, rankHead, 6);
+  resumen.getCell(rankHead, 1).value = "DOMINIOS CON MAYOR PROPORCIÓN ALTO / MUY ALTO";
+  resumen.getCell(rankHead, 1).font = { bold: true, size: 11 };
+  resumen.mergeCells(rankHead, 7, rankHead, 12);
+  resumen.getCell(rankHead, 7).value = "CATEGORÍAS CON MAYOR PROPORCIÓN MEDIO O SUPERIOR";
+  resumen.getCell(rankHead, 7).font = { bold: true, size: 11 };
+
+  const rankCols = rankHead + 1;
+  resumen.mergeCells(rankCols, 1, rankCols, 4);
+  resumen.getCell(rankCols, 1).value = "Dominio";
+  resumen.getCell(rankCols, 5).value = "Alto+ (n de N)";
+  resumen.getCell(rankCols, 6).value = "Alto+ %";
+  resumen.mergeCells(rankCols, 7, rankCols, 8);
+  resumen.getCell(rankCols, 7).value = "Categoría";
+  resumen.getCell(rankCols, 9).value = "Medio+ (n de N)";
+  resumen.getCell(rankCols, 10).value = "Medio+ %";
+  resumen.getCell(rankCols, 11).value = "Alto+ (n de N)";
+  resumen.getCell(rankCols, 12).value = "Alto+ %";
+  styleHeaderRow(resumen, rankCols);
+
   if (agg.topDomainsHighRisk.length === 0) {
-    resumen.getCell(tipRow, 1).value = "Sin concentraciones Alto/Muy alto.";
-  } else {
-    agg.topDomainsHighRisk.forEach((item, i) => {
-      resumen.getCell(tipRow + i, 1).value =
-        `${i + 1}. ${item.name} — ${item.count} (${item.percentage}%)`;
-      resumen.mergeCells(tipRow + i, 1, tipRow + i, 6);
-    });
+    resumen.mergeCells(rankCols + 1, 1, rankCols + 1, 6);
+    resumen.getCell(rankCols + 1, 1).value = "Sin trabajadores en Alto/Muy alto.";
+  }
+  agg.topDomainsHighRisk.forEach((item, i) => {
+    const r = rankCols + 1 + i;
+    resumen.mergeCells(r, 1, r, 4);
+    resumen.getCell(r, 1).value = `${i + 1}. ${item.name}`;
+    resumen.getCell(r, 5).value = `${item.count} de ${item.total}`;
+    resumen.getCell(r, 6).value = `${item.percentage}%`;
+  });
+  agg.categoriesPriority.forEach((item, i) => {
+    const r = rankCols + 1 + i;
+    resumen.mergeCells(r, 7, r, 8);
+    resumen.getCell(r, 7).value = `${i + 1}. ${item.name}`;
+    resumen.getCell(r, 9).value = `${item.medioPlus.count} de ${item.total}`;
+    resumen.getCell(r, 10).value = `${item.medioPlus.percentage}%`;
+    resumen.getCell(r, 11).value = `${item.altoPlus.count} de ${item.total}`;
+    resumen.getCell(r, 12).value = `${item.altoPlus.percentage}%`;
+  });
+  const rankRows = Math.max(agg.topDomainsHighRisk.length, agg.categoriesPriority.length, 1);
+  for (let r = rankCols + 1; r <= rankCols + rankRows; r++) {
+    resumen.getRow(r).alignment = { vertical: "middle", wrapText: true };
+    resumen.getRow(r).height = 30;
   }
 
-  resumen.getCell(28, 7).value =
-    "CATEGORÍAS CON MAYOR CONCENTRACIÓN DE RIESGO MEDIO / ALTO / MUY ALTO";
-  resumen.getCell(28, 7).font = { bold: true, size: 11 };
-  resumen.mergeCells(28, 7, 28, 12);
-  agg.topCategoriesMediumPlus.forEach((item, i) => {
-    resumen.getCell(29 + i, 7).value =
-      `${i + 1}. ${item.name} — ${item.count} (${item.percentage}%)`;
-    resumen.mergeCells(29 + i, 7, 29 + i, 12);
-  });
-
-  // —— 2. Categorías (gráfica arriba) ——
+  // —— 2. Categorías (gráfica apilada arriba, tabla abajo) ——
   const categorias = wb.addWorksheet(FULL_REPORT_SHEETS[1]);
   applySheetDefaults(
     categorias,
-    [36, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 12],
+    [36, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 9],
     { zoomScale: 85, showGridLines: false }
   );
-  setLandscapePrint(categorias, "A1:L45", 85);
-  categorias.mergeCells(1, 1, 2, 12);
-  categorias.getCell(1, 1).value =
-    "CALIFICACIÓN DE CATEGORÍAS DE RIESGOS PSICOSOCIALES\nPOR TOTAL DE PERSONAL EVALUADO";
+  setLandscapePrint(categorias, "A1:P36", 85);
+  categorias.mergeCells(1, 1, 2, 16);
+  categorias.getCell(1, 1).value = `${EXECUTIVE_CHART_TITLES.categories}\nPORCENTAJE DE PERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults})`;
   categorias.getCell(1, 1).font = { bold: true, size: 14 };
   categorias.getCell(1, 1).alignment = {
     horizontal: "center",
@@ -203,41 +347,32 @@ export async function buildFullReportXlsxBuffer(input: {
   categorias.getRow(2).height = 22;
 
   embedVisibleChart(wb, categorias, {
-    buffer: charts.categoriesGrouped,
+    buffer: charts.categoriesDistribution,
     tlCol: 0,
     tlRow: 3,
-    brCol: 12,
-    brRow: 24,
+    brCol: 14,
+    brRow: 21,
     rowHeightPt: 20,
   });
 
-  const catHeader = ["Categoría", ...levelHeaders(), "Total"];
-  const catTableStart = 27;
-  categorias.getRow(catTableStart).values = catHeader;
-  styleHeaderRow(categorias, catTableStart);
-  let catDataRows = 0;
-  for (const cat of agg.categories) {
-    const rowVals: Array<string | number> = [cat.name];
-    for (const level of RISK_LEVEL_ORDER) {
-      rowVals.push(cat.levels[level].count, cat.levels[level].percentage);
-    }
-    rowVals.push(cat.total);
-    categorias.getRow(catTableStart + 1 + catDataRows).values = rowVals;
-    catDataRows += 1;
-  }
-  applyAutoFilter(categorias, catHeader.length, catTableStart + catDataRows, catTableStart);
+  const catLast = writeLevelTable(
+    categorias,
+    24,
+    ["Categoría"],
+    agg.categories.map((c) => ({ lead: [c.name], matrix: c }))
+  );
+  writeNotes(categorias, catLast + 2, DEFINITION_NOTES, 16);
 
-  // —— 3. Dominios (gráficas arriba) ——
+  // —— 3. Dominios (gráficas apiladas arriba, tabla abajo) ——
   const dominios = wb.addWorksheet(FULL_REPORT_SHEETS[2]);
   applySheetDefaults(
     dominios,
-    [34, 28, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [34, 30, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 9],
     { zoomScale: 80, showGridLines: false }
   );
-  setLandscapePrint(dominios, "A1:M70", 80);
-  dominios.mergeCells(1, 1, 2, 13);
-  dominios.getCell(1, 1).value =
-    "CALIFICACIÓN DE DOMINIOS DE RIESGOS PSICOSOCIALES\nPOR TOTAL DE PERSONAL EVALUADO";
+  setLandscapePrint(dominios, "A1:Q66", 80);
+  dominios.mergeCells(1, 1, 2, 17);
+  dominios.getCell(1, 1).value = `DISTRIBUCIÓN DE RIESGO POR DOMINIO\nPORCENTAJE DE PERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults})`;
   dominios.getCell(1, 1).font = { bold: true, size: 14 };
   dominios.getCell(1, 1).alignment = {
     horizontal: "center",
@@ -246,45 +381,37 @@ export async function buildFullReportXlsxBuffer(input: {
   };
 
   embedVisibleChart(wb, dominios, {
-    buffer: charts.domainsGrouped,
+    buffer: charts.domainsDistribution,
     title: "DOMINIOS 1/2",
     titleRow: 3,
     titleCol: 0,
     tlCol: 0,
     tlRow: 3,
     brCol: 13,
-    brRow: 24,
+    brRow: 22,
     rowHeightPt: 20,
   });
-  if (charts.domainsGroupedB) {
+  if (charts.domainsDistributionB) {
     embedVisibleChart(wb, dominios, {
-      buffer: charts.domainsGroupedB,
+      buffer: charts.domainsDistributionB,
       title: "DOMINIOS 2/2",
-      titleRow: 26,
+      titleRow: 24,
       titleCol: 0,
       tlCol: 0,
-      tlRow: 26,
+      tlRow: 24,
       brCol: 13,
-      brRow: 47,
+      brRow: 43,
       rowHeightPt: 20,
     });
   }
 
-  const domHeader = ["Dominio", "Categoría", ...levelHeaders(), "Total"];
-  const domTableStart = 50;
-  dominios.getRow(domTableStart).values = domHeader;
-  styleHeaderRow(dominios, domTableStart);
-  let domDataRows = 0;
-  for (const dom of agg.domains) {
-    const rowVals: Array<string | number> = [dom.name, dom.category ?? ""];
-    for (const level of RISK_LEVEL_ORDER) {
-      rowVals.push(dom.levels[level].count, dom.levels[level].percentage);
-    }
-    rowVals.push(dom.total);
-    dominios.getRow(domTableStart + 1 + domDataRows).values = rowVals;
-    domDataRows += 1;
-  }
-  applyAutoFilter(dominios, domHeader.length, domTableStart + domDataRows, domTableStart);
+  const domLast = writeLevelTable(
+    dominios,
+    46,
+    ["Dominio", "Categoría"],
+    agg.domains.map((d) => ({ lead: [d.name, d.category ?? ""], matrix: d }))
+  );
+  writeNotes(dominios, domLast + 2, DEFINITION_NOTES, 17);
 
   // —— 4. Distribución Final ——
   const dist = wb.addWorksheet(FULL_REPORT_SHEETS[3]);
@@ -627,18 +754,19 @@ export async function buildFullReportXlsxBuffer(input: {
     push("A. Distribución final", row.shortLabel, "count", row.count);
     push("A. Distribución final", row.shortLabel, "percentage", row.percentage);
   }
-  for (const cat of agg.categories) {
+  const pushMatrix = (section: string, m: NamedLevelMatrix) => {
     for (const level of RISK_LEVEL_ORDER) {
-      push("B. Categorías × nivel", cat.name, `${level}_count`, cat.levels[level].count);
-      push("B. Categorías × nivel", cat.name, `${level}_pct`, cat.levels[level].percentage);
+      push(section, m.name, `${level}_count`, m.levels[level].count);
+      push(section, m.name, `${level}_pct`, m.levels[level].percentage);
     }
-  }
-  for (const dom of agg.domains) {
-    for (const level of RISK_LEVEL_ORDER) {
-      push("C. Dominios × nivel", dom.name, `${level}_count`, dom.levels[level].count);
-      push("C. Dominios × nivel", dom.name, `${level}_pct`, dom.levels[level].percentage);
-    }
-  }
+    push(section, m.name, "medio_plus_count", m.medioPlus.count);
+    push(section, m.name, "medio_plus_pct", m.medioPlus.percentage);
+    push(section, m.name, "alto_plus_count", m.altoPlus.count);
+    push(section, m.name, "alto_plus_pct", m.altoPlus.percentage);
+    push(section, m.name, "total", m.total);
+  };
+  for (const cat of agg.categories) pushMatrix("B. Categorías × nivel", cat);
+  for (const dom of agg.domains) pushMatrix("C. Dominios × nivel", dom);
   push("D. ATS", "Sí", "count", agg.traumaticEvent.yes);
   push("D. ATS", "No", "count", agg.traumaticEvent.no);
   push("D. ATS", "Sí", "percentage", agg.traumaticEvent.percentageYes);
@@ -649,12 +777,12 @@ export async function buildFullReportXlsxBuffer(input: {
   push("F. Avance", "Pendientes", "count", agg.population.realPending);
   push("F. Avance", "En progreso", "count", agg.population.realInProgress);
   agg.topDomainsHighRisk.forEach((item, i) => {
-    push("G. Top dominios", `${i + 1}. ${item.name}`, "count", item.count);
-    push("G. Top dominios", `${i + 1}. ${item.name}`, "percentage", item.percentage);
+    push("G. Top dominios Alto+", `${i + 1}. ${item.name}`, "alto_plus_count", item.count);
+    push("G. Top dominios Alto+", `${i + 1}. ${item.name}`, "alto_plus_pct", item.percentage);
   });
   agg.topCategoriesMediumPlus.forEach((item, i) => {
-    push("H. Top categorías", `${i + 1}. ${item.name}`, "count", item.count);
-    push("H. Top categorías", `${i + 1}. ${item.name}`, "percentage", item.percentage);
+    push("H. Top categorías Medio+", `${i + 1}. ${item.name}`, "medio_plus_count", item.count);
+    push("H. Top categorías Medio+", `${i + 1}. ${item.name}`, "medio_plus_pct", item.percentage);
   });
   applyAutoFilter(datos, 4, datos.rowCount);
   try {
@@ -676,6 +804,7 @@ export async function buildFullReportXlsxBuffer(input: {
     ["TEST EXCLUIDOS (almacenados)", String(agg.population.testResultsStored)],
     ["TEST INCLUIDOS EN MÉTRICAS", String(agg.population.testResultsIncluded)],
     ["FECHA DE GENERACIÓN", formatReportDate(agg.generatedAt)],
+    ["VERSIÓN DE REPORTE", agg.presentationVersion],
     ["SCORING VERSION", agg.scoringVersion ?? "—"],
     ["QUESTIONNAIRE VERSION", agg.questionnaireVersion ?? "—"],
     ["EMPRESA", agg.companyName],
@@ -692,6 +821,26 @@ export async function buildFullReportXlsxBuffer(input: {
   styleHeaderRow(metodo);
   for (const [k, v] of metodoRows) {
     const row = metodo.addRow([k, v]);
+    row.getCell(2).alignment = { wrapText: true };
+  }
+
+  metodo.addRow(["", ""]);
+  const howTo = metodo.addRow(["CÓMO INTERPRETAR", ""]);
+  howTo.font = { bold: true, size: 12 };
+  howTo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+  INTERPRETATION_LINES.forEach((line, i) => {
+    const row = metodo.addRow([i === 0 ? "Lectura agregada" : "", line]);
+    row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+    row.height = 44;
+  });
+  const example = [...agg.domains].sort(
+    (a, b) => b.medioPlus.percentage - a.medioPlus.percentage
+  )[0];
+  if (example && example.medioPlus.count > 0) {
+    const row = metodo.addRow([
+      "Ejemplo de redacción",
+      `${example.name}: ${describeMedioPlus(example.medioPlus.percentage, "dominio")}`,
+    ]);
     row.getCell(2).alignment = { wrapText: true };
   }
 

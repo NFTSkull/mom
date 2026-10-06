@@ -150,8 +150,8 @@ describe("B4.27 gráficas visibles en XLSX", () => {
     });
     const charts = await renderExecutiveCharts(aggregate);
     expect(await pngHasVisibleInk(charts.riskDistribution)).toBe(true);
-    expect(await pngHasVisibleInk(charts.categoriesGrouped)).toBe(true);
-    expect(await pngHasVisibleInk(charts.domainsGrouped)).toBe(true);
+    expect(await pngHasVisibleInk(charts.categoriesDistribution)).toBe(true);
+    expect(await pngHasVisibleInk(charts.domainsDistribution)).toBe(true);
 
     const buf = await buildFullReportXlsxBuffer({ report, aggregate, charts });
     expect(isLikelyXlsx(buf)).toBe(true);

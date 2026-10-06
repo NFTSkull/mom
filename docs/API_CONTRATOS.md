@@ -1,6 +1,32 @@
 # Contratos de API
 
-## Bloque actual: B4.28.1 — Orden configurable Admin → Resultados
+## Bloque actual: B4.29 — Distribución por nivel como fuente principal de interpretación
+
+Sin endpoints nuevos ni migración. Solo presentación (UI, PNG, XLSX). Scoring, thresholds, snapshots y resultados persistidos **sin cambios**.
+
+`GET /api/admin/nom035/reports/executive` (permiso `reports.generate`, `Cache-Control: no-store`) agrega campos **aditivos** derivados de los `riskLevel` persistidos:
+
+| Campo | Tipo | Definición |
+|-------|------|------------|
+| `categories[i].medioPlus` / `domains[i].medioPlus` | `{count, percentage}` | Medio + Alto + Muy alto (÷ `realResults`) |
+| `categories[i].altoPlus` / `domains[i].altoPlus` | `{count, percentage}` | Alto + Muy alto (÷ `realResults`) |
+| `topDomainsHighRisk[]` | `{name, category, count, total, percentage}` | Dominios por Alto+ % DESC (top 5) |
+| `topCategoriesMediumPlus[]` | ídem | Categorías por Medio+ % DESC (top 5) |
+| `categoriesPriority[]` | `{name, total, medioPlus, altoPlus}` | Todas las categorías, Medio+ % DESC |
+| `priorityReading` | `{domainHighestAltoPlus, categoryHighestMedioPlus}` | Lectura prioritaria del Resumen |
+| `presentationVersion` | `"B4.29"` | Versión de presentación (≠ `scoringVersion`) |
+
+Invariantes (`assertAggregateMath`): Σ conteos por fila = `realResults`; Σ % ≈ 100 (±0.2); fórmulas Medio+/Alto+.
+
+Medio+ y Alto+ son **indicadores descriptivos**, no niveles oficiales NOM-035.
+
+`GET /api/admin/nom035/reports/summary` (legacy) conserva `categoryAverages` / `domainAverages`; la UI principal ya no los grafica. En `/admin/reportes` solo aparecen colapsados con la etiqueta «Promedio de puntaje bruto — descriptivo · NO COMPARABLE ENTRE DOMINIOS».
+
+`GET /api/admin/nom035/reports/full`: mismas 11 hojas; Categorías/Dominios con barras apiladas 100 % + tabla Nulo…Muy alto #/% + Medio+ + Alto+ + Total; Resumen con «LECTURA PRIORITARIA»; Metodología con «CÓMO INTERPRETAR»; sin gráficas de promedios.
+
+Ver `docs/B4_29_DISTRIBUCION_POR_NIVEL.md`.
+
+## Bloque B4.28.1 — Orden configurable Admin → Resultados
 
 `GET /api/admin/nom035/results` acepta nuevo param `sort`:
 

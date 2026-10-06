@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-06 (B4.29 — distribución por nivel reemplaza promedios brutos engañosos)
+
+- Admin → Resultados: se retiran «Promedio por categoría» y «Promedio por dominio»; nuevas secciones A–D con barras apiladas 100 % por nivel + Medio+/Alto+ (n/N y %).
+- Agregado ejecutivo: `medioPlus`, `altoPlus`, `categoriesPriority`, `priorityReading`, `presentationVersion`; ranking de dominios por Alto+ % y categorías por Medio+ %.
+- XLSX consolidado: «GENERADO» + «VERSIÓN DE REPORTE: B4.29», «LECTURA PRIORITARIA», Categorías/Dominios con gráfica apilada y tabla Medio+/Alto+, Metodología «CÓMO INTERPRETAR»; sin gráficas de promedios.
+- `/admin/reportes`: recomendaciones por ranking Alto+; promedios brutos solo colapsados y etiquetados «NO COMPARABLE ENTRE DOMINIOS».
+- Reporte individual: etiqueta de gráfica incluye nivel.
+- Sin cambios en scoring, thresholds, resultados, respuestas, workers ni campaña. Sin migración.
+
 ## 2026-09-03 (B4.28.2 — limpieza residuos SYN/SMOKE en Production)
 
 - Eliminado exclusivamente `SYN-PRUEBA-LOGIN` (`is_test=true`) + árbol (answers/sessions/results/assignments/account/Auth).

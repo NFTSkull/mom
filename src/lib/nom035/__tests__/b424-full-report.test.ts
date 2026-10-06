@@ -14,7 +14,7 @@ import {
 import { buildFullReportXlsxBuffer, FULL_REPORT_SHEETS } from "../full-report-xlsx";
 import { buildIndividualReportXlsxBuffer, INDIVIDUAL_REPORT_SHEETS } from "../individual-report-xlsx";
 import { orderedGuiaIIIAnswerRows } from "../report-questions";
-import { renderAggregateCharts, renderExecutiveCharts, renderIndividualCharts } from "../report-charts";
+import { renderExecutiveCharts, renderIndividualCharts } from "../report-charts";
 import { isLikelyXlsx } from "../avance-excel-xlsx";
 import { findEndpointPermission } from "../auth/endpoint-permissions";
 import { permissionRequiresAal2 } from "../auth/permissions";
@@ -178,10 +178,13 @@ describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
     expect(assertFullReportCounts(report).ok).toBe(true);
   });
 
-  it("16. gráficas PNG generadas", async () => {
-    const charts = await renderAggregateCharts(buildChartDatasets(sampleReport(1)));
+  it("16. gráficas PNG generadas (distribución por nivel, sin promedios)", async () => {
+    const charts = await renderExecutiveCharts(
+      buildNom035AggregateReport(sampleReport(1))
+    );
     expect(charts.riskDistribution.length).toBeGreaterThan(100);
-    expect(charts.categoryAverages.length).toBeGreaterThan(100);
+    expect(charts.categoriesDistribution.length).toBeGreaterThan(100);
+    expect(buildChartDatasets(sampleReport(1)).riskDistribution.values).toHaveLength(5);
   });
 
   it("17. username 001 conserva ceros en hoja Completados", async () => {

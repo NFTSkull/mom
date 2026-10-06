@@ -11,6 +11,7 @@ import {
   type ReportWorkerRow,
 } from "@/lib/nom035/report-data";
 import { renderIndividualCharts } from "@/lib/nom035/report-charts";
+import { formatRiskLevelForReport } from "@/lib/nom035/aggregate-report";
 import { getCompanySettings } from "@/lib/nom035/server/admin-core-service";
 import { riskChartHex } from "@/lib/nom035/risk-palette";
 
@@ -138,13 +139,15 @@ export async function exportNom035IndividualReportExcel(
 
   const catEntries = Object.entries(worker.categoryScores);
   const domEntries = Object.entries(worker.domainScores);
+  const withLevel = (name: string, level: string) =>
+    `${name} (${formatRiskLevelForReport(level)})`;
   const charts = await renderIndividualCharts({
     categories: {
-      labels: catEntries.map(([k]) => k),
+      labels: catEntries.map(([k, v]) => withLevel(k, v.riskLevel)),
       values: catEntries.map(([, v]) => v.score),
     },
     domains: {
-      labels: domEntries.map(([k]) => k),
+      labels: domEntries.map(([k, v]) => withLevel(k, v.riskLevel)),
       values: domEntries.map(([, v]) => v.score),
     },
     categoryColors: catEntries.map(([, v]) => riskChartHex(v.riskLevel)),

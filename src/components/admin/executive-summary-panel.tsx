@@ -1,101 +1,44 @@
 "use client";
 
+import type {
+  NamedLevelMatrix,
+  Nom035AggregateReport,
+} from "@/lib/nom035/aggregate-report";
 import {
-  RISK_CHART_HEX,
   RISK_DISPLAY_LABEL,
+  RISK_EXCEL_ARGB,
+  RISK_LEVEL_ORDER,
 } from "@/lib/nom035/risk-palette";
-import type { RiskLevelNom035 } from "@/types/nom035";
+import {
+  ALTO_PLUS_DEFINITION,
+  describeAltoPlus,
+  describeMedioPlus,
+  MEDIO_PLUS_DEFINITION,
+  PLUS_NOT_OFFICIAL_NOTE,
+} from "@/lib/nom035/report-interpretation";
 
-const LEVELS: RiskLevelNom035[] = ["nulo", "bajo", "medio", "alto", "muy_alto"];
+export type ExecutiveAggregateView = Pick<
+  Nom035AggregateReport,
+  | "companyName"
+  | "modelLabel"
+  | "campaignStatusLabel"
+  | "generatedAt"
+  | "presentationVersion"
+  | "population"
+  | "overallRiskDistribution"
+  | "predominantRisk"
+  | "categories"
+  | "domains"
+  | "traumaticEvent"
+  | "clinicalAttention"
+  | "topDomainsHighRisk"
+  | "topCategoriesMediumPlus"
+  | "categoriesPriority"
+  | "priorityReading"
+>;
 
-type LevelCount = {
-  level: RiskLevelNom035;
-  label: string;
-  shortLabel: string;
-  count: number;
-  percentage: number;
-};
-
-type NamedMatrix = {
-  name: string;
-  category?: string;
-  levels: Record<RiskLevelNom035, { count: number; percentage: number }>;
-  total: number;
-};
-
-type TopIndicator = { name: string; count: number; percentage: number };
-
-type Binary = {
-  yes: number;
-  no: number;
-  percentageYes: number;
-  denominator: number;
-};
-
-export type ExecutiveAggregateView = {
-  companyName: string;
-  modelLabel: string;
-  campaignStatusLabel: string;
-  population: {
-    realWorkers: number;
-    realCompleted: number;
-    realPending: number;
-    realInProgress: number;
-    realResults: number;
-  };
-  overallRiskDistribution: LevelCount[];
-  predominantRisk: {
-    level: RiskLevelNom035 | null;
-    label: string;
-    count: number;
-    percentage: number;
-    metricKind: string;
-  };
-  categories: NamedMatrix[];
-  domains: NamedMatrix[];
-  traumaticEvent: Binary;
-  clinicalAttention: Binary;
-  topDomainsHighRisk: TopIndicator[];
-  topCategoriesMediumPlus: TopIndicator[];
-};
-
-function RiskBar({
-  items,
-  title,
-}: {
-  title: string;
-  items: Array<{ label: string; count: number; percentage: number; level?: string }>;
-}) {
-  const max = Math.max(1, ...items.map((i) => i.count));
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      <ul className="mt-3 space-y-2">
-        {items.map((item) => (
-          <li key={item.label} className="text-xs">
-            <div className="mb-1 flex justify-between gap-2 text-slate-700">
-              <span>{item.label}</span>
-              <span className="font-medium">
-                {item.count} ({item.percentage}%)
-              </span>
-            </div>
-            <div className="h-2 rounded bg-slate-100">
-              <div
-                className="h-2 rounded"
-                style={{
-                  width: `${(item.count / max) * 100}%`,
-                  backgroundColor:
-                    item.level && item.level in RISK_CHART_HEX
-                      ? RISK_CHART_HEX[item.level as RiskLevelNom035]
-                      : "#334155",
-                }}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function argbToCss(argb: string): string {
+  return `#${argb.slice(2)}`;
 }
 
 function Kpi({
@@ -137,12 +80,8 @@ export function AdminExecutiveSummaryPanel({
 }: {
   aggregate: ExecutiveAggregateView;
 }) {
-  const riskItems = aggregate.overallRiskDistribution.map((r) => ({
-    label: r.shortLabel || RISK_DISPLAY_LABEL[r.level],
-    count: r.count,
-    percentage: r.percentage,
-    level: r.level,
-  }));
+  const pDom = aggregate.priorityReading.domainHighestAltoPlus;
+  const pCat = aggregate.priorityReading.categoryHighestMedioPlus;
 
   return (
     <section
@@ -197,99 +136,208 @@ export function AdminExecutiveSummaryPanel({
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <RiskBar title="Calificación final de riesgos psicosociales" items={riskItems} />
-        <div className="grid gap-3">
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Dominios con mayor concentración Alto / Muy alto
-            </h3>
-            <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-700">
-              {aggregate.topDomainsHighRisk.length === 0 ? (
-                <li className="list-none">Sin concentraciones.</li>
-              ) : (
-                aggregate.topDomainsHighRisk.map((d) => (
-                  <li key={d.name}>
-                    {d.name} — {d.count} ({d.percentage}%)
-                  </li>
-                ))
-              )}
-            </ol>
+      <div
+        className="rounded-lg border border-slate-200 bg-white p-4"
+        data-testid="executive-priority-reading"
+      >
+        <h3 className="text-sm font-semibold text-slate-900">Lectura prioritaria</h3>
+        <div className="mt-2 grid gap-3 md:grid-cols-2">
+          <div className="rounded border border-orange-200 bg-orange-50 p-3 text-sm">
+            <p className="text-[11px] font-semibold uppercase text-slate-500">
+              Dominio con mayor Alto+ (Alto + Muy alto)
+            </p>
+            {pDom ? (
+              <>
+                <p className="mt-1 font-semibold text-slate-900">{pDom.name}</p>
+                <p className="text-slate-700">
+                  {pDom.count} de {pDom.total} · {pDom.percentage}% Alto/Muy alto
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {describeAltoPlus(pDom.percentage, "dominio")}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-slate-600">Sin trabajadores en Alto/Muy alto.</p>
+            )}
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Categorías con mayor concentración Medio+
-            </h3>
-            <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-700">
-              {aggregate.topCategoriesMediumPlus.map((c) => (
-                <li key={c.name}>
-                  {c.name} — {c.count} ({c.percentage}%)
-                </li>
-              ))}
-            </ol>
+          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">
+            <p className="text-[11px] font-semibold uppercase text-slate-500">
+              Categoría con mayor Medio+ (Medio + Alto + Muy alto)
+            </p>
+            {pCat ? (
+              <>
+                <p className="mt-1 font-semibold text-slate-900">{pCat.name}</p>
+                <p className="text-slate-700">
+                  {pCat.count} de {pCat.total} · {pCat.percentage}% Medio o superior
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {describeMedioPlus(pCat.percentage, "categoría")}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-slate-600">Sin trabajadores en Medio o superior.</p>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-xs" data-testid="executive-categories-table">
-          <thead className="bg-slate-100 text-slate-600">
-            <tr>
-              <th className="px-2 py-2">Categoría</th>
-              {LEVELS.map((l) => (
-                <th key={l} className="px-2 py-2">
-                  {RISK_DISPLAY_LABEL[l]}
-                </th>
-              ))}
-              <th className="px-2 py-2">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {aggregate.categories.map((cat) => (
-              <tr key={cat.name} className="border-t">
-                <td className="px-2 py-1.5 font-medium">{cat.name}</td>
-                {LEVELS.map((l) => (
-                  <td key={l} className="px-2 py-1.5">
-                    {cat.levels[l].count} ({cat.levels[l].percentage}%)
-                  </td>
-                ))}
-                <td className="px-2 py-1.5">{cat.total}</td>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div
+          className="rounded-lg border border-slate-200 bg-white p-4"
+          data-testid="executive-top-domains-alto-plus"
+        >
+          <h3 className="text-sm font-semibold text-slate-900">
+            Dominios con mayor proporción Alto / Muy alto
+          </h3>
+          <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-700">
+            {aggregate.topDomainsHighRisk.length === 0 ? (
+              <li className="list-none">Sin trabajadores en Alto/Muy alto.</li>
+            ) : (
+              aggregate.topDomainsHighRisk.map((d) => (
+                <li key={d.name}>
+                  <span className="font-medium">{d.name}</span> — {d.count} de {d.total} ·{" "}
+                  {d.percentage}% Alto/Muy alto
+                </li>
+              ))
+            )}
+          </ol>
+        </div>
+        <div
+          className="rounded-lg border border-slate-200 bg-white p-4"
+          data-testid="executive-categories-priority"
+        >
+          <h3 className="text-sm font-semibold text-slate-900">
+            Categorías con mayor proporción Medio o superior
+          </h3>
+          <table className="mt-2 min-w-full text-left text-xs">
+            <thead className="text-slate-500">
+              <tr>
+                <th className="py-1 pr-2">Categoría</th>
+                <th className="py-1 pr-2">Medio+</th>
+                <th className="py-1">Alto+</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {aggregate.categoriesPriority.map((c) => (
+                <tr key={c.name} className="border-t">
+                  <td className="py-1 pr-2 font-medium text-slate-800">{c.name}</td>
+                  <td className="py-1 pr-2">
+                    {c.medioPlus.count}/{c.total} · {c.medioPlus.percentage}%
+                  </td>
+                  <td className="py-1">
+                    {c.altoPlus.count}/{c.total} · {c.altoPlus.percentage}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-xs" data-testid="executive-domains-table">
-          <thead className="bg-slate-100 text-slate-600">
-            <tr>
-              <th className="px-2 py-2">Dominio</th>
-              <th className="px-2 py-2">Categoría</th>
-              {LEVELS.map((l) => (
-                <th key={l} className="px-2 py-2">
-                  {RISK_DISPLAY_LABEL[l]}
-                </th>
-              ))}
-              <th className="px-2 py-2">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {aggregate.domains.map((dom) => (
-              <tr key={dom.name} className="border-t">
-                <td className="px-2 py-1.5 font-medium">{dom.name}</td>
-                <td className="px-2 py-1.5">{dom.category ?? "—"}</td>
-                {LEVELS.map((l) => (
-                  <td key={l} className="px-2 py-1.5">
-                    {dom.levels[l].count} ({dom.levels[l].percentage}%)
-                  </td>
-                ))}
-                <td className="px-2 py-1.5">{dom.total}</td>
-              </tr>
+      <p className="text-xs text-slate-500" data-testid="executive-plus-definitions">
+        {MEDIO_PLUS_DEFINITION} {ALTO_PLUS_DEFINITION} {PLUS_NOT_OFFICIAL_NOTE}
+      </p>
+    </section>
+  );
+}
+
+function LevelTable({
+  title,
+  leadHeaders,
+  rows,
+  lead,
+  testId,
+}: {
+  title: string;
+  leadHeaders: string[];
+  rows: NamedLevelMatrix[];
+  lead: (row: NamedLevelMatrix) => string[];
+  testId: string;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <h3 className="px-3 pt-3 text-sm font-semibold text-slate-900">{title}</h3>
+      <table className="mt-2 min-w-full text-left text-xs" data-testid={testId}>
+        <thead className="bg-slate-100 text-slate-600">
+          <tr>
+            {leadHeaders.map((h) => (
+              <th key={h} className="px-2 py-2">
+                {h}
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
+            {RISK_LEVEL_ORDER.flatMap((l) => [
+              <th
+                key={`${l}-n`}
+                className="px-2 py-2"
+                style={{ backgroundColor: argbToCss(RISK_EXCEL_ARGB[l]) }}
+              >
+                {RISK_DISPLAY_LABEL[l]} #
+              </th>,
+              <th
+                key={`${l}-p`}
+                className="px-2 py-2"
+                style={{ backgroundColor: argbToCss(RISK_EXCEL_ARGB[l]) }}
+              >
+                {RISK_DISPLAY_LABEL[l]} %
+              </th>,
+            ])}
+            <th className="px-2 py-2">Medio+ #</th>
+            <th className="px-2 py-2">Medio+ %</th>
+            <th className="px-2 py-2">Alto+ #</th>
+            <th className="px-2 py-2">Alto+ %</th>
+            <th className="px-2 py-2">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name} className="border-t">
+              {lead(row).map((v, i) => (
+                <td key={i} className={`px-2 py-1.5 ${i === 0 ? "font-medium" : ""}`}>
+                  {v}
+                </td>
+              ))}
+              {RISK_LEVEL_ORDER.flatMap((l) => [
+                <td key={`${l}-n`} className="px-2 py-1.5">
+                  {row.levels[l].count}
+                </td>,
+                <td key={`${l}-p`} className="px-2 py-1.5">
+                  {row.levels[l].percentage}%
+                </td>,
+              ])}
+              <td className="px-2 py-1.5">{row.medioPlus.count}</td>
+              <td className="px-2 py-1.5">{row.medioPlus.percentage}%</td>
+              <td className="px-2 py-1.5">{row.altoPlus.count}</td>
+              <td className="px-2 py-1.5">{row.altoPlus.percentage}%</td>
+              <td className="px-2 py-1.5">{row.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function AdminDistributionTables({
+  aggregate,
+}: {
+  aggregate: Pick<Nom035AggregateReport, "categories" | "domains">;
+}) {
+  return (
+    <section className="space-y-3" data-testid="admin-distribution-tables">
+      <LevelTable
+        title="Categorías"
+        leadHeaders={["Categoría"]}
+        rows={aggregate.categories}
+        lead={(r) => [r.name]}
+        testId="executive-categories-table"
+      />
+      <LevelTable
+        title="Dominios"
+        leadHeaders={["Dominio", "Categoría"]}
+        rows={aggregate.domains}
+        lead={(r) => [r.name, r.category ?? "—"]}
+        testId="executive-domains-table"
+      />
     </section>
   );
 }

@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-10-06 - B4.29 distribución por nivel como fuente principal
+
+### Causa raíz
+
+El panel legacy graficaba promedios de puntaje bruto por categoría/dominio en una escala compartida. Cada dominio tiene rango y cortes propios, así que Jornada (2.86) parecía menor que Carga (21.74) aunque Jornada tiene la mayor proporción Alto/Muy alto (42.5 %).
+
+### Decisiones
+
+- Auditoría read-only de Production antes de tocar código (`scripts/b429-audit-distributions.ts`, `begin transaction read only`, sin RPC para no escribir `audit_log`, sin nombres).
+- Fuente única `buildNom035AggregateReport`; Medio+/Alto+ calculados desde `riskLevel` persistido, nunca desde puntajes.
+- Longitud de segmentos = `count / total` (`levelSegmentShares`) compartido por UI y PNG; ningún promedio participa.
+- «CÓMO INTERPRETAR» dentro de Metodología para conservar el contrato de 11 hojas.
+- Promedios brutos: solo endpoint `summary` legacy y `<details>` etiquetado en `/admin/reportes`; nunca en XLSX ni Resumen.
+- Recomendaciones de `/admin/reportes` reordenadas por Alto+ (el orden por promedio bruto era engañoso).
+- `presentationVersion = "B4.29"` independiente de `scoringVersion` (sin cambios).
+- Sin migración SQL: no hay necesidad demostrada.
+- Fixture de regresión con matrices productivas agregadas (sin PII) y puntajes sintéticos que reproducen los promedios 2.86 / 21.74.
+- El checkout en iCloud presenta archivos dataless (git «short read»); el trabajo se hizo en un clon limpio `~/dev/mom-nom035`.
+
 ## 2026-09-03 - B4.28.2 limpieza SYN-PRUEBA-LOGIN
 
 ### Decisiones

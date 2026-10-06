@@ -6,6 +6,7 @@ import { adminApi } from "@/lib/nom035/admin-client";
 import { downloadFullReportExcelFromBrowser } from "@/lib/nom035/download-full-report";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
 import {
+  AdminDistributionTables,
   AdminExecutiveSummaryPanel,
   type ExecutiveAggregateView,
 } from "@/components/admin/executive-summary-panel";
@@ -83,12 +84,6 @@ function AdminResultadosInner() {
   const [loading, setLoading] = useState(true);
   const [exportingIndividual, setExportingIndividual] = useState(false);
   const [exportingFull, setExportingFull] = useState(false);
-  const [reportSummary, setReportSummary] = useState<{
-    riskLevels: Record<string, number>;
-    categoryAverages: Record<string, number>;
-    domainAverages: Record<string, number>;
-    completion: { completed: number; pending: number; inProgress: number };
-  } | null>(null);
   const [executive, setExecutive] = useState<ExecutiveAggregateView | null>(null);
 
   const replaceParams = useCallback(
@@ -145,22 +140,6 @@ function AdminResultadosInner() {
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
-      void adminApi.reportsSummary(new URLSearchParams()).then((r) => {
-        if (!r.ok || !r.report) return;
-        const report = r.report as Record<string, unknown>;
-        const assignments = Number(report.assignments ?? 0);
-        const completed = Number(report.completed ?? 0);
-        setReportSummary({
-          riskLevels: (report.riskLevels as Record<string, number>) ?? {},
-          categoryAverages: (report.categoryAverages as Record<string, number>) ?? {},
-          domainAverages: (report.domainAverages as Record<string, number>) ?? {},
-          completion: {
-            completed,
-            pending: Math.max(0, assignments - completed),
-            inProgress: 0,
-          },
-        });
-      });
       void adminApi.reportsExecutive().then((r) => {
         if (!r.ok || !r.aggregate) return;
         setExecutive(r.aggregate as unknown as ExecutiveAggregateView);
@@ -335,15 +314,12 @@ function AdminResultadosInner() {
         </button>
       </div>
 
-      {executive ? <AdminExecutiveSummaryPanel aggregate={executive} /> : null}
-
-      {reportSummary ? (
-        <AdminReportChartsPanel
-          riskLevels={reportSummary.riskLevels}
-          categoryAverages={reportSummary.categoryAverages}
-          domainAverages={reportSummary.domainAverages}
-          completion={reportSummary.completion}
-        />
+      {executive ? (
+        <>
+          <AdminExecutiveSummaryPanel aggregate={executive} />
+          <AdminReportChartsPanel aggregate={executive} />
+          <AdminDistributionTables aggregate={executive} />
+        </>
       ) : null}
 
       <div

@@ -339,8 +339,8 @@ describe("B4.26 rediseño ejecutivo NOM-035", () => {
     const agg = buildNom035AggregateReport(report);
     const charts = await renderExecutiveCharts(agg);
     expect(isLikelyPng(charts.riskDistribution)).toBe(true);
-    expect(isLikelyPng(charts.categoriesGrouped)).toBe(true);
-    expect(isLikelyPng(charts.domainsGrouped)).toBe(true);
+    expect(isLikelyPng(charts.categoriesDistribution)).toBe(true);
+    expect(isLikelyPng(charts.domainsDistribution)).toBe(true);
     const buf = await buildFullReportXlsxBuffer({ report, aggregate: agg, charts });
     expect(isLikelyXlsx(buf)).toBe(true);
     const wb = new ExcelJS.Workbook();

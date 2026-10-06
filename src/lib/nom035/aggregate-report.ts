@@ -21,6 +21,7 @@ import {
   RISK_LEVEL_ORDER,
   RISK_SHORT_LABEL,
 } from "@/lib/nom035/risk-palette";
+import { NOM035_REPORT_PRESENTATION_VERSION } from "@/lib/nom035/report-interpretation";
 
 export const NOM035_REPORT_MODEL_LABEL = "GUÍA I Y III DE NOM-035";
 export const NOM035_REPORT_MODEL_CODE = "GUIA_I_Y_III" as const;
@@ -55,17 +56,33 @@ export type LevelCount = {
   percentage: number;
 };
 
+export type CountPercentage = { count: number; percentage: number };
+
 export type NamedLevelMatrix = {
   name: string;
   category?: string;
-  levels: Record<RiskLevelNom035, { count: number; percentage: number }>;
+  levels: Record<RiskLevelNom035, CountPercentage>;
   total: number;
+  /** Descriptivo: Medio + Alto + Muy alto (no es nivel oficial). */
+  medioPlus: CountPercentage;
+  /** Descriptivo: Alto + Muy alto (no es nivel oficial). */
+  altoPlus: CountPercentage;
 };
 
 export type TopIndicator = {
   name: string;
+  category?: string;
   count: number;
   percentage: number;
+  /** Denominador = REAL_RESULTS. */
+  total: number;
+};
+
+export type TopPlusIndicator = {
+  name: string;
+  total: number;
+  medioPlus: CountPercentage;
+  altoPlus: CountPercentage;
 };
 
 export type BinaryIndicator = {
@@ -111,8 +128,17 @@ export type Nom035AggregateReport = {
   domains: NamedLevelMatrix[];
   traumaticEvent: BinaryIndicator;
   clinicalAttention: BinaryIndicator;
+  /** Dominios ordenados por altoPlus.percentage DESC. */
   topDomainsHighRisk: TopIndicator[];
+  /** Categorías ordenadas por medioPlus.percentage DESC. */
   topCategoriesMediumPlus: TopIndicator[];
+  /** Categorías con Medio+ y Alto+ en columnas separadas (orden Medio+ DESC). */
+  categoriesPriority: TopPlusIndicator[];
+  priorityReading: {
+    domainHighestAltoPlus: TopIndicator | null;
+    categoryHighestMedioPlus: TopIndicator | null;
+  };
+  presentationVersion: string;
   levelDefinitions: Record<RiskLevelNom035, string>;
   /** Auditoría: contribución de test siempre 0. */
   testContribution: {
@@ -123,7 +149,7 @@ export type Nom035AggregateReport = {
   };
 };
 
-function emptyLevels(): Record<RiskLevelNom035, { count: number; percentage: number }> {
+function emptyLevels(): Record<RiskLevelNom035, CountPercentage> {
   return {
     nulo: { count: 0, percentage: 0 },
     bajo: { count: 0, percentage: 0 },
@@ -157,6 +183,19 @@ function campaignStatusLabel(status: string): string {
   return status.toUpperCase() || "—";
 }
 
+/** Medio+ = Medio + Alto + Muy alto; Alto+ = Alto + Muy alto (descriptivos). */
+export function computeLevelPlus(
+  levels: Record<RiskLevelNom035, { count: number }>,
+  denominator: number
+): { medioPlus: CountPercentage; altoPlus: CountPercentage } {
+  const altoPlusCount = levels.alto.count + levels.muy_alto.count;
+  const medioPlusCount = levels.medio.count + altoPlusCount;
+  return {
+    medioPlus: { count: medioPlusCount, percentage: pct(medioPlusCount, denominator) },
+    altoPlus: { count: altoPlusCount, percentage: pct(altoPlusCount, denominator) },
+  };
+}
+
 function buildLevelMatrix(
   names: string[],
   pickLevel: (worker: ReportWorkerRow, name: string) => RiskLevelNom035 | null,
@@ -180,8 +219,34 @@ function buildLevelMatrix(
       category: withCategory?.(name),
       levels,
       total,
+      ...computeLevelPlus(levels, realResults),
     };
   });
+}
+
+function rankBy(
+  rows: NamedLevelMatrix[],
+  pick: (row: NamedLevelMatrix) => CountPercentage,
+  realResults: number
+): TopIndicator[] {
+  return rows
+    .map((row) => {
+      const v = pick(row);
+      return {
+        name: row.name,
+        ...(row.category ? { category: row.category } : {}),
+        count: v.count,
+        percentage: v.percentage,
+        total: realResults,
+      };
+    })
+    .filter((x) => x.count > 0)
+    .sort(
+      (a, b) =>
+        b.percentage - a.percentage ||
+        b.count - a.count ||
+        a.name.localeCompare(b.name, "es")
+    );
 }
 
 export function buildNom035AggregateReport(
@@ -261,32 +326,24 @@ export function buildNom035AggregateReport(
   }
   const clinicalNo = Math.max(0, guiaIDenom - clinicalYes);
 
-  const topDomainsHighRisk: TopIndicator[] = domains
-    .map((d) => {
-      const count = d.levels.alto.count + d.levels.muy_alto.count;
-      return {
-        name: d.name,
-        count,
-        percentage: pct(count, realResults),
-      };
-    })
-    .filter((x) => x.count > 0)
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "es"))
-    .slice(0, 5);
+  const domainsByAltoPlus = rankBy(domains, (d) => d.altoPlus, realResults);
+  const categoriesByMedioPlus = rankBy(categories, (c) => c.medioPlus, realResults);
+  const topDomainsHighRisk = domainsByAltoPlus.slice(0, 5);
+  const topCategoriesMediumPlus = categoriesByMedioPlus.slice(0, 5);
 
-  const topCategoriesMediumPlus: TopIndicator[] = categories
-    .map((c) => {
-      const count =
-        c.levels.medio.count + c.levels.alto.count + c.levels.muy_alto.count;
-      return {
-        name: c.name,
-        count,
-        percentage: pct(count, realResults),
-      };
-    })
-    .filter((x) => x.count > 0)
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "es"))
-    .slice(0, 5);
+  const categoriesPriority: TopPlusIndicator[] = [...categories]
+    .sort(
+      (a, b) =>
+        b.medioPlus.percentage - a.medioPlus.percentage ||
+        b.altoPlus.percentage - a.altoPlus.percentage ||
+        a.name.localeCompare(b.name, "es")
+    )
+    .map((c) => ({
+      name: c.name,
+      total: realResults,
+      medioPlus: c.medioPlus,
+      altoPlus: c.altoPlus,
+    }));
 
   const scoringVersion =
     workers.find((w) => w.scoringVersion)?.scoringVersion ?? null;
@@ -334,6 +391,12 @@ export function buildNom035AggregateReport(
     },
     topDomainsHighRisk,
     topCategoriesMediumPlus,
+    categoriesPriority,
+    priorityReading: {
+      domainHighestAltoPlus: domainsByAltoPlus[0] ?? null,
+      categoryHighestMedioPlus: categoriesByMedioPlus[0] ?? null,
+    },
+    presentationVersion: NOM035_REPORT_PRESENTATION_VERSION,
     levelDefinitions: { ...GUIA_III_ACTION_BY_LEVEL },
     testContribution: {
       rows: counts.testResultsIncluded,
@@ -342,6 +405,35 @@ export function buildNom035AggregateReport(
       trauma: 0,
     },
   };
+}
+
+/** Devuelve la razón de inconsistencia o null si la fila cuadra con REAL_RESULTS. */
+export function levelMatrixInconsistency(
+  row: NamedLevelMatrix,
+  realResults: number
+): string | null {
+  const sum = RISK_LEVEL_ORDER.reduce((acc, l) => acc + row.levels[l].count, 0);
+  if (sum !== realResults || row.total !== realResults) {
+    return `sum(levels)=${sum} total=${row.total} ≠ ${realResults}`;
+  }
+  if (realResults > 0) {
+    const pctSum = RISK_LEVEL_ORDER.reduce((acc, l) => acc + row.levels[l].percentage, 0);
+    if (Math.abs(pctSum - 100) > 0.2) return `sum(pct)=${pctSum}`;
+  }
+  const expected = computeLevelPlus(row.levels, realResults);
+  if (
+    row.medioPlus.count !== expected.medioPlus.count ||
+    row.medioPlus.percentage !== expected.medioPlus.percentage
+  ) {
+    return "Medio+ ≠ medio+alto+muy_alto";
+  }
+  if (
+    row.altoPlus.count !== expected.altoPlus.count ||
+    row.altoPlus.percentage !== expected.altoPlus.percentage
+  ) {
+    return "Alto+ ≠ alto+muy_alto";
+  }
+  return null;
 }
 
 export function assertAggregateMath(agg: Nom035AggregateReport): {
@@ -356,21 +448,13 @@ export function assertAggregateMath(agg: Nom035AggregateReport): {
   if (Math.abs(pctSum - 100) > 0.2 && real > 0) {
     return { ok: false, reason: `sum(pct)=${pctSum}` };
   }
-  for (const cat of agg.categories) {
-    if (cat.total !== real) {
-      return {
-        ok: false,
-        reason: `categoría ${cat.name} total=${cat.total} ≠ ${real}`,
-      };
-    }
-  }
-  for (const dom of agg.domains) {
-    if (dom.total !== real) {
-      return {
-        ok: false,
-        reason: `dominio ${dom.name} total=${dom.total} ≠ ${real}`,
-      };
-    }
+  const rows: Array<[string, NamedLevelMatrix]> = [
+    ...agg.categories.map((c): [string, NamedLevelMatrix] => ["categoría", c]),
+    ...agg.domains.map((d): [string, NamedLevelMatrix] => ["dominio", d]),
+  ];
+  for (const [kind, row] of rows) {
+    const reason = levelMatrixInconsistency(row, real);
+    if (reason) return { ok: false, reason: `${kind} ${row.name}: ${reason}` };
   }
   if (
     agg.traumaticEvent.yes + agg.traumaticEvent.no !==

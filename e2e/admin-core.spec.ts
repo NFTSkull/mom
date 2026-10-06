@@ -224,6 +224,8 @@ test("B4.4 · 4-9 Campaña, enlace, evaluación, rotate, revoke", async ({ brows
   // Admin refleja completed (DB ya verificado; UI vía resultados)
   await admin.goto("/admin/resultados");
   await expect(admin.getByText(`Eval Worker ${stamp}`)).toBeVisible();
+  await expect(admin.getByText(/Promedio por categor[ií]a/i)).toHaveCount(0);
+  await expect(admin.getByText(/Promedio por dominio/i)).toHaveCount(0);
   const resultId = sql(
     `select id from public.evaluation_results where assignment_id='${assignmentId}' limit 1`
   );

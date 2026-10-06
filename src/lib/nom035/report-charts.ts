@@ -5,29 +5,41 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import * as PImage from "pureimage";
-import type { Nom035AggregateReport } from "@/lib/nom035/aggregate-report";
+import type {
+  NamedLevelMatrix,
+  Nom035AggregateReport,
+} from "@/lib/nom035/aggregate-report";
 import type { ChartDataset } from "@/lib/nom035/report-data";
 import {
   RISK_CHART_HEX,
   RISK_LEVEL_ORDER,
   RISK_SHORT_LABEL,
 } from "@/lib/nom035/risk-palette";
+import type { RiskLevelNom035 } from "@/types/nom035";
+import { levelSegmentShares } from "@/lib/nom035/report-interpretation";
 
 type CanvasCtx = ReturnType<PImage.Bitmap["getContext"]>;
 
 export type ReportChartImages = {
   riskDistribution: Buffer;
   riskDistributionPct: Buffer;
-  categoriesGrouped: Buffer;
-  domainsGrouped: Buffer;
-  domainsGroupedB?: Buffer;
+  /** Barras apiladas 100% por categoría (distribución por nivel). */
+  categoriesDistribution: Buffer;
+  /** Barras apiladas 100% por dominio (1/2). */
+  domainsDistribution: Buffer;
+  /** Barras apiladas 100% por dominio (2/2). */
+  domainsDistributionB?: Buffer;
   traumaticEvent: Buffer;
   completionStatus: Buffer;
-  categoryAverages: Buffer;
-  domainAverages: Buffer;
   individualCategories?: Buffer;
   individualDomains?: Buffer;
 };
+
+export const EXECUTIVE_CHART_TITLES = {
+  categories: "DISTRIBUCIÓN DE RIESGO POR CATEGORÍA",
+  domainsA: "DISTRIBUCIÓN DE RIESGO POR DOMINIO (1/2)",
+  domainsB: "DISTRIBUCIÓN DE RIESGO POR DOMINIO (2/2)",
+} as const;
 
 const FONT_FAMILY = "Nom035Sans";
 let fontLoadPromise: Promise<boolean> | null = null;
@@ -274,76 +286,173 @@ function drawSimpleBars(input: {
   return img;
 }
 
-function drawGroupedBars(input: {
+function textWidth(ctx: CanvasCtx, text: string, size: number): number {
+  try {
+    const w = ctx.measureText(text).width;
+    if (Number.isFinite(w) && w > 0) return w;
+  } catch {
+    /* fuente no cargada: aproximación */
+  }
+  return text.length * size * 0.56;
+}
+
+export type StackedLevelRow = {
+  label: string;
+  sublabel?: string;
+  counts: Record<RiskLevelNom035, number>;
+  percentages: Record<RiskLevelNom035, number>;
+  total: number;
+  medioPlus: { count: number; percentage: number };
+  altoPlus: { count: number; percentage: number };
+};
+
+/**
+ * Barra horizontal apilada al 100% por fila (distribución de personas por nivel).
+ * La longitud de cada segmento es count/total; nunca se usa un puntaje bruto.
+ */
+function drawStackedLevelBars(input: {
   title: string;
-  groupLabels: string[];
-  series: Array<{ key: string; label: string; color: string; values: number[] }>;
+  subtitle: string;
+  rows: StackedLevelRow[];
   width?: number;
-  height?: number;
 }): PImage.Bitmap {
-  const width = input.width ?? 1400;
-  const height = input.height ?? 700;
+  const width = input.width ?? 1600;
+  const rowH = 84;
+  const top = 128;
+  const bottom = 116;
+  const height = top + Math.max(input.rows.length, 1) * rowH + bottom;
   const img = PImage.make(width, height);
   const ctx = img.getContext("2d");
   fillBg(ctx, width, height);
   drawTitle(ctx, input.title, width);
+  setFont(ctx, 15);
+  ctx.fillStyle = "#475569";
+  ctx.fillText(input.subtitle, 28, 92);
 
-  const margin = { top: 80, right: 24, bottom: 130, left: 56 };
-  const legendY = height - 42;
-  const innerW = width - margin.left - margin.right;
-  const innerH = height - margin.top - margin.bottom;
-  const groups = Math.max(input.groupLabels.length, 1);
-  const seriesCount = Math.max(input.series.length, 1);
-  const groupGap = 22;
-  const groupW = Math.max(56, (innerW - groupGap * (groups - 1)) / groups);
-  const barGap = 3;
-  const barW = Math.max(6, (groupW - barGap * (seriesCount - 1)) / seriesCount);
-  const maxVal = Math.max(1, ...input.series.flatMap((s) => s.values), 0);
-  drawYGrid(ctx, margin, width, height, maxVal);
+  const labelW = 380;
+  const rightW = 290;
+  const x0 = labelW + 24;
+  const barW = width - x0 - rightW - 32;
+  const rightX = x0 + barW + 24;
+  const barH = 42;
 
-  for (let g = 0; g < groups; g++) {
-    const groupX = margin.left + g * (groupW + groupGap);
-    for (let s = 0; s < seriesCount; s++) {
-      const series = input.series[s]!;
-      const value = series.values[g] ?? 0;
-      const h = (value / maxVal) * innerH;
-      const x = groupX + s * (barW + barGap);
-      const y = margin.top + innerH - h;
-      ctx.fillStyle = series.color;
-      ctx.fillRect(x, y, barW, h);
-      if (value > 0) {
-        setFont(ctx, 10, "bold");
-        ctx.fillStyle = "#0f172a";
-        ctx.fillText(String(value), x, y - 4);
-      }
+  setFont(ctx, 14, "bold");
+  ctx.fillStyle = "#0f172a";
+  ctx.fillText("Medio+  /  Alto+", rightX, top - 12);
+
+  input.rows.forEach((row, i) => {
+    const yTop = top + i * rowH;
+    const barY = yTop + (rowH - barH) / 2;
+
+    const lines = wrapChartLabel(row.label, 36, 2);
+    const labelBlockH = lines.length * 19 + (row.sublabel ? 16 : 0);
+    let ly = yTop + (rowH - labelBlockH) / 2 + 15;
+    setFont(ctx, 16, "bold");
+    ctx.fillStyle = "#0f172a";
+    for (const line of lines) {
+      ctx.fillText(line, 28, ly);
+      ly += 19;
     }
-    const maxChars = Math.max(10, Math.floor(groupW / 6.5));
-    drawWrappedLabel(
-      ctx,
-      input.groupLabels[g] ?? "",
-      groupX,
-      margin.top + innerH + 18,
-      maxChars
+    if (row.sublabel) {
+      setFont(ctx, 12);
+      ctx.fillStyle = "#64748b";
+      ctx.fillText(wrapChartLabel(row.sublabel, 48, 1)[0] ?? "", 28, ly);
+    }
+
+    ctx.fillStyle = "#f1f5f9";
+    ctx.fillRect(x0, barY, barW, barH);
+
+    const shares = levelSegmentShares(
+      {
+        nulo: { count: row.counts.nulo },
+        bajo: { count: row.counts.bajo },
+        medio: { count: row.counts.medio },
+        alto: { count: row.counts.alto },
+        muy_alto: { count: row.counts.muy_alto },
+      },
+      row.total
     );
-  }
+    let x = x0;
+    let acc = 0;
+    for (const level of RISK_LEVEL_ORDER) {
+      const count = row.counts[level] ?? 0;
+      if (count <= 0) continue;
+      acc += shares[level];
+      const xEnd = x0 + acc * barW;
+      const segW = xEnd - x;
+      ctx.fillStyle = RISK_CHART_HEX[level];
+      ctx.fillRect(x, barY, segW, barH);
 
-  ctx.strokeStyle = "#94a3b8";
-  ctx.beginPath();
-  ctx.moveTo(margin.left, margin.top + innerH);
-  ctx.lineTo(width - margin.right, margin.top + innerH);
-  ctx.stroke();
+      const pctText = `${row.percentages[level] ?? 0}%`;
+      const candidates = [`${pctText} (${count})`, pctText, String(count)];
+      setFont(ctx, 14);
+      const fit = candidates.find((t) => textWidth(ctx, t, 14) + 8 <= segW);
+      if (fit) {
+        ctx.fillStyle = "#ffffff";
+        const tw = textWidth(ctx, fit, 14);
+        ctx.fillText(fit, x + (segW - tw) / 2, barY + barH / 2 + 5);
+      }
+      x = xEnd;
+    }
 
-  let lx = margin.left;
-  for (const series of input.series) {
-    ctx.fillStyle = series.color;
-    ctx.fillRect(lx, legendY, 14, 14);
-    setFont(ctx, 12);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.strokeRect(x0, barY, barW, barH);
+
+    setFont(ctx, 14);
+    ctx.fillStyle = "#0f172a";
+    ctx.fillText(
+      `Medio+: ${row.medioPlus.count}/${row.total} · ${row.medioPlus.percentage}%`,
+      rightX,
+      barY + 16
+    );
+    ctx.fillStyle = "#9a3412";
+    ctx.fillText(
+      `Alto+: ${row.altoPlus.count}/${row.total} · ${row.altoPlus.percentage}%`,
+      rightX,
+      barY + 36
+    );
+  });
+
+  const legendY = height - bottom + 30;
+  let lx = 28;
+  for (const level of RISK_LEVEL_ORDER) {
+    ctx.fillStyle = RISK_CHART_HEX[level];
+    ctx.fillRect(lx, legendY, 18, 18);
+    setFont(ctx, 14);
     ctx.fillStyle = "#334155";
-    ctx.fillText(series.label, lx + 20, legendY + 12);
-    lx += 110;
+    ctx.fillText(RISK_SHORT_LABEL[level], lx + 26, legendY + 15);
+    lx += 140;
   }
+  setFont(ctx, 13);
+  ctx.fillStyle = "#475569";
+  ctx.fillText(
+    "Medio+ = Medio + Alto + Muy alto · Alto+ = Alto + Muy alto · Indicadores descriptivos; no son niveles oficiales NOM-035.",
+    28,
+    legendY + 50
+  );
 
   return img;
+}
+
+function matrixToStackedRow(
+  m: NamedLevelMatrix,
+  withCategory: boolean
+): StackedLevelRow {
+  const counts = {} as Record<RiskLevelNom035, number>;
+  const percentages = {} as Record<RiskLevelNom035, number>;
+  for (const level of RISK_LEVEL_ORDER) {
+    counts[level] = m.levels[level].count;
+    percentages[level] = m.levels[level].percentage;
+  }
+  return {
+    label: m.name,
+    sublabel: withCategory && m.category ? `Categoría: ${m.category}` : undefined,
+    counts,
+    percentages,
+    total: m.total,
+    medioPlus: m.medioPlus,
+    altoPlus: m.altoPlus,
+  };
 }
 
 export async function renderExecutiveCharts(
@@ -355,31 +464,18 @@ export async function renderExecutiveCharts(
   const riskCounts = agg.overallRiskDistribution.map((r) => r.count);
   const riskPcts = agg.overallRiskDistribution.map((r) => r.percentage);
 
-  const catSeries = RISK_LEVEL_ORDER.map((level) => ({
-    key: level,
-    label: RISK_SHORT_LABEL[level],
-    color: RISK_CHART_HEX[level],
-    values: agg.categories.map((c) => c.levels[level].count),
-  }));
-
+  const n = agg.population.realResults;
+  const subtitle = `Porcentaje de personal evaluado en cada nivel (N = ${n}). Cada barra suma 100%.`;
   const mid = Math.ceil(agg.domains.length / 2);
   const domainsA = agg.domains.slice(0, mid);
   const domainsB = agg.domains.slice(mid);
 
-  const makeDomainSeries = (slice: typeof agg.domains) =>
-    RISK_LEVEL_ORDER.map((level) => ({
-      key: level,
-      label: RISK_SHORT_LABEL[level],
-      color: RISK_CHART_HEX[level],
-      values: slice.map((d) => d.levels[level].count),
-    }));
-
   const [
     riskDistribution,
     riskDistributionPct,
-    categoriesGrouped,
-    domainsGrouped,
-    domainsGroupedB,
+    categoriesDistribution,
+    domainsDistribution,
+    domainsDistributionB,
     traumaticEvent,
     completionStatus,
   ] = await Promise.all([
@@ -406,33 +502,24 @@ export async function renderExecutiveCharts(
       })
     ),
     encodePng(
-      drawGroupedBars({
-        title:
-          "CALIFICACIÓN DE CATEGORÍAS DE RIESGOS PSICOSOCIALES POR TOTAL DE PERSONAL EVALUADO",
-        groupLabels: agg.categories.map((c) => c.name),
-        series: catSeries,
-        width: 1400,
-        height: 700,
+      drawStackedLevelBars({
+        title: EXECUTIVE_CHART_TITLES.categories,
+        subtitle,
+        rows: agg.categories.map((c) => matrixToStackedRow(c, false)),
       })
     ),
     encodePng(
-      drawGroupedBars({
-        title:
-          "CALIFICACIÓN DE DOMINIOS DE RIESGOS PSICOSOCIALES (1/2) POR TOTAL DE PERSONAL EVALUADO",
-        groupLabels: domainsA.map((d) => d.name),
-        series: makeDomainSeries(domainsA),
-        width: 1400,
-        height: 700,
+      drawStackedLevelBars({
+        title: EXECUTIVE_CHART_TITLES.domainsA,
+        subtitle,
+        rows: domainsA.map((d) => matrixToStackedRow(d, true)),
       })
     ),
     encodePng(
-      drawGroupedBars({
-        title:
-          "CALIFICACIÓN DE DOMINIOS DE RIESGOS PSICOSOCIALES (2/2) POR TOTAL DE PERSONAL EVALUADO",
-        groupLabels: domainsB.map((d) => d.name),
-        series: makeDomainSeries(domainsB),
-        width: 1400,
-        height: 700,
+      drawStackedLevelBars({
+        title: EXECUTIVE_CHART_TITLES.domainsB,
+        subtitle,
+        rows: domainsB.map((d) => matrixToStackedRow(d, true)),
       })
     ),
     encodePng(
@@ -464,67 +551,12 @@ export async function renderExecutiveCharts(
   return {
     riskDistribution,
     riskDistributionPct,
-    categoriesGrouped,
-    domainsGrouped,
-    domainsGroupedB,
+    categoriesDistribution,
+    domainsDistribution,
+    domainsDistributionB,
     traumaticEvent,
     completionStatus,
-    categoryAverages: categoriesGrouped,
-    domainAverages: domainsGrouped,
   };
-}
-
-export async function renderAggregateCharts(input: {
-  riskDistribution: ChartDataset;
-  categoryAverages: ChartDataset;
-  domainAverages: ChartDataset;
-  completionStatus: ChartDataset;
-}): Promise<
-  Pick<
-    ReportChartImages,
-    "riskDistribution" | "categoryAverages" | "domainAverages" | "completionStatus"
-  >
-> {
-  await ensureChartFont();
-  const [riskDistribution, categoryAverages, domainAverages, completionStatus] =
-    await Promise.all([
-      encodePng(
-        drawSimpleBars({
-          title: "Distribución de niveles de riesgo",
-          labels: input.riskDistribution.labels,
-          values: input.riskDistribution.values,
-          colors: RISK_LEVEL_ORDER.map((l) => RISK_CHART_HEX[l]),
-          width: 1100,
-          height: 560,
-        })
-      ),
-      encodePng(
-        drawSimpleBars({
-          title: "Promedio por categoría",
-          labels: input.categoryAverages.labels,
-          values: input.categoryAverages.values,
-          width: 1100,
-          height: 560,
-        })
-      ),
-      encodePng(
-        drawSimpleBars({
-          title: "Promedio por dominio",
-          labels: input.domainAverages.labels,
-          values: input.domainAverages.values,
-          width: 1200,
-          height: 600,
-        })
-      ),
-      encodePng(
-        drawSimpleBars({
-          title: "Completados vs pendientes vs en progreso",
-          labels: input.completionStatus.labels,
-          values: input.completionStatus.values,
-        })
-      ),
-    ]);
-  return { riskDistribution, categoryAverages, domainAverages, completionStatus };
 }
 
 export async function renderIndividualCharts(input: {

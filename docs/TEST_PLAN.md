@@ -12,6 +12,7 @@
 | Módulos secundarios + Storage | Playwright Chromium | B4.5 (`e2e/secondary-modules.spec.ts`) |
 | Auth / RBAC / MFA | Playwright Chromium | B4.6 (`e2e/auth-rbac.spec.ts`) |
 | Staging remoto | Playwright (config separada) | B4.7 (`e2e-staging/`, Preview HTTPS) |
+| Distribución por nivel (Medio+/Alto+, sin promedios) | Vitest + Playwright | B4.29 (`b429-risk-distribution`, `admin-core.spec.ts`) |
 | CI release | GitHub Actions | `release/**` |
 
 Comandos: `npm test`, `npm run db:test`, `npm run test:e2e`, `npm run test:e2e:staging`, `npm run auth:seed:test`, `npm run auth:cleanup:test`.
