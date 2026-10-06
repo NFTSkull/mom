@@ -1643,6 +1643,7 @@ export type Database = {
         Args: { p_assignment_id: string; p_payload: Json }
         Returns: undefined
       }
+      unaccent: { Args: { "": string }; Returns: string }
       worker_clear_must_change_password: {
         Args: { p_auth_user_id: string }
         Returns: Json
