@@ -602,6 +602,137 @@ select ok(
   jsonb_array_length((public.admin_list_results())->'items') >= 1,
   'admin_list_results devuelve al menos un item');
 
+-- ============================ B4.29.1 admin_list_results firma única + orden ==
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'admin_list_results'),
+  1, 'admin_list_results: una sola firma (sin overload legacy)');
+
+select is(
+  (select pg_get_function_identity_arguments(p.oid) from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'admin_list_results'),
+  'p_campaign_id uuid, p_worker_id uuid, p_departamento text, p_risk_level text, p_search text, p_page integer, p_page_size integer, p_sort text',
+  'admin_list_results: firma con p_sort');
+
+select ok(
+  (select pg_get_function_arguments(p.oid) from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'admin_list_results')
+  like '%p_sort text DEFAULT ''name_asc''::text%',
+  'admin_list_results: p_sort default name_asc');
+
+select ok(
+  not has_function_privilege('anon',
+    'public.admin_list_results(uuid, uuid, text, text, text, integer, integer, text)', 'EXECUTE'),
+  'anon sin EXECUTE en admin_list_results');
+
+select ok(
+  (select p.proacl is not null from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'admin_list_results')
+  and not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
+      aclexplode(p.proacl) a
+    where n.nspname = 'public' and p.proname = 'admin_list_results'
+      and a.grantee = 0 and a.privilege_type = 'EXECUTE'),
+  'PUBLIC sin EXECUTE en admin_list_results');
+
+select is(
+  (public.admin_create_worker('Zacarias Orden', 'zacarias@empresa-demo.test'))->>'ok',
+  'true', 'worker para orden de resultados OK');
+
+insert into public.evaluation_assignments (
+  id, campaign_id, worker_id, token_hash, token_last4, status,
+  completed_at, started_at, questionnaire_version, token_issued_at
+) values (
+  'f0000000-0000-0000-0000-000000000003',
+  (select id from public.evaluation_campaigns where status = 'active'),
+  (select id from public.workers where normalized_email = 'zacarias@empresa-demo.test'),
+  'abababababababababababababababababababababababababababababababab0003',
+  'zz03',
+  'completed',
+  timezone('utc', now()) - interval '1 day',
+  timezone('utc', now()) - interval '1 day',
+  'nom035-stps-2018-guias-referencia-i-ii',
+  timezone('utc', now()) - interval '2 days'
+);
+
+insert into public.evaluation_results (
+  id, assignment_id, worker_id, campaign_id,
+  guia_i_requires_clinical_attention, guia_ii_final_score, guia_ii_final_risk_level,
+  guia_ii_category_scores, guia_ii_domain_scores, guia_ii_dimension_scores,
+  alerts, scoring_version, questionnaire_version, submission_id, completed_at
+) values (
+  'a0000000-0000-0000-0000-000000000003',
+  'f0000000-0000-0000-0000-000000000003',
+  (select id from public.workers where normalized_email = 'zacarias@empresa-demo.test'),
+  (select id from public.evaluation_campaigns where status = 'active'),
+  false,
+  30,
+  'medio',
+  '{"cat1":{"score":3}}'::jsonb,
+  '{"dom1":{"score":4}}'::jsonb,
+  '{"dim1":{"score":5}}'::jsonb,
+  '[]'::jsonb,
+  'nom035-v1',
+  'nom035-stps-2018-guias-referencia-i-ii',
+  '22222222-aaaa-4bbb-8ccc-000000000003'::uuid,
+  timezone('utc', now()) - interval '1 day'
+);
+
+create temp table b4291_sort on commit drop as
+select s.sort,
+  (public.admin_list_results(
+    (select id from public.evaluation_campaigns where status = 'active'),
+    null, null, null, null, 1, 20, s.sort)) as res
+from unnest(array['name_asc', 'name_desc', 'recent', 'oldest']) as s(sort);
+
+select is(
+  (select array_agg(i->>'workerNombre' order by o)
+    from b4291_sort, jsonb_array_elements(res->'items') with ordinality as x(i, o)
+    where sort = 'name_asc'),
+  array['Bruno Logistica', 'Zacarias Orden'], 'name_asc: A→Z');
+
+select is(
+  (select array_agg(i->>'workerNombre' order by o)
+    from b4291_sort, jsonb_array_elements(res->'items') with ordinality as x(i, o)
+    where sort = 'name_desc'),
+  array['Zacarias Orden', 'Bruno Logistica'], 'name_desc: Z→A');
+
+select is(
+  (select array_agg(i->>'workerNombre' order by o)
+    from b4291_sort, jsonb_array_elements(res->'items') with ordinality as x(i, o)
+    where sort = 'recent'),
+  array['Bruno Logistica', 'Zacarias Orden'], 'recent: más reciente primero');
+
+select is(
+  (select array_agg(i->>'workerNombre' order by o)
+    from b4291_sort, jsonb_array_elements(res->'items') with ordinality as x(i, o)
+    where sort = 'oldest'),
+  array['Zacarias Orden', 'Bruno Logistica'], 'oldest: más antiguo primero');
+
+select is(
+  (select count(*)::int from b4291_sort where res->>'sort' = sort and (res->>'ok')::boolean),
+  4, 'las 4 variantes responden ok y reportan su sort');
+
+select ok(
+  not exists (select 1 from b4291_sort, jsonb_array_elements(res->'items') i where i ? 'sortOrdinal'),
+  'items no exponen sortOrdinal');
+
+select is(
+  (public.admin_list_results((select id from public.evaluation_campaigns where status = 'active')))->>'sort',
+  'name_asc', 'default sort = name_asc');
+
+select is(
+  (public.admin_list_results(null, null, null, null, null, 1, 20, 'invalido'))->>'sort',
+  'name_asc', 'sort inválido cae a name_asc');
+
+select is(
+  (public.admin_list_results(
+    (select id from public.evaluation_campaigns where status = 'active'),
+    null, null, null, null, 2, 1, 'name_desc'))->'items'->0->>'workerNombre',
+  'Bruno Logistica', 'name_desc paginado: página 2 de tamaño 1');
+
 select is(
   (public.admin_get_result_detail('a0000000-0000-0000-0000-000000000001'))->>'ok',
   'true', 'admin_get_result_detail OK');

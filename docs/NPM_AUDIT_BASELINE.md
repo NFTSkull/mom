@@ -41,3 +41,9 @@ Incluyen (lista no exhaustiva del JSON de audit): DoS Server Components, middlew
 ## Riesgo operativo
 
 Mientras el MVP siga solo en localhost con localStorage, la exposición de red es limitada. Antes de cualquier despliegue público, el bump de `next` a `16.2.11+` debe tratarse como **P1 bloqueante de entrega formal**.
+
+## Actualización B4.29.1 (2026-10-06)
+
+`npm audit --omit=dev` y `npm audit`: **critical 0 · high 0 · moderate 2** (`uuid` vía `exceljs`, no alcanzable: solo `v4()` sin `buf`).
+
+Remediación: `next` 16.3.8; overrides `sharp` 0.35.5, `brace-expansion` 5.0.12, `source-map-js` 1.2.2, `@next/eslint-plugin-next > fast-glob → tinyglobby@0.2.17` (elimina `braces`, GHSA-vfj7-8cjw-p6xm sin parche); `vitest` ^4.1.11. Detalle en `docs/B4_29_1_CI_SEGURIDAD.md`.

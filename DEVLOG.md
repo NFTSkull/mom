@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-10-06 - B4.29.1 CI verde y seguridad
+
+### Causa raíz
+
+- pgTAP rojo desde B4.28.1: `CREATE OR REPLACE` con un argumento nuevo creó una sobrecarga; la firma legacy siguió viva y las llamadas sin `p_sort` eran ambiguas.
+- `npm audit` rojo por advisories publicados después del último CI verde (Next crítico; sharp, brace-expansion, source-map-js, braces altos). Como el audit corre primero, CI no llegaba a lint/test/build/e2e.
+
+### Decisiones
+
+- Auditoría read-only de `pg_proc` en Production antes de eliminar nada: dos overloads, sin referencias SQL, único llamador envía `p_sort`.
+- Se corrige también el orden de página (defecto real de 015, aprobado por el usuario): ordinal con el mismo `ORDER BY`, no expuesto.
+- 015 dejó EXECUTE a PUBLIC/anon en la firma nueva; 016 restablece el ACL de la legacy.
+- Next al último parche 16.x (16.3.8), sin major ni cambios en React.
+- sharp no vuelve como dependencia directa; solo override del transitivo opcional de Next.
+- `braces` no tiene parche: en vez de rebajar el gate de CI, se reemplaza `fast-glob` (único consumidor, solo en el plugin ESLint de Next, API `globSync`) por `tinyglobby`, ya presente en el árbol.
+- `uuid` moderado vía exceljs: no alcanzable (solo `v4()` sin `buf`); el fix requeriría bajar exceljs de major.
+- Docker local colgado: pgTAP, regeneración de tipos y Playwright se validan en runners de CI aislados con Supabase local; ningún test con escritura apunta a Production.
+
 ## 2026-10-06 - B4.29 distribución por nivel como fuente principal
 
 ### Causa raíz

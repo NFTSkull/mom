@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-06 (B4.29.1 — CI verde y seguridad post-B4.29)
+
+- `next` / `eslint-config-next` 16.2.11 → 16.3.8 (corrige advisories críticos); React sin cambios.
+- Overrides: `sharp` 0.35.5, `brace-expansion` 5.0.12, `source-map-js` 1.2.2; `fast-glob` del plugin ESLint de Next → `tinyglobby` (elimina `braces`, sin parche). `vitest` ^4.1.11.
+- `npm audit` (prod y completo): critical 0, high 0.
+- Migración `016`: `admin_list_results` con firma única (se elimina el overload legacy sin `p_sort`), orden de página preservado en `name_desc`/`recent` y sin EXECUTE para PUBLIC/anon.
+- pgTAP 006 ampliado (firma, grants, orden real de las 4 variantes); tipos generados con `p_sort`.
+- Sin cambios en datos, scoring, resultados, workers ni campañas.
+
 ## 2026-10-06 (B4.29 — distribución por nivel reemplaza promedios brutos engañosos)
 
 - Admin → Resultados: se retiran «Promedio por categoría» y «Promedio por dominio»; nuevas secciones A–D con barras apiladas 100 % por nivel + Medio+/Alto+ (n/N y %).

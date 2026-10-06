@@ -1272,6 +1272,7 @@ export type Database = {
           p_page_size?: number
           p_risk_level?: string
           p_search?: string
+          p_sort?: string
           p_worker_id?: string
         }
         Returns: Json

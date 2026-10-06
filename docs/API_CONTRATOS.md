@@ -1,6 +1,23 @@
 # Contratos de API
 
-## Bloque actual: B4.29 — Distribución por nivel como fuente principal de interpretación
+## Bloque actual: B4.29.1 — CI verde y endurecimiento post-B4.29
+
+Sin endpoints nuevos. Contrato de `GET /api/admin/nom035/results` sin cambios de forma (`sort` = `name_asc` default | `name_desc` | `recent` | `oldest`).
+
+Migración `016_admin_list_results_single_signature.sql`:
+
+| Cambio | Motivo |
+|--------|--------|
+| `DROP` de la firma legacy `admin_list_results(uuid, uuid, text, text, text, integer, integer)` | 015 creó una sobrecarga; llamadas sin `p_sort` eran ambiguas. Sin llamadores (verificado en Production y en código). |
+| Firma única `admin_list_results(..., p_sort text default 'name_asc')` | Inequívoca. |
+| Orden de `items` = orden de la página | 015 reordenaba cada página en ascendente (`name_desc`/`recent` invertidos). |
+| `REVOKE` PUBLIC/anon; `GRANT` authenticated, service_role | Mismo ACL que la firma legacy. |
+
+Payload: `{ok, page, pageSize, total, sort, items[]}`; `items[].sortKey` se conserva; no se expone ordinal interno.
+
+Dependencias: `next` / `eslint-config-next` 16.3.8; overrides `sharp` 0.35.5, `brace-expansion` 5.0.12, `source-map-js` 1.2.2, `@next/eslint-plugin-next > fast-glob → tinyglobby`. Ver `docs/B4_29_1_CI_SEGURIDAD.md`.
+
+## Bloque B4.29 — Distribución por nivel como fuente principal de interpretación
 
 Sin endpoints nuevos ni migración. Solo presentación (UI, PNG, XLSX). Scoring, thresholds, snapshots y resultados persistidos **sin cambios**.
 
