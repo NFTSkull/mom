@@ -51,6 +51,10 @@ React 19.2.4 sin cambios. Lockfile: solo parches/minors (Next/SWC, sharp/libvips
 
 `next build` (Turbopack) sin warnings; App Router, Proxy (middleware), route handlers dinámicos y páginas estáticas compilan. Vitest (XLSX, agregados, auth estática) en verde. E2E Chromium/Firefox/WebKit en CI con stack Supabase local.
 
+## 3b. Gate «Types sin diff»
+
+`npm run db:types` usaba `npx --yes supabase` (última versión). El CLI actual (2.120.0) emite TypeScript sin formato («Generated TypeScript is unformatted»), por lo que el diff fallaba aunque el esquema coincidiera. Se fija `supabase@2.116.0` (vigente en el último gate verde, 2026-09-03). Único cambio de esquema reflejado: `p_sort?: string` en `admin_list_results`.
+
 ## 4. Verificación
 
 Local: lint, typecheck, Vitest, build, secret scan, PII scan. CI (runners aislados con Supabase local): npm audit, pgTAP completo, tipos sin diff, Playwright Chromium/Firefox, WebKit Guía III.

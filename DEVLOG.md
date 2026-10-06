@@ -16,6 +16,7 @@
 - sharp no vuelve como dependencia directa; solo override del transitivo opcional de Next.
 - `braces` no tiene parche: en vez de rebajar el gate de CI, se reemplaza `fast-glob` (único consumidor, solo en el plugin ESLint de Next, API `globSync`) por `tinyglobby`, ya presente en el árbol.
 - `uuid` moderado vía exceljs: no alcanzable (solo `v4()` sin `buf`); el fix requeriría bajar exceljs de major.
+- `db:types` fijado a `supabase@2.116.0`: `npx --yes supabase` descargaba el CLI más reciente (2.120.0), que emite tipos sin formato y rompía el gate «Types sin diff» con independencia del esquema. 2.116.0 era la versión vigente en el último gate verde (2026-09-03).
 - Docker local colgado: pgTAP, regeneración de tipos y Playwright se validan en runners de CI aislados con Supabase local; ningún test con escritura apunta a Production.
 
 ## 2026-10-06 - B4.29 distribución por nivel como fuente principal

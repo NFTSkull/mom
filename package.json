@@ -15,7 +15,7 @@
     "db:status": "npx --yes supabase status",
     "db:reset": "npx --yes supabase db reset --local",
     "db:test": "npx --yes supabase test db --local supabase/tests/database",
-    "db:types": "npx --yes supabase gen types typescript --local > src/types/database.generated.ts",
+    "db:types": "npx --yes supabase@2.116.0 gen types typescript --local > src/types/database.generated.ts",
     "db:seed:evaluation": "node scripts/seed-public-evaluation.mjs",
     "auth:seed:test": "npx --yes tsx scripts/seed-auth-test-users.ts",
     "auth:cleanup:test": "npx --yes tsx scripts/cleanup-auth-test-users.ts",

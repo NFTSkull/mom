@@ -69,6 +69,13 @@ describe("B4.29.1 CI verde: dependencias y admin_list_results", () => {
     expect(types).toMatch(/admin_list_results: \{\s*Args: \{[\s\S]*?p_sort\?: string[\s\S]*?\}\s*Returns: Json/);
   });
 
+  it("db:types usa una versión fija del CLI (salida determinista para el gate de CI)", () => {
+    const scripts = (JSON.parse(readFileSync("package.json", "utf8")) as {
+      scripts: Record<string, string>;
+    }).scripts;
+    expect(scripts["db:types"]).toMatch(/^npx --yes supabase@\d+\.\d+\.\d+ gen types typescript --local /);
+  });
+
   it("pgTAP cubre firma única, grants y orden real de las 4 variantes", () => {
     const t = readFileSync("supabase/tests/database/006_admin_core_backend.test.sql", "utf8");
     for (const label of [
