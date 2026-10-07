@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-07 (B4.29.7 — barras apiladas a color en Admin → Resultados)
+
+- Se restaura el panel aprobado de B4.29: A distribución general, B avance, C «Distribución de riesgo por categoría» y D «Distribución de riesgo por dominio» con barras apiladas Nulo/Bajo/Medio/Alto/Muy alto a color, porcentaje dentro del segmento (≥ 9%), Medio+/Alto+ «x / total · %», «Total evaluados», leyenda y nota de interpretación.
+- Se conserva la tabla completa plegable (Nulo…Total) debajo de C y D.
+- Reemplaza la vista gris de B4.29.6 (no desplegada). Sin lógica especial para Jornada: sus segmentos salen de los conteos persistidos.
+- XLSX sin cambios: Categorías/Dominios ya usan las mismas barras apiladas y la misma paleta.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-07 (B4.29.6 — Medio / Alto / Muy alto visibles por dominio y categoría)
 
 - Admin → Resultados: «Riesgo por categoría» y «Riesgo por dominio» muestran en cada fila «Medio: X% · Alto: X% · Muy alto: X%» y una barra gris de tres tonos con esos porcentajes. Ninguna fila recibe una etiqueta única (NULO, ALTO, …) ni se usan promedios brutos (no aparece 2.86).

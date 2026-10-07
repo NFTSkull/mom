@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-10-07 - B4.29.7 Barras apiladas a color
+
+### Decisiones
+
+- La «captura aprobada» corresponde a `report-charts-panel.tsx` de `d1cd2fb` (B4.29 final, antes de cualquier ajuste de Jornada). Se restaura ese archivo y solo se agrega la tabla completa plegable que ya existía en B4.29.6.
+- `page.tsx`, `aggregate-report.ts`, `risk-palette.ts`, el XLSX y el PNG no cambian; `INTERPRETATION_LINES` queda idéntico a B4.29.
+- Se eliminan `riskShareRows`/`RISK_SHARE_*` (vista gris de B4.29.6, sin uso). B4.29.5 y B4.29.6 quedan en la rama sin desplegar.
+- WebKit de `50a2e4b` falló en `guia-iii-evaluation.spec.ts` (flujo del trabajador, no tocado); el rerun pasó: intermitente.
+
+
 ## 2026-10-07 - B4.29.6 Medio / Alto / Muy alto por fila
 
 ### Decisiones

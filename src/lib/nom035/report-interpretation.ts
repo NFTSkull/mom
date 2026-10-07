@@ -79,47 +79,6 @@ export function levelSegmentShares(
   return out;
 }
 
-export const RISK_SHARE_TITLES = {
-  risk: "Distribución por nivel de riesgo",
-  completion: "Avance de evaluación",
-  categories: "Riesgo por categoría",
-  domains: "Riesgo por dominio",
-} as const;
-
-export const RISK_SHARE_NOTE = "% del personal en nivel Medio, Alto y Muy alto (sobre el total evaluado).";
-
-export const RISK_SHARE_LEVELS = ["medio", "alto", "muy_alto"] as const;
-export type RiskShareLevel = (typeof RISK_SHARE_LEVELS)[number];
-
-export const RISK_SHARE_LABELS: Record<RiskShareLevel, string> = {
-  medio: "Medio",
-  alto: "Alto",
-  muy_alto: "Muy alto",
-};
-
-export type RiskShareRow = {
-  name: string;
-  shares: Array<{ level: RiskShareLevel; label: string; percentage: number; text: string }>;
-};
-
-/**
- * Medio / Alto / Muy alto de cada fila, con el porcentaje persistido en `levels`.
- * No asigna un nivel único a la fila ni usa puntajes brutos.
- */
-export function riskShareRows(
-  rows: ReadonlyArray<{ name: string; levels: Record<Level, { count: number; percentage: number }> }>
-): RiskShareRow[] {
-  return rows.map((row) => ({
-    name: row.name,
-    shares: RISK_SHARE_LEVELS.map((level) => ({
-      level,
-      label: RISK_SHARE_LABELS[level],
-      percentage: row.levels[level].percentage,
-      text: `${RISK_SHARE_LABELS[level]}: ${row.levels[level].percentage}%`,
-    })),
-  }));
-}
-
 export const LEVEL_TABLE_TITLES = {
   categories: "Resultados por categoría",
   domains: "Resultados por dominio",

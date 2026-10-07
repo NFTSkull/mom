@@ -1,6 +1,14 @@
 # Contratos de API
 
-## Bloque actual: B4.29.6 — Medio / Alto / Muy alto por dominio y categoría
+## Bloque actual: B4.29.7 — Barras apiladas a color en Admin → Resultados
+
+Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI); XLSX, scoring, thresholds y resultados persistidos sin cambios.
+
+- Admin → Resultados, con datos de `GET /api/admin/nom035/reports/executive`: A «Distribución general de riesgo», B «Avance de evaluación», C «Distribución de riesgo por categoría», D «Distribución de riesgo por dominio».
+- C/D: barra apilada por fila con `levels[l].count / total` y colores `RISK_CHART_HEX` (Nulo gris, Bajo verde, Medio ámbar, Alto naranja, Muy alto rojo); porcentaje dentro del segmento si ≥ 9%; a la derecha `medioPlus`/`altoPlus` como «x / total · %»; «Total evaluados»; tabla completa plegable (Nulo…Total).
+- Sin etiqueta de nivel predominante, sin promedios brutos y sin lógica por dominio específico.
+
+## Bloque B4.29.6 — Medio / Alto / Muy alto por dominio y categoría (no desplegado; reemplazado por B4.29.7)
 
 Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI); XLSX, scoring, thresholds y resultados persistidos sin cambios.
 

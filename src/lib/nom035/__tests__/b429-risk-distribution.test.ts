@@ -90,13 +90,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
   it("1. dashboard sin título visible «Promedio por categoría»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por categor[ií]a/i);
-    expect(html).toMatch(/Riesgo por categoría/);
+    expect(html).toMatch(/Distribución de riesgo por categoría/);
   });
 
   it("2. dashboard sin título visible «Promedio por dominio»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por dominio/i);
-    expect(html).toMatch(/Riesgo por dominio/);
+    expect(html).toMatch(/Distribución de riesgo por dominio/);
     for (const file of [
       "src/components/admin/report-charts-panel.tsx",
       "src/components/admin/executive-summary-panel.tsx",
@@ -213,8 +213,8 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(find(agg.domains, JORNADA).category).toBe(ORG_TIEMPO);
     expect(counts(find(agg.domains, JORNADA))).not.toEqual(counts(cat));
     const html = renderDashboard(agg);
-    expect(html).toContain('data-testid="chart-categories"');
-    expect(html).toContain('data-testid="chart-domains"');
+    expect(html).toContain('data-testid="chart-category-distribution"');
+    expect(html).toContain('data-testid="chart-domain-distribution"');
   });
 
   it("10. test excluido de métricas", () => {
@@ -390,13 +390,16 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(agg.presentationVersion).toBe("B4.29");
   });
 
-  it("UI (B4.29.6): cuatro paneles; Medio+/Alto+ solo en Excel", () => {
+  it("UI muestra Medio+/Alto+ de Jornada y nota de interpretación", () => {
     const html = renderDashboard(aggregate());
-    expect(html).not.toMatch(/Medio\+|Alto\+/);
-    expect(html).toContain("Distribución por nivel de riesgo");
-    expect(html).toContain("Avance de evaluación");
-    expect(html).toContain("Riesgo por categoría");
-    expect(html).toContain("Riesgo por dominio");
+    expect(html).toMatch(/Medio\+:<\/span> 56 \/ 80 · <!-- -->70%|Medio\+:<\/span> 56 \/ 80 · 70%/);
+    expect(html).toContain("A. Distribución general de riesgo");
+    expect(html).toContain("B. Avance de evaluación");
+    expect(html).toContain("C. Distribución de riesgo por categoría");
+    expect(html).toContain("D. Distribución de riesgo por dominio");
+    expect(html).toContain(
+      "Los dominios se interpretan por la distribución de trabajadores en cada nivel de riesgo; los puntajes brutos de dominios distintos no se comparan directamente."
+    );
   });
 
   it("reporte individual muestra nivel junto al puntaje en gráficas", () => {
