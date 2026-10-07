@@ -14,6 +14,7 @@ import {
   levelSegmentShares,
   MEDIO_PLUS_DEFINITION,
   PLUS_NOT_OFFICIAL_NOTE,
+  predominantLevelBadge,
   UI_DISTRIBUTION_NOTE,
 } from "@/lib/nom035/report-interpretation";
 
@@ -140,7 +141,9 @@ function StackedDistributionCard({
         <LevelLegend />
       </div>
       <ul className="mt-3 space-y-3">
-        {rows.map((row) => (
+        {rows.map((row) => {
+          const badge = predominantLevelBadge(row);
+          return (
           <li
             key={row.name}
             className="grid gap-2 text-xs md:grid-cols-[minmax(0,14rem)_1fr_10rem] md:items-center"
@@ -150,6 +153,15 @@ function StackedDistributionCard({
               <p className="font-medium text-slate-800">{row.name}</p>
               {showCategory && row.category ? (
                 <p className="text-[11px] text-slate-500">Categoría: {row.category}</p>
+              ) : null}
+              {badge ? (
+                <p
+                  className="mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                  style={{ backgroundColor: RISK_CHART_HEX[badge.level] }}
+                  data-testid="predominant-level-badge"
+                >
+                  {badge.text}
+                </p>
               ) : null}
             </div>
             <StackedLevelBar row={row} />
@@ -164,7 +176,8 @@ function StackedDistributionCard({
               </p>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

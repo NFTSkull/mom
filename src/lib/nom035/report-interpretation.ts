@@ -78,3 +78,44 @@ export function levelSegmentShares(
   for (const level of LEVELS) out[level] = (levels[level]?.count ?? 0) / denom;
   return out;
 }
+
+/** Dominios cuya fila muestra la etiqueta de nivel predominante (solicitud explícita del cliente). */
+export const PREDOMINANT_LEVEL_DOMAINS: readonly string[] = ["Jornada de trabajo"];
+
+const LEVEL_UPPER_LABEL: Record<Level, string> = {
+  nulo: "NULO",
+  bajo: "BAJO",
+  medio: "MEDIO",
+  alto: "ALTO",
+  muy_alto: "MUY ALTO",
+};
+
+/**
+ * Nivel con más trabajadores. En empate gana el primero en orden Nulo→Muy alto,
+ * igual que «riesgo predominante» de la distribución general.
+ */
+export function predominantLevelOf(
+  levels: Record<Level, { count: number }>
+): { level: Level; count: number } | null {
+  let best: { level: Level; count: number } | null = null;
+  for (const level of LEVELS) {
+    const count = levels[level]?.count ?? 0;
+    if (count > 0 && (!best || count > best.count)) best = { level, count };
+  }
+  return best;
+}
+
+/** Ej.: «Nivel predominante: ALTO (24 de 80)»; null fuera de PREDOMINANT_LEVEL_DOMAINS. */
+export function predominantLevelBadge(row: {
+  name: string;
+  total: number;
+  levels: Record<Level, { count: number }>;
+}): { level: Level; text: string } | null {
+  if (!PREDOMINANT_LEVEL_DOMAINS.includes(row.name)) return null;
+  const top = predominantLevelOf(row.levels);
+  if (!top) return null;
+  return {
+    level: top.level,
+    text: `Nivel predominante: ${LEVEL_UPPER_LABEL[top.level]} (${formatCountOfTotal(top.count, row.total)})`,
+  };
+}

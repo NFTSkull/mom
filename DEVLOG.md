@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-10-06 - B4.29.2 Jornada de trabajo como ALTO
+
+### Diagnóstico
+
+- «Promedio por dominio» ya no existe en el deploy productivo (B4.29); el 2.86 visible venía de UI/Excel previos a B4.29 (el XLSX en iCloud es del 2026-09-03).
+- Jornada (14/10/22/24/10 de 80) es ALTO solo como nivel predominante (24). Por umbral sobre el promedio (2.86 con cortes 1/2/4/6) sería MEDIO, así que no se reutiliza `thresholds`.
+
+### Decisiones
+
+- El usuario eligió aplicar la etiqueta solo a Jornada (`PREDOMINANT_LEVEL_DOMAINS`). Aplicarla a todos los dominios daría «BAJO» en Carga (empate 23/23) y «NULO» en el resto, lo que contradice la lectura Medio+/Alto+.
+- `predominantLevelOf` replica la regla de `aggregate-report.ts` (orden nulo→muy_alto, `>` estricto) y una prueba verifica que coincida con `predominantRisk` general.
+- Etiqueta debajo de la categoría, en UI y PNG, sin cambiar el alto de fila ni las dimensiones de la imagen.
+
 ## 2026-10-06 - B4.29.1 CI verde y seguridad
 
 ### Causa raíz

@@ -16,7 +16,10 @@ import {
   RISK_SHORT_LABEL,
 } from "@/lib/nom035/risk-palette";
 import type { RiskLevelNom035 } from "@/types/nom035";
-import { levelSegmentShares } from "@/lib/nom035/report-interpretation";
+import {
+  levelSegmentShares,
+  predominantLevelBadge,
+} from "@/lib/nom035/report-interpretation";
 
 type CanvasCtx = ReturnType<PImage.Bitmap["getContext"]>;
 
@@ -299,6 +302,7 @@ function textWidth(ctx: CanvasCtx, text: string, size: number): number {
 export type StackedLevelRow = {
   label: string;
   sublabel?: string;
+  badge?: { level: RiskLevelNom035; text: string };
   counts: Record<RiskLevelNom035, number>;
   percentages: Record<RiskLevelNom035, number>;
   total: number;
@@ -345,7 +349,8 @@ function drawStackedLevelBars(input: {
     const barY = yTop + (rowH - barH) / 2;
 
     const lines = wrapChartLabel(row.label, 36, 2);
-    const labelBlockH = lines.length * 19 + (row.sublabel ? 16 : 0);
+    const labelBlockH =
+      lines.length * 19 + (row.sublabel ? 16 : 0) + (row.badge ? 26 : 0);
     let ly = yTop + (rowH - labelBlockH) / 2 + 15;
     setFont(ctx, 16, "bold");
     ctx.fillStyle = "#0f172a";
@@ -357,6 +362,15 @@ function drawStackedLevelBars(input: {
       setFont(ctx, 12);
       ctx.fillStyle = "#64748b";
       ctx.fillText(wrapChartLabel(row.sublabel, 48, 1)[0] ?? "", 28, ly);
+      ly += 8;
+    }
+    if (row.badge) {
+      setFont(ctx, 14, "bold");
+      const tw = textWidth(ctx, row.badge.text, 14);
+      ctx.fillStyle = RISK_CHART_HEX[row.badge.level];
+      ctx.fillRect(28, ly - 2, tw + 16, 24);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(row.badge.text, 36, ly + 15);
     }
 
     ctx.fillStyle = "#f1f5f9";
@@ -447,6 +461,7 @@ function matrixToStackedRow(
   return {
     label: m.name,
     sublabel: withCategory && m.category ? `Categoría: ${m.category}` : undefined,
+    badge: predominantLevelBadge(m) ?? undefined,
     counts,
     percentages,
     total: m.total,

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-06 (B4.29.2 — Jornada de trabajo se lee como ALTO)
+
+- Admin → Resultados (sección D) y gráfica «Distribución de riesgo por dominio (1/2)» del XLSX: la fila «Jornada de trabajo» muestra la etiqueta «Nivel predominante: ALTO (24 de 80)» en color Alto.
+- El nivel sale de la distribución persistida con la misma regla de «riesgo predominante» general (moda, desempate hacia el nivel menor); no es texto fijo ni usa el promedio bruto.
+- Solo aplica a Jornada; el resto de dominios, categorías, tablas, conteos y layout quedan igual.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-06 (B4.29.1 — CI verde y seguridad post-B4.29)
 
 - `next` / `eslint-config-next` 16.2.11 → 16.3.8 (corrige advisories críticos); React sin cambios.
