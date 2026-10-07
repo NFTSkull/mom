@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-10-07 - B4.29.5 Presentación visual clásica
+
+### Decisiones
+
+- La usuaria prefiere la vista previa a B4.29 por simplicidad. `report-charts-panel.tsx`, el bloque de `admin/resultados/page.tsx` y `e2e/admin-core.spec.ts` se restauran byte a byte desde `496d7f9`: cuatro paneles con barras `bg-slate-700` sobre `bg-slate-100`, alimentados por `GET /api/admin/nom035/reports/summary` (`reportsSummary`), igual que antes.
+- Los KPIs de `AdminExecutiveSummaryPanel` (agregado ejecutivo) se conservan: ya existían antes de B4.29 y no tienen marcas de nivel por dominio.
+- Se retiran todas las marcas de nivel predominante por fila: columna «Predominante», celda en amarillo, etiqueta «ALTO» de Jornada, `predominantLevelOf`/`LEVEL_UPPER_LABEL`/`simpleDashboardPanels` y el texto de Metodología que explicaba la regla.
+- Excel: las gráficas por nivel ya tenían color desde B4.26 (antes de cualquier cambio de Jornada), así que se mantienen; las tablas «conteo (porcentaje)» quedan sin resaltado ni columna extra.
+- Solo presentación: no cambian el agregado, el endpoint de resumen, el scoring ni los datos persistidos.
+
 ## 2026-10-07 - B4.29.4 Reporte tabular
 
 ### Decisiones

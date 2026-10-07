@@ -47,7 +47,6 @@ import {
   PLUS_NOT_OFFICIAL_NOTE,
   LEVEL_TABLE_TITLES,
   levelTableRows,
-  PREDOMINANT_COLUMN_LABEL,
   type LevelTableRow,
 } from "@/lib/nom035/report-interpretation";
 import type { NamedLevelMatrix } from "@/lib/nom035/aggregate-report";
@@ -129,7 +128,6 @@ function writeNotes(sheet: ExcelJS.Worksheet, startRow: number, lines: string[],
   return startRow + lines.length - 1;
 }
 
-const PREDOMINANT_FILL = "FFFEF3C7";
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: "FFCBD5E1" } },
   left: { style: "thin", color: { argb: "FFCBD5E1" } },
@@ -138,7 +136,7 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
 };
 
 /**
- * Tabla tipo reporte (Nulo…Muy alto como «conteo (porcentaje%)», Total, Predominante).
+ * Tabla tipo reporte (Nulo…Muy alto como «conteo (porcentaje%)», Total), sin resaltado.
  * `leadSpans` define cuántas columnas ocupa cada encabezado inicial. Devuelve la última fila.
  */
 function writeTabularLevelTable(
@@ -162,7 +160,6 @@ function writeTabularLevelTable(
     ...opts.leadHeaders.map((header, i) => ({ header, span: opts.leadSpans[i] ?? 1 })),
     ...RISK_LEVEL_ORDER.map((l) => ({ header: RISK_DISPLAY_LABEL[l], span: 1 })),
     { header: "Total", span: 1 },
-    { header: PREDOMINANT_COLUMN_LABEL, span: 1 },
   ];
   const starts: number[] = [];
   let col = 1;
@@ -206,18 +203,11 @@ function writeTabularLevelTable(
     row.cells.forEach((levelCell, j) => {
       const cell = put(rn, lead + j, levelCell.text);
       cell.alignment = { horizontal: "center", vertical: "middle" };
-      if (levelCell.predominant) {
-        cell.font = { bold: true };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PREDOMINANT_FILL } };
-      }
     });
     put(rn, lead + RISK_LEVEL_ORDER.length, row.total).alignment = {
       horizontal: "center",
       vertical: "middle",
     };
-    const pred = put(rn, lead + RISK_LEVEL_ORDER.length + 1, row.predominant?.label ?? "—");
-    pred.font = { bold: true };
-    pred.alignment = { horizontal: "center", vertical: "middle" };
     sheet.getRow(rn).height = 30;
   });
   return headerRow + opts.rows.length;
@@ -462,7 +452,7 @@ export async function buildFullReportXlsxBuffer(input: {
 
   const catTableLast = writeTabularLevelTable(categorias, 4, {
     title: "TABLA DE CATEGORÍAS",
-    titleSpan: 8,
+    titleSpan: 7,
     leadHeaders: ["Categoría"],
     leadSpans: [1],
     rows: levelTableRows(agg.categories),
@@ -508,7 +498,7 @@ export async function buildFullReportXlsxBuffer(input: {
 
   const domTableLast = writeTabularLevelTable(dominios, 4, {
     title: "TABLA DE DOMINIOS",
-    titleSpan: 9,
+    titleSpan: 8,
     leadHeaders: ["Dominio", "Categoría"],
     leadSpans: [1, 1],
     rows: levelTableRows(agg.domains),

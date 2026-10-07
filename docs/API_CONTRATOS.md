@@ -1,6 +1,14 @@
 # Contratos de API
 
-## Bloque actual: B4.29.4 — Reporte tabular por categoría y dominio
+## Bloque actual: B4.29.5 — Presentación visual clásica
+
+Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI y XLSX); scoring, thresholds y resultados persistidos sin cambios.
+
+- Admin → Resultados: KPIs de `GET /api/admin/nom035/reports/executive` y, debajo, los cuatro paneles monocromáticos previos a B4.29 («Distribución por nivel de riesgo», «Avance de evaluación», «Promedio por categoría», «Promedio por dominio») alimentados por `GET /api/admin/nom035/reports/summary` (`riskLevels`, `categoryAverages`, `domainAverages`, `assignments`, `completed`).
+- Sin columna «Predominante», sin celda resaltada y sin etiqueta de nivel en Jornada de trabajo (web y XLSX).
+- `GET /api/admin/nom035/reports/full`: mismas hojas y gráficas; las tablas «conteo (porcentaje)» quedan sin resaltado ni columna «Predominante».
+
+## Bloque B4.29.4 — Reporte tabular por categoría y dominio
 
 Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI y XLSX); scoring, thresholds y resultados persistidos sin cambios.
 

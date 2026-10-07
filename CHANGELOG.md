@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 (B4.29.5 — presentación visual clásica, sin marca en Jornada)
+
+- Admin → Resultados vuelve a la vista anterior a B4.29: cuatro paneles monocromáticos «Distribución por nivel de riesgo», «Avance de evaluación», «Promedio por categoría» y «Promedio por dominio» (barras gris oscuro sobre gris claro).
+- Se retiran la columna «Predominante», la celda resaltada en amarillo y la etiqueta «ALTO» de Jornada de trabajo, tanto en la web como en el XLSX; Metodología ya no describe esa regla.
+- El XLSX conserva sus hojas, gráficas y tablas «conteo (porcentaje)», ahora sin resaltado.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-07 (B4.29.4 — reporte tabular y Jornada de trabajo como ALTO)
 
 - Admin → Resultados: A distribución por nivel y B avance (barras simples); C y D son tablas por categoría y por dominio con «conteo (porcentaje%)», Total y columna «Predominante».
