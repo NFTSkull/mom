@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 (B4.29.4 — reporte tabular y Jornada de trabajo como ALTO)
+
+- Admin → Resultados: A distribución por nivel y B avance (barras simples); C y D son tablas por categoría y por dominio con «conteo (porcentaje%)», Total y columna «Predominante».
+- El nivel predominante de cada fila (celda en amarillo suave + columna) sale de `predominantLevelOf` sobre los conteos persistidos. Jornada de trabajo: 14/10/22/24/10 → ALTO.
+- XLSX: las mismas tablas en el Resumen Ejecutivo y al inicio de las hojas Categorías y Dominios; gráficas apiladas y matrices Medio+/Alto+ quedan debajo como detalle técnico. Se retira la imagen 2×2 de B4.29.3.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-07 (B4.29.3 — tablero ejecutivo simple en Admin → Resultados)
 
 - Admin → Resultados vuelve al estilo de cuatro paneles con barras simples: «Distribución por nivel de riesgo», «Avance de evaluación», «Resumen por categoría» y «Resumen por dominio».

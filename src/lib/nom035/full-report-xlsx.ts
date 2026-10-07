@@ -45,7 +45,10 @@ import {
   INTERPRETATION_LINES,
   MEDIO_PLUS_DEFINITION,
   PLUS_NOT_OFFICIAL_NOTE,
-  simpleDashboardPanels,
+  LEVEL_TABLE_TITLES,
+  levelTableRows,
+  PREDOMINANT_COLUMN_LABEL,
+  type LevelTableRow,
 } from "@/lib/nom035/report-interpretation";
 import type { NamedLevelMatrix } from "@/lib/nom035/aggregate-report";
 import { EXECUTIVE_CHART_TITLES } from "@/lib/nom035/report-charts";
@@ -126,60 +129,98 @@ function writeNotes(sheet: ExcelJS.Worksheet, startRow: number, lines: string[],
   return startRow + lines.length - 1;
 }
 
-/** 12 columnas de ancho 14 ≈ 1236 px; filas de 18 pt ≈ 24 px. */
-const RESUMEN_WIDTH_PX = 12 * (14 * 7 + 5);
-const RESUMEN_ROW_PX = 24;
+const PREDOMINANT_FILL = "FFFEF3C7";
+const THIN_BORDER: Partial<ExcelJS.Borders> = {
+  top: { style: "thin", color: { argb: "FFCBD5E1" } },
+  left: { style: "thin", color: { argb: "FFCBD5E1" } },
+  bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
+  right: { style: "thin", color: { argb: "FFCBD5E1" } },
+};
 
-function pngSize(buf: Buffer): { width: number; height: number } {
-  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
-}
-
-function sectionHeader(sheet: ExcelJS.Worksheet, row: number, text: string): void {
-  sheet.mergeCells(row, 1, row, 12);
-  const cell = sheet.getCell(row, 1);
-  cell.value = text;
-  cell.font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
-  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-}
-
-/** Tablas «Resumen por categoría» / «Resumen por dominio» (nombre + nivel); devuelve la última fila. */
-function writeLevelSummaryTables(
+/**
+ * Tabla tipo reporte (Nulo…Muy alto como «conteo (porcentaje%)», Total, Predominante).
+ * `leadSpans` define cuántas columnas ocupa cada encabezado inicial. Devuelve la última fila.
+ */
+function writeTabularLevelTable(
   sheet: ExcelJS.Worksheet,
   startRow: number,
-  agg: Nom035AggregateReport
+  opts: {
+    title: string;
+    titleSpan: number;
+    leadHeaders: string[];
+    leadSpans: number[];
+    rows: LevelTableRow[];
+  }
 ): number {
-  const panels = simpleDashboardPanels(agg);
-  const blocks = [
-    { panel: panels.find((p) => p.key === "categories")!, lead: "Categoría", col: 1 },
-    { panel: panels.find((p) => p.key === "domains")!, lead: "Dominio", col: 7 },
+  sheet.mergeCells(startRow, 1, startRow, opts.titleSpan);
+  const title = sheet.getCell(startRow, 1);
+  title.value = opts.title;
+  title.font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
+
+  const headerRow = startRow + 1;
+  const columns: Array<{ header: string; span: number }> = [
+    ...opts.leadHeaders.map((header, i) => ({ header, span: opts.leadSpans[i] ?? 1 })),
+    ...RISK_LEVEL_ORDER.map((l) => ({ header: RISK_DISPLAY_LABEL[l], span: 1 })),
+    { header: "Total", span: 1 },
+    { header: PREDOMINANT_COLUMN_LABEL, span: 1 },
   ];
-  let last = startRow + 1;
-  for (const { panel, lead, col } of blocks) {
-    sheet.mergeCells(startRow, col, startRow, col + 5);
-    const title = sheet.getCell(startRow, col);
-    title.value = panel.title.toUpperCase();
-    title.font = { bold: true, size: 11 };
-    sheet.mergeCells(startRow + 1, col, startRow + 1, col + 3);
-    sheet.getCell(startRow + 1, col).value = lead;
-    sheet.mergeCells(startRow + 1, col + 4, startRow + 1, col + 5);
-    sheet.getCell(startRow + 1, col + 4).value = "Nivel";
-    panel.items.forEach((item, i) => {
-      const r = startRow + 2 + i;
-      sheet.mergeCells(r, col, r, col + 3);
-      sheet.getCell(r, col).value = item.label;
-      sheet.mergeCells(r, col + 4, r, col + 5);
-      const level = sheet.getCell(r, col + 4);
-      level.value = item.value;
-      level.font = { bold: true };
-      level.alignment = { horizontal: "right" };
-      last = Math.max(last, r);
+  const starts: number[] = [];
+  let col = 1;
+  for (const c of columns) {
+    starts.push(col);
+    col += c.span;
+  }
+
+  const put = (row: number, i: number, value: string | number) => {
+    const c0 = starts[i]!;
+    const span = columns[i]!.span;
+    if (span > 1) sheet.mergeCells(row, c0, row, c0 + span - 1);
+    const cell = sheet.getCell(row, c0);
+    cell.value = value;
+    for (let c = c0; c < c0 + span; c++) sheet.getCell(row, c).border = THIN_BORDER;
+    return cell;
+  };
+
+  columns.forEach((c, i) => {
+    const cell = put(headerRow, i, c.header);
+    cell.font = { bold: true, color: { argb: "FF0F172A" } };
+    for (let k = starts[i]!; k < starts[i]! + c.span; k++) {
+      sheet.getCell(headerRow, k).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE2E8F0" },
+      };
+    }
+  });
+  sheet.getRow(headerRow).height = 22;
+
+  const lead = opts.leadHeaders.length;
+  opts.rows.forEach((row, r) => {
+    const rn = headerRow + 1 + r;
+    const leadValues = [row.name, row.category ?? "—"].slice(0, lead);
+    leadValues.forEach((v, i) => {
+      const cell = put(rn, i, v);
+      cell.alignment = { vertical: "middle", wrapText: true };
+      if (i === 0) cell.font = { bold: true };
     });
-  }
-  styleHeaderRow(sheet, startRow + 1);
-  for (let r = startRow + 2; r <= last; r++) {
-    sheet.getRow(r).alignment = { vertical: "middle", wrapText: true };
-  }
-  return last;
+    row.cells.forEach((levelCell, j) => {
+      const cell = put(rn, lead + j, levelCell.text);
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      if (levelCell.predominant) {
+        cell.font = { bold: true };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PREDOMINANT_FILL } };
+      }
+    });
+    put(rn, lead + RISK_LEVEL_ORDER.length, row.total).alignment = {
+      horizontal: "center",
+      vertical: "middle",
+    };
+    const pred = put(rn, lead + RISK_LEVEL_ORDER.length + 1, row.predominant?.label ?? "—");
+    pred.font = { bold: true };
+    pred.alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getRow(rn).height = 30;
+  });
+  return headerRow + opts.rows.length;
 }
 
 const DEFINITION_NOTES = [
@@ -297,26 +338,22 @@ export async function buildFullReportXlsxBuffer(input: {
     { rowSpan: 5, colSpan: 3 }
   );
 
-  // —— Resumen simple 2×2 (mismo contenido que Admin → Resultados) ——
-  let techTop = 28;
-  if (charts.simpleDashboard) {
-    sectionHeader(resumen, 28, "RESUMEN EJECUTIVO");
-    const size = pngSize(charts.simpleDashboard);
-    const imgRows = Math.max(
-      20,
-      Math.round((RESUMEN_WIDTH_PX * size.height) / Math.max(size.width, 1) / RESUMEN_ROW_PX)
-    );
-    embedVisibleChart(wb, resumen, {
-      buffer: charts.simpleDashboard,
-      tlCol: 0,
-      tlRow: 28,
-      brCol: 12,
-      brRow: 28 + imgRows,
-      rowHeightPt: 18,
-    });
-    techTop = 28 + imgRows + 2;
-  }
-  techTop = writeLevelSummaryTables(resumen, techTop, agg) + 2;
+  // —— Tablas por categoría y dominio (formato reporte) ——
+  let techTop = writeTabularLevelTable(resumen, 28, {
+    title: LEVEL_TABLE_TITLES.categories.toUpperCase(),
+    titleSpan: 12,
+    leadHeaders: ["Categoría"],
+    leadSpans: [3],
+    rows: levelTableRows(agg.categories),
+  });
+  techTop = writeTabularLevelTable(resumen, techTop + 2, {
+    title: LEVEL_TABLE_TITLES.domains.toUpperCase(),
+    titleSpan: 12,
+    leadHeaders: ["Dominio", "Categoría"],
+    leadSpans: [3, 2],
+    rows: levelTableRows(agg.domains),
+  });
+  techTop += 2;
 
   // —— Lectura prioritaria (distribución por nivel; nunca puntaje bruto) ——
   resumen.mergeCells(techTop, 1, techTop, 12);
@@ -405,16 +442,15 @@ export async function buildFullReportXlsxBuffer(input: {
   }
   setLandscapePrint(resumen, `A1:L${rankCols + rankRows}`, 85);
 
-  // —— 2. Categorías (gráfica apilada arriba, tabla abajo) ——
+  // —— 2. Categorías (tabla tipo reporte arriba; gráfica y matriz como detalle técnico) ——
   const categorias = wb.addWorksheet(FULL_REPORT_SHEETS[1]);
   applySheetDefaults(
     categorias,
-    [36, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 9],
+    [36, 13, 13, 13, 13, 13, 9, 13, 9, 9, 9, 10, 10, 10, 10, 9],
     { zoomScale: 85, showGridLines: false }
   );
-  setLandscapePrint(categorias, "A1:P36", 85);
   categorias.mergeCells(1, 1, 2, 16);
-  categorias.getCell(1, 1).value = `${EXECUTIVE_CHART_TITLES.categories}\nPORCENTAJE DE PERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults})`;
+  categorias.getCell(1, 1).value = `RESULTADOS POR CATEGORÍA\nPERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults}) · CONTEO (PORCENTAJE)`;
   categorias.getCell(1, 1).font = { bold: true, size: 14 };
   categorias.getCell(1, 1).alignment = {
     horizontal: "center",
@@ -424,33 +460,45 @@ export async function buildFullReportXlsxBuffer(input: {
   categorias.getRow(1).height = 22;
   categorias.getRow(2).height = 22;
 
+  const catTableLast = writeTabularLevelTable(categorias, 4, {
+    title: "TABLA DE CATEGORÍAS",
+    titleSpan: 8,
+    leadHeaders: ["Categoría"],
+    leadSpans: [1],
+    rows: levelTableRows(agg.categories),
+  });
+
+  const catTech = catTableLast + 2;
+  categorias.mergeCells(catTech, 1, catTech, 16);
+  categorias.getCell(catTech, 1).value = `DETALLE TÉCNICO — ${EXECUTIVE_CHART_TITLES.categories}`;
+  categorias.getCell(catTech, 1).font = { bold: true, size: 12 };
   embedVisibleChart(wb, categorias, {
     buffer: charts.categoriesDistribution,
     tlCol: 0,
-    tlRow: 3,
+    tlRow: catTech,
     brCol: 14,
-    brRow: 21,
+    brRow: catTech + 18,
     rowHeightPt: 20,
   });
 
   const catLast = writeLevelTable(
     categorias,
-    24,
+    catTech + 21,
     ["Categoría"],
     agg.categories.map((c) => ({ lead: [c.name], matrix: c }))
   );
-  writeNotes(categorias, catLast + 2, DEFINITION_NOTES, 16);
+  const catNotesLast = writeNotes(categorias, catLast + 2, DEFINITION_NOTES, 16);
+  setLandscapePrint(categorias, `A1:P${catNotesLast}`, 85);
 
-  // —— 3. Dominios (gráficas apiladas arriba, tabla abajo) ——
+  // —— 3. Dominios (tabla tipo reporte arriba; gráficas y matriz como detalle técnico) ——
   const dominios = wb.addWorksheet(FULL_REPORT_SHEETS[2]);
   applySheetDefaults(
     dominios,
-    [34, 30, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 9],
+    [34, 30, 13, 13, 13, 13, 13, 9, 13, 9, 9, 9, 10, 10, 10, 10, 9],
     { zoomScale: 80, showGridLines: false }
   );
-  setLandscapePrint(dominios, "A1:Q66", 80);
   dominios.mergeCells(1, 1, 2, 17);
-  dominios.getCell(1, 1).value = `DISTRIBUCIÓN DE RIESGO POR DOMINIO\nPORCENTAJE DE PERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults})`;
+  dominios.getCell(1, 1).value = `RESULTADOS POR DOMINIO\nPERSONAL EVALUADO EN CADA NIVEL (N = ${agg.population.realResults}) · CONTEO (PORCENTAJE)`;
   dominios.getCell(1, 1).font = { bold: true, size: 14 };
   dominios.getCell(1, 1).alignment = {
     horizontal: "center",
@@ -458,38 +506,53 @@ export async function buildFullReportXlsxBuffer(input: {
     wrapText: true,
   };
 
+  const domTableLast = writeTabularLevelTable(dominios, 4, {
+    title: "TABLA DE DOMINIOS",
+    titleSpan: 9,
+    leadHeaders: ["Dominio", "Categoría"],
+    leadSpans: [1, 1],
+    rows: levelTableRows(agg.domains),
+  });
+
+  const domTech = domTableLast + 2;
+  dominios.mergeCells(domTech, 1, domTech, 17);
+  dominios.getCell(domTech, 1).value = "DETALLE TÉCNICO — DISTRIBUCIÓN DE RIESGO POR DOMINIO";
+  dominios.getCell(domTech, 1).font = { bold: true, size: 12 };
   embedVisibleChart(wb, dominios, {
     buffer: charts.domainsDistribution,
     title: "DOMINIOS 1/2",
-    titleRow: 3,
+    titleRow: domTech + 1,
     titleCol: 0,
     tlCol: 0,
-    tlRow: 3,
+    tlRow: domTech + 1,
     brCol: 13,
-    brRow: 22,
+    brRow: domTech + 20,
     rowHeightPt: 20,
   });
+  let domChartsEnd = domTech + 20;
   if (charts.domainsDistributionB) {
     embedVisibleChart(wb, dominios, {
       buffer: charts.domainsDistributionB,
       title: "DOMINIOS 2/2",
-      titleRow: 24,
+      titleRow: domTech + 22,
       titleCol: 0,
       tlCol: 0,
-      tlRow: 24,
+      tlRow: domTech + 22,
       brCol: 13,
-      brRow: 43,
+      brRow: domTech + 41,
       rowHeightPt: 20,
     });
+    domChartsEnd = domTech + 41;
   }
 
   const domLast = writeLevelTable(
     dominios,
-    46,
+    domChartsEnd + 3,
     ["Dominio", "Categoría"],
     agg.domains.map((d) => ({ lead: [d.name, d.category ?? ""], matrix: d }))
   );
-  writeNotes(dominios, domLast + 2, DEFINITION_NOTES, 17);
+  const domNotesLast = writeNotes(dominios, domLast + 2, DEFINITION_NOTES, 17);
+  setLandscapePrint(dominios, `A1:Q${domNotesLast}`, 80);
 
   // —— 4. Distribución Final ——
   const dist = wb.addWorksheet(FULL_REPORT_SHEETS[3]);

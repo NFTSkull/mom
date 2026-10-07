@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-10-07 - B4.29.4 Reporte tabular
+
+### Decisiones
+
+- Formato de referencia: las tablas previas a B4.29 (`executive-categories-table` / `executive-domains-table`, celdas «n (p%)» y Total), más una columna «Predominante» para que Jornada = ALTO se lea sin interpretar.
+- Resalte: solo la celda del nivel predominante, en amarillo suave (no columnas completas), para no sobrecargar.
+- `levelTableRows` es la fuente única de UI y XLSX; reutiliza `predominantLevelOf`, sin reglas nuevas. Carga de trabajo sigue en BAJO por el desempate existente (23/23).
+- Se elimina la imagen 2×2 y la escala de barra 0–4 de B4.29.3: la tabla las reemplaza.
+- En Categorías/Dominios la tabla va primero y la gráfica apilada y la matriz numérica quedan debajo como detalle técnico; se ajustan las pruebas B4.27/B4.29 que exigían la gráfica en las primeras filas.
+- Disco local lleno (134 MB libres): se limpió solo la caché de descargas de npm (`npm cache clean --force`); el disco de Docker (30 GB) no se tocó.
+
 ## 2026-10-07 - B4.29.3 Tablero ejecutivo simple
 
 ### Contexto

@@ -90,13 +90,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
   it("1. dashboard nuevo sin título visible «Promedio por categoría»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por categor[ií]a/i);
-    expect(html).toMatch(/Resumen por categoría/);
+    expect(html).toMatch(/Resultados por categoría/);
   });
 
   it("2. dashboard nuevo sin título visible «Promedio por dominio»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por dominio/i);
-    expect(html).toMatch(/Resumen por dominio/);
+    expect(html).toMatch(/Resultados por dominio/);
     for (const file of [
       "src/components/admin/report-charts-panel.tsx",
       "src/components/admin/executive-summary-panel.tsx",
@@ -213,8 +213,8 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(find(agg.domains, JORNADA).category).toBe(ORG_TIEMPO);
     expect(counts(find(agg.domains, JORNADA))).not.toEqual(counts(cat));
     const html = renderDashboard(agg);
-    expect(html).toContain('data-testid="chart-categories"');
-    expect(html).toContain('data-testid="chart-domains"');
+    expect(html).toContain('data-testid="executive-categories-table"');
+    expect(html).toContain('data-testid="executive-domains-table"');
   });
 
   it("10. test excluido de métricas", () => {
@@ -270,7 +270,7 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     const audit = await auditXlsxVisualStructure(buf);
     expect(audit.imagesBySheet["Categorías"] ?? 0).toBeGreaterThanOrEqual(1);
     const cats = audit.sheets.find((s) => s.sheetName === "Categorías");
-    expect(cats?.anchors[0]?.fromRow).toBeLessThan(10);
+    expect(cats?.anchors[0]?.fromRow).toBeLessThan(15);
   });
 
   it("15. Excel contiene distribución por dominio (gráficas 1/2 y 2/2 + tabla)", async () => {
@@ -390,13 +390,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(agg.presentationVersion).toBe("B4.29");
   });
 
-  it("UI principal simple (B4.29.3): Medio+/Alto+ solo en Excel", () => {
+  it("UI principal tabular (B4.29.4): Medio+/Alto+ solo en Excel", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Medio\+|Alto\+/);
     expect(html).toContain("Distribución por nivel de riesgo");
     expect(html).toContain("Avance de evaluación");
-    expect(html).toContain("Resumen por categoría");
-    expect(html).toContain("Resumen por dominio");
+    expect(html).toContain("Resultados por categoría");
+    expect(html).toContain("Resultados por dominio");
   });
 
   it("reporte individual muestra nivel junto al puntaje en gráficas", () => {

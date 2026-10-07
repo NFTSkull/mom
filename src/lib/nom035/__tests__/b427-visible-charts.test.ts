@@ -170,11 +170,12 @@ describe("B4.27 gráficas visibles en XLSX", () => {
     const resumen = audit.sheets.find((s) => s.sheetName === "Resumen Ejecutivo");
     expect(resumen?.anchors[0]?.fromRow).toBeLessThan(15);
 
+    // B4.29.4: la tabla tipo reporte va primero; la gráfica queda justo debajo.
     const cats = audit.sheets.find((s) => s.sheetName === "Categorías");
-    expect(cats?.anchors[0]?.fromRow).toBeLessThan(10);
+    expect(cats?.anchors[0]?.fromRow).toBeLessThan(15);
 
     const doms = audit.sheets.find((s) => s.sheetName === "Dominios");
-    expect(doms?.anchors[0]?.fromRow).toBeLessThan(10);
+    expect(doms?.anchors[0]?.fromRow).toBeLessThan(22);
 
     const dist = audit.sheets.find((s) => s.sheetName === "Distribución Final");
     expect(dist?.anchors[0]?.fromRow).toBeLessThan(10);

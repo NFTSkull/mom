@@ -26,13 +26,13 @@ export const UI_DISTRIBUTION_NOTE =
 export const RAW_AVERAGE_LABEL = "Promedio de puntaje bruto — descriptivo";
 export const RAW_AVERAGE_WARNING = "NO COMPARABLE ENTRE DOMINIOS";
 
-export const SIMPLE_SUMMARY_RULE_TEXT =
-  "En «Resumen por categoría» y «Resumen por dominio» se muestra el nivel predominante: el nivel con más trabajadores (en empate, el nivel menor). La longitud de la barra solo representa ese nivel en una escala común (Nulo 0 – Muy alto 4); no es un puntaje.";
+export const LEVEL_TABLE_RULE_TEXT =
+  "En las tablas por categoría y por dominio, la columna «Predominante» y la celda resaltada indican el nivel predominante: el nivel con más trabajadores (en empate, el nivel menor). No se calcula con puntajes brutos.";
 
 export const INTERPRETATION_LINES: readonly string[] = [
   RAW_SCORES_NOT_COMPARABLE_TEXT,
   DISTRIBUTION_FIRST_TEXT,
-  SIMPLE_SUMMARY_RULE_TEXT,
+  LEVEL_TABLE_RULE_TEXT,
   MEDIO_PLUS_DEFINITION,
   ALTO_PLUS_DEFINITION,
   PLUS_NOT_OFFICIAL_NOTE,
@@ -109,9 +109,14 @@ export function predominantLevelOf(
 export const SIMPLE_DASHBOARD_TITLES = {
   risk: "Distribución por nivel de riesgo",
   completion: "Avance de evaluación",
-  categories: "Resumen por categoría",
-  domains: "Resumen por dominio",
 } as const;
+
+export const LEVEL_TABLE_TITLES = {
+  categories: "Resultados por categoría",
+  domains: "Resultados por dominio",
+} as const;
+
+export const PREDOMINANT_COLUMN_LABEL = "Predominante";
 
 export const SIMPLE_RISK_LABELS: Record<Level, string> = {
   nulo: "Nulo/despreciable",
@@ -121,40 +126,7 @@ export const SIMPLE_RISK_LABELS: Record<Level, string> = {
   muy_alto: "Muy alto",
 };
 
-/** Escala común 0–4 solo para la longitud de la barra del resumen simple (no es un puntaje). */
-export const LEVEL_BAR_SCALE: Record<Level, number> = {
-  nulo: 0,
-  bajo: 1,
-  medio: 2,
-  alto: 3,
-  muy_alto: 4,
-};
-export const LEVEL_BAR_MAX = 4;
-
-export type LevelSummaryRow = {
-  name: string;
-  level: Level | null;
-  label: string;
-  /** Fracción 0–1 de la barra: LEVEL_BAR_SCALE[level] / LEVEL_BAR_MAX. */
-  ratio: number;
-};
-
-/** Resumen simple por fila (categoría o dominio): nivel predominante de los conteos persistidos. */
-export function levelSummaryRows(
-  rows: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>
-): LevelSummaryRow[] {
-  return rows.map((row) => {
-    const top = predominantLevelOf(row.levels);
-    return {
-      name: row.name,
-      level: top?.level ?? null,
-      label: top ? LEVEL_UPPER_LABEL[top.level] : "SIN DATOS",
-      ratio: top ? LEVEL_BAR_SCALE[top.level] / LEVEL_BAR_MAX : 0,
-    };
-  });
-}
-
-export type SimpleBarItem = { label: string; value: string; ratio: number; level?: Level };
+export type SimpleBarItem = { label: string; value: string; ratio: number };
 export type SimpleDashboardPanel = {
   key: keyof typeof SIMPLE_DASHBOARD_TITLES;
   title: string;
@@ -166,26 +138,10 @@ function countItems(rows: Array<{ label: string; count: number }>): SimpleBarIte
   return rows.map((r) => ({ label: r.label, value: String(r.count), ratio: r.count / max }));
 }
 
-function levelItems(
-  rows: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>
-): SimpleBarItem[] {
-  return levelSummaryRows(rows).map((r) => ({
-    label: r.name,
-    value: r.label,
-    ratio: r.ratio,
-    ...(r.level ? { level: r.level } : {}),
-  }));
-}
-
-/**
- * Tablero ejecutivo simple (web + Excel): personas por nivel, avance y nivel predominante
- * por categoría/dominio. Nunca usa promedios de puntaje bruto.
- */
+/** Paneles de barras simples (personas por nivel y avance). */
 export function simpleDashboardPanels(agg: {
   population: { realCompleted: number; realPending: number; realInProgress: number };
   overallRiskDistribution: ReadonlyArray<{ level: Level; count: number }>;
-  categories: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>;
-  domains: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>;
 }): SimpleDashboardPanel[] {
   return [
     {
@@ -204,7 +160,46 @@ export function simpleDashboardPanels(agg: {
         { label: "En progreso", count: agg.population.realInProgress },
       ]),
     },
-    { key: "categories", title: SIMPLE_DASHBOARD_TITLES.categories, items: levelItems(agg.categories) },
-    { key: "domains", title: SIMPLE_DASHBOARD_TITLES.domains, items: levelItems(agg.domains) },
   ];
+}
+
+/** Ej.: «48 (60%)». */
+export function formatLevelCell(count: number, percentage: number): string {
+  return `${count} (${percentage}%)`;
+}
+
+export type LevelTableRow = {
+  name: string;
+  category: string | null;
+  cells: Array<{ level: Level; text: string; predominant: boolean }>;
+  total: number;
+  predominant: { level: Level; label: string } | null;
+};
+
+/**
+ * Fila de tabla Nulo…Muy alto con «conteo (porcentaje%)». El nivel predominante sale de
+ * predominantLevelOf sobre los conteos persistidos; nunca de puntajes brutos.
+ */
+export function levelTableRows(
+  rows: ReadonlyArray<{
+    name: string;
+    category?: string | null;
+    total: number;
+    levels: Record<Level, { count: number; percentage: number }>;
+  }>
+): LevelTableRow[] {
+  return rows.map((row) => {
+    const top = predominantLevelOf(row.levels);
+    return {
+      name: row.name,
+      category: row.category ?? null,
+      cells: LEVELS.map((level) => ({
+        level,
+        text: formatLevelCell(row.levels[level].count, row.levels[level].percentage),
+        predominant: top?.level === level,
+      })),
+      total: row.total,
+      predominant: top ? { level: top.level, label: LEVEL_UPPER_LABEL[top.level] } : null,
+    };
+  });
 }

@@ -1,6 +1,14 @@
 # Contratos de API
 
-## Bloque actual: B4.29.3 — Tablero ejecutivo simple en Admin → Resultados
+## Bloque actual: B4.29.4 — Reporte tabular por categoría y dominio
+
+Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI y XLSX); scoring, thresholds y resultados persistidos sin cambios.
+
+- Admin → Resultados: A «Distribución por nivel de riesgo» y B «Avance de evaluación» (barras simples); C «Resultados por categoría» y D «Resultados por dominio» como tablas `Nulo | Bajo | Medio | Alto | Muy alto | Total | Predominante`, con celdas «conteo (porcentaje%)».
+- Celda resaltada (amarillo suave) y columna «Predominante» = `predominantLevelOf(levels)` (nivel con más trabajadores; en empate, el menor), mediante `levelTableRows`. Jornada de trabajo = ALTO (24 de 80). Nunca `categoryAverages` / `domainAverages`.
+- `GET /api/admin/nom035/reports/full`: las mismas tablas en el Resumen Ejecutivo (en lugar de la imagen 2×2 de B4.29.3) y al inicio de las hojas Categorías y Dominios; debajo, como «DETALLE TÉCNICO», quedan la gráfica apilada y la matriz numérica con Medio+/Alto+.
+
+## Bloque B4.29.3 — Tablero ejecutivo simple en Admin → Resultados
 
 Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI, PNG, XLSX); scoring, thresholds y resultados persistidos sin cambios.
 
