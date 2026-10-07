@@ -27,10 +27,7 @@ import {
   GUIA_III_CATEGORY_THRESHOLDS,
 } from "@/data/nom035/guia-iii-manifest";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
-import {
-  AdminDistributionTables,
-  AdminExecutiveSummaryPanel,
-} from "@/components/admin/executive-summary-panel";
+import { AdminExecutiveSummaryPanel } from "@/components/admin/executive-summary-panel";
 import {
   B429_CATEGORIES,
   B429_DOMAINS,
@@ -63,7 +60,6 @@ function renderDashboard(agg: Nom035AggregateReport): string {
     createElement("div", null, [
       createElement(AdminExecutiveSummaryPanel, { key: "s", aggregate: agg }),
       createElement(AdminReportChartsPanel, { key: "c", aggregate: agg }),
-      createElement(AdminDistributionTables, { key: "t", aggregate: agg }),
     ])
   );
 }
@@ -94,13 +90,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
   it("1. dashboard nuevo sin título visible «Promedio por categoría»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por categor[ií]a/i);
-    expect(html).toMatch(/Distribución de riesgo por categoría/);
+    expect(html).toMatch(/Resumen por categoría/);
   });
 
   it("2. dashboard nuevo sin título visible «Promedio por dominio»", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Promedio por dominio/i);
-    expect(html).toMatch(/Distribución de riesgo por dominio/);
+    expect(html).toMatch(/Resumen por dominio/);
     for (const file of [
       "src/components/admin/report-charts-panel.tsx",
       "src/components/admin/executive-summary-panel.tsx",
@@ -217,8 +213,8 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(find(agg.domains, JORNADA).category).toBe(ORG_TIEMPO);
     expect(counts(find(agg.domains, JORNADA))).not.toEqual(counts(cat));
     const html = renderDashboard(agg);
-    expect(html).toContain('data-testid="chart-category-distribution"');
-    expect(html).toContain('data-testid="chart-domain-distribution"');
+    expect(html).toContain('data-testid="chart-categories"');
+    expect(html).toContain('data-testid="chart-domains"');
   });
 
   it("10. test excluido de métricas", () => {
@@ -291,7 +287,7 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(audit.visibleInkFlags.every(Boolean)).toBe(true);
 
     const resumen = sheetText(wb.getWorksheet("Resumen Ejecutivo"));
-    expect(resumen).toMatch(/LECTURA PRIORITARIA/);
+    expect(resumen).toMatch(/DETALLE TÉCNICO — LECTURA PRIORITARIA/);
     expect(resumen).toMatch(/DOMINIO CON MAYOR ALTO\+/);
     expect(resumen).toContain("Jornada de trabajo\\n34/80\\n42.5%");
     expect(resumen).toContain("Factores propios de la actividad\\n56/80\\n70%");
@@ -394,17 +390,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(agg.presentationVersion).toBe("B4.29");
   });
 
-  it("UI muestra Medio+/Alto+ de Jornada y nota de interpretación", () => {
+  it("UI principal simple (B4.29.3): Medio+/Alto+ solo en Excel", () => {
     const html = renderDashboard(aggregate());
-    expect(html).toMatch(/Medio\+:<\/span> 56 \/ 80 · <!-- -->70%|Medio\+:<\/span> 56 \/ 80 · 70%/);
-    expect(html).toContain("A. Distribución general de riesgo");
-    expect(html).toContain("B. Avance de evaluación");
-    expect(html).toContain("C. Distribución de riesgo por categoría");
-    expect(html).toContain("D. Distribución de riesgo por dominio");
-    expect(html).toContain(
-      "Los dominios se interpretan por la distribución de trabajadores en cada nivel de riesgo; los puntajes brutos de dominios distintos no se comparan directamente."
-    );
-    expect(html).toContain("34 de 80 · 42.5% Alto/Muy alto");
+    expect(html).not.toMatch(/Medio\+|Alto\+/);
+    expect(html).toContain("Distribución por nivel de riesgo");
+    expect(html).toContain("Avance de evaluación");
+    expect(html).toContain("Resumen por categoría");
+    expect(html).toContain("Resumen por dominio");
   });
 
   it("reporte individual muestra nivel junto al puntaje en gráficas", () => {

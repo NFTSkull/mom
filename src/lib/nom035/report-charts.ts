@@ -18,7 +18,8 @@ import {
 import type { RiskLevelNom035 } from "@/types/nom035";
 import {
   levelSegmentShares,
-  predominantLevelBadge,
+  simpleDashboardPanels,
+  type SimpleDashboardPanel,
 } from "@/lib/nom035/report-interpretation";
 
 type CanvasCtx = ReturnType<PImage.Bitmap["getContext"]>;
@@ -34,6 +35,8 @@ export type ReportChartImages = {
   domainsDistributionB?: Buffer;
   traumaticEvent: Buffer;
   completionStatus: Buffer;
+  /** Tablero 2×2 simple para el Resumen Ejecutivo. */
+  simpleDashboard?: Buffer;
   individualCategories?: Buffer;
   individualDomains?: Buffer;
 };
@@ -302,7 +305,6 @@ function textWidth(ctx: CanvasCtx, text: string, size: number): number {
 export type StackedLevelRow = {
   label: string;
   sublabel?: string;
-  badge?: { level: RiskLevelNom035; text: string };
   counts: Record<RiskLevelNom035, number>;
   percentages: Record<RiskLevelNom035, number>;
   total: number;
@@ -349,8 +351,7 @@ function drawStackedLevelBars(input: {
     const barY = yTop + (rowH - barH) / 2;
 
     const lines = wrapChartLabel(row.label, 36, 2);
-    const labelBlockH =
-      lines.length * 19 + (row.sublabel ? 16 : 0) + (row.badge ? 26 : 0);
+    const labelBlockH = lines.length * 19 + (row.sublabel ? 16 : 0);
     let ly = yTop + (rowH - labelBlockH) / 2 + 15;
     setFont(ctx, 16, "bold");
     ctx.fillStyle = "#0f172a";
@@ -362,15 +363,6 @@ function drawStackedLevelBars(input: {
       setFont(ctx, 12);
       ctx.fillStyle = "#64748b";
       ctx.fillText(wrapChartLabel(row.sublabel, 48, 1)[0] ?? "", 28, ly);
-      ly += 8;
-    }
-    if (row.badge) {
-      setFont(ctx, 14, "bold");
-      const tw = textWidth(ctx, row.badge.text, 14);
-      ctx.fillStyle = RISK_CHART_HEX[row.badge.level];
-      ctx.fillRect(28, ly - 2, tw + 16, 24);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(row.badge.text, 36, ly + 15);
     }
 
     ctx.fillStyle = "#f1f5f9";
@@ -448,6 +440,63 @@ function drawStackedLevelBars(input: {
   return img;
 }
 
+export const SIMPLE_DASHBOARD_WIDTH = 1600;
+
+/** Tablero 2×2 de barras horizontales simples (mismo contenido que Admin → Resultados). */
+function drawSimpleDashboard(panels: SimpleDashboardPanel[]): PImage.Bitmap {
+  const width = SIMPLE_DASHBOARD_WIDTH;
+  const margin = 24;
+  const gap = 24;
+  const colW = (width - margin * 2 - gap) / 2;
+  const headerH = 56;
+  const rowH = 44;
+  const padBottom = 16;
+  const panelH = (n: number) => headerH + Math.max(n, 1) * rowH + padBottom;
+  const [risk, completion, categories, domains] = panels;
+  const topH = Math.max(panelH(risk?.items.length ?? 0), panelH(completion?.items.length ?? 0));
+  const bottomH = Math.max(
+    panelH(categories?.items.length ?? 0),
+    panelH(domains?.items.length ?? 0)
+  );
+  const height = margin + topH + gap + bottomH + margin;
+  const img = PImage.make(width, height);
+  const ctx = img.getContext("2d");
+  fillBg(ctx, width, height);
+
+  const drawPanel = (panel: SimpleDashboardPanel | undefined, x: number, y: number, h: number) => {
+    if (!panel) return;
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.strokeRect(x, y, colW, h);
+    setFont(ctx, 18, "bold");
+    ctx.fillStyle = "#0f172a";
+    ctx.fillText(panel.title, x + 18, y + 34);
+    const barX = x + 18;
+    const barW = colW - 36;
+    panel.items.forEach((item, i) => {
+      const ry = y + headerH + i * rowH;
+      setFont(ctx, 15);
+      ctx.fillStyle = "#334155";
+      ctx.fillText(item.label, barX, ry + 14);
+      ctx.fillStyle = "#0f172a";
+      const vw = textWidth(ctx, item.value, 15);
+      ctx.fillText(item.value, barX + barW - vw, ry + 14);
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillRect(barX, ry + 22, barW, 9);
+      const fill = Math.min(1, Math.max(0, item.ratio)) * barW;
+      if (fill > 0) {
+        ctx.fillStyle = "#334155";
+        ctx.fillRect(barX, ry + 22, fill, 9);
+      }
+    });
+  };
+
+  drawPanel(risk, margin, margin, topH);
+  drawPanel(completion, margin + colW + gap, margin, topH);
+  drawPanel(categories, margin, margin + topH + gap, bottomH);
+  drawPanel(domains, margin + colW + gap, margin + topH + gap, bottomH);
+  return img;
+}
+
 function matrixToStackedRow(
   m: NamedLevelMatrix,
   withCategory: boolean
@@ -461,7 +510,6 @@ function matrixToStackedRow(
   return {
     label: m.name,
     sublabel: withCategory && m.category ? `Categoría: ${m.category}` : undefined,
-    badge: predominantLevelBadge(m) ?? undefined,
     counts,
     percentages,
     total: m.total,
@@ -493,6 +541,7 @@ export async function renderExecutiveCharts(
     domainsDistributionB,
     traumaticEvent,
     completionStatus,
+    simpleDashboard,
   ] = await Promise.all([
     encodePng(
       drawFinalRiskBars({
@@ -561,6 +610,7 @@ export async function renderExecutiveCharts(
         height: 480,
       })
     ),
+    encodePng(drawSimpleDashboard(simpleDashboardPanels(agg))),
   ]);
 
   return {
@@ -571,6 +621,7 @@ export async function renderExecutiveCharts(
     domainsDistributionB,
     traumaticEvent,
     completionStatus,
+    simpleDashboard,
   };
 }
 

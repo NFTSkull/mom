@@ -6,7 +6,6 @@ import { adminApi } from "@/lib/nom035/admin-client";
 import { downloadFullReportExcelFromBrowser } from "@/lib/nom035/download-full-report";
 import { AdminReportChartsPanel } from "@/components/admin/report-charts-panel";
 import {
-  AdminDistributionTables,
   AdminExecutiveSummaryPanel,
   type ExecutiveAggregateView,
 } from "@/components/admin/executive-summary-panel";
@@ -318,7 +317,6 @@ function AdminResultadosInner() {
         <>
           <AdminExecutiveSummaryPanel aggregate={executive} />
           <AdminReportChartsPanel aggregate={executive} />
-          <AdminDistributionTables aggregate={executive} />
         </>
       ) : null}
 

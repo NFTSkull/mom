@@ -26,9 +26,13 @@ export const UI_DISTRIBUTION_NOTE =
 export const RAW_AVERAGE_LABEL = "Promedio de puntaje bruto — descriptivo";
 export const RAW_AVERAGE_WARNING = "NO COMPARABLE ENTRE DOMINIOS";
 
+export const SIMPLE_SUMMARY_RULE_TEXT =
+  "En «Resumen por categoría» y «Resumen por dominio» se muestra el nivel predominante: el nivel con más trabajadores (en empate, el nivel menor). La longitud de la barra solo representa ese nivel en una escala común (Nulo 0 – Muy alto 4); no es un puntaje.";
+
 export const INTERPRETATION_LINES: readonly string[] = [
   RAW_SCORES_NOT_COMPARABLE_TEXT,
   DISTRIBUTION_FIRST_TEXT,
+  SIMPLE_SUMMARY_RULE_TEXT,
   MEDIO_PLUS_DEFINITION,
   ALTO_PLUS_DEFINITION,
   PLUS_NOT_OFFICIAL_NOTE,
@@ -79,10 +83,7 @@ export function levelSegmentShares(
   return out;
 }
 
-/** Dominios cuya fila muestra la etiqueta de nivel predominante (solicitud explícita del cliente). */
-export const PREDOMINANT_LEVEL_DOMAINS: readonly string[] = ["Jornada de trabajo"];
-
-const LEVEL_UPPER_LABEL: Record<Level, string> = {
+export const LEVEL_UPPER_LABEL: Record<Level, string> = {
   nulo: "NULO",
   bajo: "BAJO",
   medio: "MEDIO",
@@ -105,17 +106,105 @@ export function predominantLevelOf(
   return best;
 }
 
-/** Ej.: «Nivel predominante: ALTO (24 de 80)»; null fuera de PREDOMINANT_LEVEL_DOMAINS. */
-export function predominantLevelBadge(row: {
+export const SIMPLE_DASHBOARD_TITLES = {
+  risk: "Distribución por nivel de riesgo",
+  completion: "Avance de evaluación",
+  categories: "Resumen por categoría",
+  domains: "Resumen por dominio",
+} as const;
+
+export const SIMPLE_RISK_LABELS: Record<Level, string> = {
+  nulo: "Nulo/despreciable",
+  bajo: "Bajo",
+  medio: "Medio",
+  alto: "Alto",
+  muy_alto: "Muy alto",
+};
+
+/** Escala común 0–4 solo para la longitud de la barra del resumen simple (no es un puntaje). */
+export const LEVEL_BAR_SCALE: Record<Level, number> = {
+  nulo: 0,
+  bajo: 1,
+  medio: 2,
+  alto: 3,
+  muy_alto: 4,
+};
+export const LEVEL_BAR_MAX = 4;
+
+export type LevelSummaryRow = {
   name: string;
-  total: number;
-  levels: Record<Level, { count: number }>;
-}): { level: Level; text: string } | null {
-  if (!PREDOMINANT_LEVEL_DOMAINS.includes(row.name)) return null;
-  const top = predominantLevelOf(row.levels);
-  if (!top) return null;
-  return {
-    level: top.level,
-    text: `Nivel predominante: ${LEVEL_UPPER_LABEL[top.level]} (${formatCountOfTotal(top.count, row.total)})`,
-  };
+  level: Level | null;
+  label: string;
+  /** Fracción 0–1 de la barra: LEVEL_BAR_SCALE[level] / LEVEL_BAR_MAX. */
+  ratio: number;
+};
+
+/** Resumen simple por fila (categoría o dominio): nivel predominante de los conteos persistidos. */
+export function levelSummaryRows(
+  rows: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>
+): LevelSummaryRow[] {
+  return rows.map((row) => {
+    const top = predominantLevelOf(row.levels);
+    return {
+      name: row.name,
+      level: top?.level ?? null,
+      label: top ? LEVEL_UPPER_LABEL[top.level] : "SIN DATOS",
+      ratio: top ? LEVEL_BAR_SCALE[top.level] / LEVEL_BAR_MAX : 0,
+    };
+  });
+}
+
+export type SimpleBarItem = { label: string; value: string; ratio: number; level?: Level };
+export type SimpleDashboardPanel = {
+  key: keyof typeof SIMPLE_DASHBOARD_TITLES;
+  title: string;
+  items: SimpleBarItem[];
+};
+
+function countItems(rows: Array<{ label: string; count: number }>): SimpleBarItem[] {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return rows.map((r) => ({ label: r.label, value: String(r.count), ratio: r.count / max }));
+}
+
+function levelItems(
+  rows: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>
+): SimpleBarItem[] {
+  return levelSummaryRows(rows).map((r) => ({
+    label: r.name,
+    value: r.label,
+    ratio: r.ratio,
+    ...(r.level ? { level: r.level } : {}),
+  }));
+}
+
+/**
+ * Tablero ejecutivo simple (web + Excel): personas por nivel, avance y nivel predominante
+ * por categoría/dominio. Nunca usa promedios de puntaje bruto.
+ */
+export function simpleDashboardPanels(agg: {
+  population: { realCompleted: number; realPending: number; realInProgress: number };
+  overallRiskDistribution: ReadonlyArray<{ level: Level; count: number }>;
+  categories: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>;
+  domains: ReadonlyArray<{ name: string; levels: Record<Level, { count: number }> }>;
+}): SimpleDashboardPanel[] {
+  return [
+    {
+      key: "risk",
+      title: SIMPLE_DASHBOARD_TITLES.risk,
+      items: countItems(
+        agg.overallRiskDistribution.map((r) => ({ label: SIMPLE_RISK_LABELS[r.level], count: r.count }))
+      ),
+    },
+    {
+      key: "completion",
+      title: SIMPLE_DASHBOARD_TITLES.completion,
+      items: countItems([
+        { label: "Completados", count: agg.population.realCompleted },
+        { label: "Pendientes", count: agg.population.realPending },
+        { label: "En progreso", count: agg.population.realInProgress },
+      ]),
+    },
+    { key: "categories", title: SIMPLE_DASHBOARD_TITLES.categories, items: levelItems(agg.categories) },
+    { key: "domains", title: SIMPLE_DASHBOARD_TITLES.domains, items: levelItems(agg.domains) },
+  ];
 }

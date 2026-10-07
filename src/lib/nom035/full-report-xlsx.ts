@@ -45,6 +45,7 @@ import {
   INTERPRETATION_LINES,
   MEDIO_PLUS_DEFINITION,
   PLUS_NOT_OFFICIAL_NOTE,
+  simpleDashboardPanels,
 } from "@/lib/nom035/report-interpretation";
 import type { NamedLevelMatrix } from "@/lib/nom035/aggregate-report";
 import { EXECUTIVE_CHART_TITLES } from "@/lib/nom035/report-charts";
@@ -125,6 +126,62 @@ function writeNotes(sheet: ExcelJS.Worksheet, startRow: number, lines: string[],
   return startRow + lines.length - 1;
 }
 
+/** 12 columnas de ancho 14 ≈ 1236 px; filas de 18 pt ≈ 24 px. */
+const RESUMEN_WIDTH_PX = 12 * (14 * 7 + 5);
+const RESUMEN_ROW_PX = 24;
+
+function pngSize(buf: Buffer): { width: number; height: number } {
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+function sectionHeader(sheet: ExcelJS.Worksheet, row: number, text: string): void {
+  sheet.mergeCells(row, 1, row, 12);
+  const cell = sheet.getCell(row, 1);
+  cell.value = text;
+  cell.font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+}
+
+/** Tablas «Resumen por categoría» / «Resumen por dominio» (nombre + nivel); devuelve la última fila. */
+function writeLevelSummaryTables(
+  sheet: ExcelJS.Worksheet,
+  startRow: number,
+  agg: Nom035AggregateReport
+): number {
+  const panels = simpleDashboardPanels(agg);
+  const blocks = [
+    { panel: panels.find((p) => p.key === "categories")!, lead: "Categoría", col: 1 },
+    { panel: panels.find((p) => p.key === "domains")!, lead: "Dominio", col: 7 },
+  ];
+  let last = startRow + 1;
+  for (const { panel, lead, col } of blocks) {
+    sheet.mergeCells(startRow, col, startRow, col + 5);
+    const title = sheet.getCell(startRow, col);
+    title.value = panel.title.toUpperCase();
+    title.font = { bold: true, size: 11 };
+    sheet.mergeCells(startRow + 1, col, startRow + 1, col + 3);
+    sheet.getCell(startRow + 1, col).value = lead;
+    sheet.mergeCells(startRow + 1, col + 4, startRow + 1, col + 5);
+    sheet.getCell(startRow + 1, col + 4).value = "Nivel";
+    panel.items.forEach((item, i) => {
+      const r = startRow + 2 + i;
+      sheet.mergeCells(r, col, r, col + 3);
+      sheet.getCell(r, col).value = item.label;
+      sheet.mergeCells(r, col + 4, r, col + 5);
+      const level = sheet.getCell(r, col + 4);
+      level.value = item.value;
+      level.font = { bold: true };
+      level.alignment = { horizontal: "right" };
+      last = Math.max(last, r);
+    });
+  }
+  styleHeaderRow(sheet, startRow + 1);
+  for (let r = startRow + 2; r <= last; r++) {
+    sheet.getRow(r).alignment = { vertical: "middle", wrapText: true };
+  }
+  return last;
+}
+
 const DEFINITION_NOTES = [
   MEDIO_PLUS_DEFINITION,
   ALTO_PLUS_DEFINITION,
@@ -150,7 +207,6 @@ export async function buildFullReportXlsxBuffer(input: {
     [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14],
     { zoomScale: 85, showGridLines: false }
   );
-  setLandscapePrint(resumen, "A1:L44", 85);
 
   resumen.mergeCells(1, 1, 1, 12);
   resumen.getCell(1, 1).value = "RESULTADOS NOM-035 2026";
@@ -241,11 +297,32 @@ export async function buildFullReportXlsxBuffer(input: {
     { rowSpan: 5, colSpan: 3 }
   );
 
+  // —— Resumen simple 2×2 (mismo contenido que Admin → Resultados) ——
+  let techTop = 28;
+  if (charts.simpleDashboard) {
+    sectionHeader(resumen, 28, "RESUMEN EJECUTIVO");
+    const size = pngSize(charts.simpleDashboard);
+    const imgRows = Math.max(
+      20,
+      Math.round((RESUMEN_WIDTH_PX * size.height) / Math.max(size.width, 1) / RESUMEN_ROW_PX)
+    );
+    embedVisibleChart(wb, resumen, {
+      buffer: charts.simpleDashboard,
+      tlCol: 0,
+      tlRow: 28,
+      brCol: 12,
+      brRow: 28 + imgRows,
+      rowHeightPt: 18,
+    });
+    techTop = 28 + imgRows + 2;
+  }
+  techTop = writeLevelSummaryTables(resumen, techTop, agg) + 2;
+
   // —— Lectura prioritaria (distribución por nivel; nunca puntaje bruto) ——
-  resumen.mergeCells(28, 1, 28, 12);
-  resumen.getCell(28, 1).value = "LECTURA PRIORITARIA";
-  resumen.getCell(28, 1).font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
-  resumen.getCell(28, 1).fill = {
+  resumen.mergeCells(techTop, 1, techTop, 12);
+  resumen.getCell(techTop, 1).value = "DETALLE TÉCNICO — LECTURA PRIORITARIA";
+  resumen.getCell(techTop, 1).font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
+  resumen.getCell(techTop, 1).fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "FFE2E8F0" },
@@ -254,7 +331,7 @@ export async function buildFullReportXlsxBuffer(input: {
   const pCat = agg.priorityReading.categoryHighestMedioPlus;
   paintKpiBox(
     resumen,
-    29,
+    techTop + 1,
     1,
     "DOMINIO CON MAYOR ALTO+ (ALTO + MUY ALTO)",
     pDom
@@ -265,7 +342,7 @@ export async function buildFullReportXlsxBuffer(input: {
   );
   paintKpiBox(
     resumen,
-    29,
+    techTop + 1,
     7,
     "CATEGORÍA CON MAYOR MEDIO+ (MEDIO + ALTO + MUY ALTO)",
     pCat
@@ -278,9 +355,9 @@ export async function buildFullReportXlsxBuffer(input: {
   if (pDom) readingLines.push(`${pDom.name}: ${describeAltoPlus(pDom.percentage, "dominio")}`);
   if (pCat) readingLines.push(`${pCat.name}: ${describeMedioPlus(pCat.percentage, "categoría")}`);
   readingLines.push(DEFINITION_NOTES.join(" "));
-  writeNotes(resumen, 33, readingLines, 12);
+  writeNotes(resumen, techTop + 5, readingLines, 12);
 
-  const rankHead = 33 + readingLines.length + 1;
+  const rankHead = techTop + 5 + readingLines.length + 1;
   resumen.mergeCells(rankHead, 1, rankHead, 6);
   resumen.getCell(rankHead, 1).value = "DOMINIOS CON MAYOR PROPORCIÓN ALTO / MUY ALTO";
   resumen.getCell(rankHead, 1).font = { bold: true, size: 11 };
@@ -326,6 +403,7 @@ export async function buildFullReportXlsxBuffer(input: {
     resumen.getRow(r).alignment = { vertical: "middle", wrapText: true };
     resumen.getRow(r).height = 30;
   }
+  setLandscapePrint(resumen, `A1:L${rankCols + rankRows}`, 85);
 
   // —— 2. Categorías (gráfica apilada arriba, tabla abajo) ——
   const categorias = wb.addWorksheet(FULL_REPORT_SHEETS[1]);

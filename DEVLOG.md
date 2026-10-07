@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-10-07 - B4.29.3 Tablero ejecutivo simple
+
+### Contexto
+
+El cliente quiere la vista sencilla de cuatro paneles anterior a B4.29 para mostrarla a personal operativo, sin volver al error de graficar promedios brutos (Jornada 2.86 vs Carga 21.74 en la misma escala).
+
+### Decisiones
+
+- Se reutiliza el estilo del componente original (`AdminSimpleBarChart`: etiqueta/valor arriba, barra `slate-700` abajo), con datos del agregado ejecutivo, no de `reports/summary`.
+- Categorías y dominios: una sola regla para todas las filas, `predominantLevelOf` (la misma de «riesgo predominante»). Sin casos especiales: se elimina `PREDOMINANT_LEVEL_DOMAINS` y la etiqueta de B4.29.2.
+- Empates: se conserva el desempate determinista existente (nivel menor). Con los datos actuales, Carga de trabajo (Bajo 23 / Medio 23) se muestra como BAJO.
+- Barra = escala visual 0–4 por nivel (Nulo 0 → barra vacía). No es un puntaje y así lo dice Metodología.
+- Orden de filas = orden canónico del agregado (por categoría), igual que en el Excel; el orden de la captura antigua venía del orden de claves de `jsonb`.
+- `simpleDashboardPanels` es la fuente única de UI y PNG/XLSX.
+- Medio+/Alto+, rankings y matrices salen de la pantalla, pero se conservan en el Excel (detalle técnico y hojas Categorías/Dominios) y en el payload.
+
 ## 2026-10-06 - B4.29.2 Jornada de trabajo como ALTO
 
 ### Diagnóstico

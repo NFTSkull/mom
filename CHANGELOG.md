@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-07 (B4.29.3 — tablero ejecutivo simple en Admin → Resultados)
+
+- Admin → Resultados vuelve al estilo de cuatro paneles con barras simples: «Distribución por nivel de riesgo», «Avance de evaluación», «Resumen por categoría» y «Resumen por dominio».
+- Cada categoría/dominio muestra su nivel predominante (NULO…MUY ALTO) calculado con `predominantLevelOf` sobre los conteos persistidos; la barra usa una escala común 0–4. Jornada de trabajo = ALTO. Nunca se usan promedios brutos.
+- Se retiran de la pantalla principal: barras apiladas, leyenda de colores, Medio+/Alto+, lectura prioritaria, matrices y la etiqueta naranja de B4.29.2.
+- XLSX: Resumen Ejecutivo con imagen 2×2 equivalente y tablas nombre + nivel; Medio+/Alto+ queda como «DETALLE TÉCNICO»; Categorías/Dominios conservan sus matrices; la gráfica de Dominios vuelve a B4.29 (sin etiqueta); Metodología explica la regla.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-06 (B4.29.2 — Jornada de trabajo se lee como ALTO)
 
 - Admin → Resultados (sección D) y gráfica «Distribución de riesgo por dominio (1/2)» del XLSX: la fila «Jornada de trabajo» muestra la etiqueta «Nivel predominante: ALTO (24 de 80)» en color Alto.

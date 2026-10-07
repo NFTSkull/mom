@@ -1,6 +1,15 @@
 # Contratos de API
 
-## Bloque actual: B4.29.1 — CI verde y endurecimiento post-B4.29
+## Bloque actual: B4.29.3 — Tablero ejecutivo simple en Admin → Resultados
+
+Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI, PNG, XLSX); scoring, thresholds y resultados persistidos sin cambios.
+
+- Admin → Resultados: KPIs y una cuadrícula 2×2 de barras simples: «Distribución por nivel de riesgo» (personas por nivel), «Avance de evaluación», «Resumen por categoría» y «Resumen por dominio». Sin Medio+/Alto+, sin barras apiladas y sin matrices en pantalla.
+- Nivel de cada categoría/dominio = `predominantLevelOf(levels)` sobre los conteos de `GET /api/admin/nom035/reports/executive` (nivel con más trabajadores; en empate, el menor). La barra usa la escala visual Nulo 0 … Muy alto 4; nunca `categoryAverages` / `domainAverages`.
+- `GET /api/admin/nom035/reports/full`: el Resumen Ejecutivo agrega la imagen 2×2 y las tablas «Resumen por categoría» / «Resumen por dominio» (nombre + nivel); la lectura Medio+/Alto+ queda debajo como «DETALLE TÉCNICO». Las hojas Categorías/Dominios conservan sus matrices completas. Metodología explica la regla del nivel predominante.
+- Se retira la etiqueta «Nivel predominante: …» de B4.29.2.
+
+## Bloque B4.29.1 — CI verde y endurecimiento post-B4.29
 
 Sin endpoints nuevos. Contrato de `GET /api/admin/nom035/results` sin cambios de forma (`sort` = `name_asc` default | `name_desc` | `recent` | `oldest`).
 
