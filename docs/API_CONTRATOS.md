@@ -1,6 +1,14 @@
 # Contratos de API
 
-## Bloque actual: B4.29.5 — Presentación visual clásica
+## Bloque actual: B4.29.6 — Medio / Alto / Muy alto por dominio y categoría
+
+Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI); XLSX, scoring, thresholds y resultados persistidos sin cambios.
+
+- Admin → Resultados: cuatro paneles monocromáticos con datos de `GET /api/admin/nom035/reports/executive`: «Distribución por nivel de riesgo», «Avance de evaluación», «Riesgo por categoría» y «Riesgo por dominio».
+- En categorías y dominios, cada fila muestra `levels.medio/alto/muy_alto.percentage` como «Medio: X% · Alto: X% · Muy alto: X%» más una barra con esos tres segmentos (`riskShareRows`). Sin etiqueta única por fila, sin `predominantLevelOf` y sin `categoryAverages`/`domainAverages`.
+- Tabla completa plegada por panel: Nulo, Bajo, Medio, Alto, Muy alto, Total (`levelTableRows`).
+
+## Bloque B4.29.5 — Presentación visual clásica (no desplegado; reemplazado por B4.29.6)
 
 Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI y XLSX); scoring, thresholds y resultados persistidos sin cambios.
 

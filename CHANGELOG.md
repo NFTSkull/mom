@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-07 (B4.29.6 — Medio / Alto / Muy alto visibles por dominio y categoría)
+
+- Admin → Resultados: «Riesgo por categoría» y «Riesgo por dominio» muestran en cada fila «Medio: X% · Alto: X% · Muy alto: X%» y una barra gris de tres tonos con esos porcentajes. Ninguna fila recibe una etiqueta única (NULO, ALTO, …) ni se usan promedios brutos (no aparece 2.86).
+- Cada panel incluye «Ver tabla completa (Nulo a Muy alto)», plegada, con Nulo, Bajo, Medio, Alto, Muy alto y Total.
+- Reemplaza los paneles «Promedio por categoría/dominio» restaurados en B4.29.5 (no desplegado). La fuente vuelve a ser `levels` del agregado ejecutivo.
+- XLSX sin cambios respecto de B4.29.5: tablas completas sin «Predominante» ni resaltado.
+- Sin cambios en datos, respuestas, scoring, thresholds ni resultados. Sin migración.
+
 ## 2026-10-07 (B4.29.5 — presentación visual clásica, sin marca en Jornada)
 
 - Admin → Resultados vuelve a la vista anterior a B4.29: cuatro paneles monocromáticos «Distribución por nivel de riesgo», «Avance de evaluación», «Promedio por categoría» y «Promedio por dominio» (barras gris oscuro sobre gris claro).

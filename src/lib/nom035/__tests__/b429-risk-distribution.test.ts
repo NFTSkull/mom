@@ -59,17 +59,7 @@ function renderDashboard(agg: Nom035AggregateReport): string {
   return renderToStaticMarkup(
     createElement("div", null, [
       createElement(AdminExecutiveSummaryPanel, { key: "s", aggregate: agg }),
-      createElement(AdminReportChartsPanel, {
-        key: "c",
-        riskLevels: Object.fromEntries(agg.overallRiskDistribution.map((r) => [r.level, r.count])),
-        categoryAverages: {},
-        domainAverages: { ...B429_RAW_DOMAIN_AVERAGES },
-        completion: {
-          completed: agg.population.realCompleted,
-          pending: agg.population.realPending,
-          inProgress: agg.population.realInProgress,
-        },
-      }),
+      createElement(AdminReportChartsPanel, { key: "c", aggregate: agg }),
     ])
   );
 }
@@ -97,19 +87,23 @@ const sheetText = (sheet: ExcelJS.Worksheet | undefined) =>
   JSON.stringify(sheet?.getSheetValues() ?? []);
 
 describe("B4.29 distribución por nivel como fuente principal de interpretación", () => {
-  it("1. dashboard clásico (B4.29.5) con «Promedio por categoría»", () => {
+  it("1. dashboard sin título visible «Promedio por categoría»", () => {
     const html = renderDashboard(aggregate());
-    expect(html).toMatch(/Promedio por categoría/);
-    expect(html).not.toMatch(/Resultados por categoría/);
+    expect(html).not.toMatch(/Promedio por categor[ií]a/i);
+    expect(html).toMatch(/Riesgo por categoría/);
   });
 
-  it("2. dashboard clásico (B4.29.5) con «Promedio por dominio»", () => {
+  it("2. dashboard sin título visible «Promedio por dominio»", () => {
     const html = renderDashboard(aggregate());
-    expect(html).toMatch(/Promedio por dominio/);
-    expect(html).not.toMatch(/Resultados por dominio/);
-    expect(readFileSync("src/components/admin/executive-summary-panel.tsx", "utf8")).not.toMatch(
-      /Promedio por (categor[ií]a|dominio)/i
-    );
+    expect(html).not.toMatch(/Promedio por dominio/i);
+    expect(html).toMatch(/Riesgo por dominio/);
+    for (const file of [
+      "src/components/admin/report-charts-panel.tsx",
+      "src/components/admin/executive-summary-panel.tsx",
+      "src/app/admin/resultados/page.tsx",
+    ]) {
+      expect(readFileSync(file, "utf8")).not.toMatch(/Promedio por (categor[ií]a|dominio)/i);
+    }
   });
 
   it("3. cada categoría suma REAL_RESULTS", () => {
@@ -200,6 +194,12 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
       total: 80,
       percentage: 42.5,
     });
+    const html = renderDashboard(agg);
+    expect(html).not.toContain("2.86");
+    expect(html).not.toContain("21.74");
+    expect(readFileSync("src/components/admin/report-charts-panel.tsx", "utf8")).not.toMatch(
+      /\.score\b|domainAverages|categoryAverages/
+    );
   });
 
   it("9. categoría Organización del tiempo separada del dominio Jornada", () => {
@@ -306,11 +306,12 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(metodo).toMatch(/70% del personal se encuentra en nivel Medio, Alto o Muy alto en este dominio/);
   });
 
-  it("16. UI: KPIs del agregado ejecutivo y gráficas clásicas del resumen (B4.29.5)", () => {
+  it("16. UI usa el agregado ejecutivo como fuente", () => {
     const page = readFileSync("src/app/admin/resultados/page.tsx", "utf8");
     expect(page).toMatch(/reportsExecutive/);
-    expect(page).toMatch(/reportsSummary/);
-    expect(page).toMatch(/<AdminExecutiveSummaryPanel aggregate=\{executive\}/);
+    expect(page).not.toMatch(/reportsSummary/);
+    expect(page).not.toMatch(/categoryAverages|domainAverages/);
+    expect(page).toMatch(/<AdminReportChartsPanel aggregate=\{executive\}/);
     const reportes = readFileSync("src/app/admin/reportes/page.tsx", "utf8");
     expect(reportes).toMatch(/topDomainsHighRisk/);
     expect(reportes).not.toMatch(/domainAverages \?\? \{\}\)\s*\n?\s*\.sort/);
@@ -389,13 +390,13 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     expect(agg.presentationVersion).toBe("B4.29");
   });
 
-  it("UI clásica (B4.29.5): cuatro paneles; Medio+/Alto+ solo en Excel", () => {
+  it("UI (B4.29.6): cuatro paneles; Medio+/Alto+ solo en Excel", () => {
     const html = renderDashboard(aggregate());
     expect(html).not.toMatch(/Medio\+|Alto\+/);
     expect(html).toContain("Distribución por nivel de riesgo");
     expect(html).toContain("Avance de evaluación");
-    expect(html).toContain("Promedio por categoría");
-    expect(html).toContain("Promedio por dominio");
+    expect(html).toContain("Riesgo por categoría");
+    expect(html).toContain("Riesgo por dominio");
   });
 
   it("reporte individual muestra nivel junto al puntaje en gráficas", () => {

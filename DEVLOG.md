@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-10-07 - B4.29.6 Medio / Alto / Muy alto por fila
+
+### Decisiones
+
+- Precisión de la usuaria: una etiqueta única por fila (moda) oculta el riesgo (Liderazgo «NULO» con 20% en Alto/Muy alto), y el promedio bruto (2.86) no se interpreta. Cada fila muestra los tres porcentajes de riesgo desde `levels`, con `riskShareRows`.
+- Barra: tres tonos de gris (`slate-400/600/900`) para Medio/Alto/Muy alto; Nulo y Bajo quedan como el fondo vacío, sin destacarse. Se mantiene el estilo monocromático de cuatro paneles.
+- Nulo y Bajo siguen disponibles en una tabla completa plegada (`<details>`) para no sobrecargar la vista.
+- Fuente: agregado ejecutivo (excluye test), igual que el XLSX; la página deja de pedir `reports/summary`. B4.29.5 quedó en la rama sin desplegarse.
+- Sin Medio+ en pantalla: se pidió como opcional y agrega ruido; sigue en el XLSX.
+
+
 ## 2026-10-07 - B4.29.5 Presentación visual clásica
 
 ### Decisiones
