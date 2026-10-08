@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-08 (B4.30 — estado del personal en el reporte completo NOM-035)
+
+- El Excel completo lista a todo el personal real: la hoja «Completados» se renombra «Estado del personal» y muestra a cada trabajador como «Completado» o «Incompleto». Antes omitía a quienes no habían enviado.
+- Incompletos: Fecha envío, Resultado general, Puntaje y Nivel de riesgo = «—». No se inventan puntajes.
+- Resumen Ejecutivo: «Personal», «Completados» e «Incompletos» (pendientes + en progreso).
+- Migración `017_full_report_personnel.sql`: `admin_export_nom035_full_report()` devuelve además `personnel` (aditivo) con las mismas guardas que `realWorkers`. `workers` sigue siendo solo completados con resultado.
+- Distribución, categorías, dominios, ATS, valoración clínica, Resultados Individuales y hojas de respuestas siguen calculándose solo con completados.
+- Sin cambios en respuestas, resultados, asignaciones, trabajadores, scoring, thresholds ni campañas.
+
 ## 2026-10-07 (B4.29.7 — barras apiladas a color en Admin → Resultados)
 
 - Se restaura el panel aprobado de B4.29: A distribución general, B avance, C «Distribución de riesgo por categoría» y D «Distribución de riesgo por dominio» con barras apiladas Nulo/Bajo/Medio/Alto/Muy alto a color, porcentaje dentro del segmento (≥ 9%), Medio+/Alto+ «x / total · %», «Total evaluados», leyenda y nota de interpretación.

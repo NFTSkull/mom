@@ -9,7 +9,9 @@ import {
 } from "@/lib/nom035/aggregate-report";
 import {
   formatReportDate,
+  personnelStatusLabel,
   type NormalizedFullReport,
+  type ReportPersonnelRow,
 } from "@/lib/nom035/report-data";
 import type { ReportChartImages } from "@/lib/nom035/report-charts";
 import {
@@ -59,6 +61,65 @@ export const LEVEL_TABLE_TAIL_HEADERS = [
   "Alto+ %",
   "Total",
 ] as const;
+
+export const PERSONNEL_STATUS_HEADERS = [
+  "Usuario",
+  "Nombre",
+  "Puesto",
+  "Departamento",
+  "Estado",
+  "Fecha inicio",
+  "Fecha envío",
+  "Resultado general",
+  "Puntaje",
+  "Nivel de riesgo",
+] as const;
+
+export type PersonnelStatusRow = {
+  username: string;
+  nombre: string;
+  puesto: string;
+  departamento: string;
+  estado: string;
+  fechaInicio: string;
+  fechaEnvio: string;
+  resultado: string;
+  puntaje: number | string;
+  nivel: string;
+  riskLevel: string | null;
+};
+
+/**
+ * B4.30 — Filas de "Estado del personal": personal real unido a `workers` por usuario.
+ * Los incompletos no tienen resultado: fecha de envío, resultado, puntaje y nivel = "—".
+ * Si el RPC no envía `personnel`, cae a `workers` (solo completados).
+ */
+export function buildPersonnelStatusRows(report: NormalizedFullReport): PersonnelStatusRow[] {
+  const resultByUsername = new Map(report.workers.map((w) => [w.username, w]));
+  const source: ReportPersonnelRow[] =
+    report.personnel.length > 0 ? report.personnel : report.workers;
+  return source.map((p) => {
+    const result = p.status === "completed" ? resultByUsername.get(p.username) : undefined;
+    return {
+      username: p.username,
+      nombre: p.nombre,
+      puesto: p.puesto ?? "—",
+      departamento: p.departamento ?? "—",
+      estado: personnelStatusLabel(p.status),
+      fechaInicio: formatReportDate(p.startedAt),
+      fechaEnvio: result ? formatReportDate(result.completedAt ?? p.completedAt) : "—",
+      resultado: result ? formatRiskLevelForReport(result.finalRiskLevel) : "—",
+      puntaje: result?.finalScore ?? "—",
+      nivel: result ? formatRiskLevelForReport(result.finalRiskLevel) : "—",
+      riskLevel: result?.finalRiskLevel ?? null,
+    };
+  });
+}
+
+export function personnelSummaryText(population: Nom035AggregateReport["population"]): string {
+  const incomplete = population.realPending + population.realInProgress;
+  return `Personal: ${population.realWorkers}\nCompletados: ${population.realCompleted}\nIncompletos: ${incomplete}`;
+}
 
 export function levelHeaders(): string[] {
   const out: string[] = [];
@@ -323,7 +384,7 @@ export async function buildFullReportXlsxBuffer(input: {
     18,
     10,
     "RESUMEN DE AVANCE",
-    `Completados: ${agg.population.realCompleted}\nPendientes: ${agg.population.realPending}\nEn progreso: ${agg.population.realInProgress}`,
+    personnelSummaryText(agg.population),
     "FFE0F2FE",
     { rowSpan: 5, colSpan: 3 }
   );
@@ -684,41 +745,31 @@ export async function buildFullReportXlsxBuffer(input: {
     `Se evaluaron ${agg.traumaticEvent.denominator} trabajadores mediante Guía de Referencia I.`;
   applyAutoFilter(ats, 4, atsTableStart + 2, atsTableStart);
 
-  // —— 6. Completados ——
-  const completados = wb.addWorksheet(FULL_REPORT_SHEETS[5]);
-  applySheetDefaults(completados, [10, 32, 20, 18, 12, 18, 18, 16, 10, 14], {
+  // —— 6. Estado del personal ——
+  const estadoPersonal = wb.addWorksheet(FULL_REPORT_SHEETS[5]);
+  applySheetDefaults(estadoPersonal, [10, 32, 20, 18, 12, 18, 18, 16, 10, 14], {
     freezeRow: 1,
     zoomScale: 100,
     showGridLines: true,
   });
-  completados.addRow([
-    "Usuario",
-    "Nombre",
-    "Puesto",
-    "Departamento",
-    "Estado",
-    "Fecha inicio",
-    "Fecha envío",
-    "Resultado general",
-    "Puntaje",
-    "Nivel de riesgo",
-  ]);
-  styleHeaderRow(completados);
-  for (const w of report.workers) {
-    const row = completados.addRow([
-      w.username,
-      w.nombre,
-      w.puesto ?? "—",
-      w.departamento ?? "—",
-      w.status,
-      formatReportDate(w.startedAt),
-      formatReportDate(w.completedAt),
-      formatRiskLevelForReport(w.finalRiskLevel),
-      w.finalScore,
-      formatRiskLevelForReport(w.finalRiskLevel),
+  estadoPersonal.addRow([...PERSONNEL_STATUS_HEADERS]);
+  styleHeaderRow(estadoPersonal);
+  const personnelRows = buildPersonnelStatusRows(report);
+  for (const p of personnelRows) {
+    const row = estadoPersonal.addRow([
+      p.username,
+      p.nombre,
+      p.puesto,
+      p.departamento,
+      p.estado,
+      p.fechaInicio,
+      p.fechaEnvio,
+      p.resultado,
+      p.puntaje,
+      p.nivel,
     ]);
-    setTextCell(row.getCell(1), w.username);
-    const fill = riskFillColor(w.finalRiskLevel);
+    setTextCell(row.getCell(1), p.username);
+    const fill = riskFillColor(p.riskLevel);
     if (fill) {
       row.getCell(10).fill = {
         type: "pattern",
@@ -727,7 +778,7 @@ export async function buildFullReportXlsxBuffer(input: {
       };
     }
   }
-  applyAutoFilter(completados, 10, report.workers.length + 1);
+  applyAutoFilter(estadoPersonal, 10, personnelRows.length + 1);
 
   // —— 7. Resultados Individuales ——
   const individuales = wb.addWorksheet(FULL_REPORT_SHEETS[6]);

@@ -1,6 +1,18 @@
 # Contratos de API
 
-## Bloque actual: B4.29.7 — Barras apiladas a color en Admin → Resultados
+## Bloque actual: B4.30 — Estado del personal en el reporte completo NOM-035
+
+Sin endpoints nuevos. `GET /api/admin/nom035/reports/full` (permiso `reports.generate`, sin cambios de ruta ni de permisos) consume el RPC `admin_export_nom035_full_report()` extendido de forma aditiva por la migración `017_full_report_personnel.sql`.
+
+- `workers` conserva su significado: solo asignaciones `completed` con resultado; es la única base de distribución, categorías, dominios, ATS, valoración clínica, resultados individuales y respuestas.
+- Nuevo `personnel: Array<{ username, nombre, puesto, departamento, status, startedAt, completedAt }>`: todo el personal real de la campaña con las mismas guardas que `counts.realWorkers` (excluye `is_test`, `revoked` y usuarios fuera de 001–083), ordenado por `username`. Sin puntajes, niveles ni respuestas.
+- `audit_log.metadata.personnelExported` registra el tamaño de `personnel`.
+- Permisos sin cambio: sin EXECUTE para PUBLIC ni `anon`; `authenticated` (gated por `reports.generate`) y `service_role`.
+- XLSX: la hoja «Completados» pasa a «Estado del personal» (Usuario, Nombre, Puesto, Departamento, Estado, Fecha inicio, Fecha envío, Resultado general, Puntaje, Nivel de riesgo). Estado: `completed` → «Completado»; `pending`/`in_progress` → «Incompleto». Incompletos: Fecha envío, Resultado, Puntaje y Nivel = «—».
+- Resumen Ejecutivo, «RESUMEN DE AVANCE»: Personal (`realWorkers`), Completados (`realCompleted`), Incompletos (`realPending + realInProgress`).
+- Invariantes del servicio: `personnel.length = realWorkers`, completados en `personnel` = `realCompleted`, incompletos = `realPending + realInProgress`, todo `workers` tiene fila en `personnel`.
+
+## Bloque B4.29.7 — Barras apiladas a color en Admin → Resultados
 
 Sin endpoints nuevos, sin cambios de forma en payloads y sin migración. Solo presentación (UI); XLSX, scoring, thresholds y resultados persistidos sin cambios.
 

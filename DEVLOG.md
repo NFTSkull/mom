@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-10-08 - B4.30 Estado del personal en el reporte completo
+
+### Decisiones
+
+- Causa raíz: el RPC arma `workers` desde el CTE `completed_workers` (`a.status = 'completed'` con resultado) y la hoja «Completados» recorría `report.workers`, así que los pendientes nunca aparecían.
+- No se cambia el significado de `workers`, que alimenta todas las métricas. Se agrega `personnel` como llave nueva. Así un incompleto no puede entrar por accidente a distribución, promedios, ATS ni resultados individuales.
+- `personnel` usa exactamente las guardas de `v_real_workers` (campaña, no revoked, no `is_test`, `external_reference` numérica, usuario 001–083). Así `personnel.length = realWorkers` por construcción, y el servicio lo verifica.
+- Migración nueva `017` con `create or replace` del cuerpo de la 014 sin otros cambios (diff: declaración, bloque `v_personnel`, `personnelExported` en audit_log y llave de retorno). La 014 no se edita. `admin_get_result_detail` no se redefine. Se reemiten revoke PUBLIC/anon y grant authenticated/service_role.
+- Un solo helper de estado (`personnelStatusLabel`): solo `completed` es «Completado»; cualquier otro estado es «Incompleto». El estado técnico no se muestra.
+- La hoja une `personnel` con `workers` por `username` y solo toma resultado si el estado es `completed`. Si un RPC viejo no envía `personnel`, la hoja cae a `workers` en lugar de fallar (ventana entre deploy y migración). Las invariantes de personal solo se exigen cuando `personnel` viene en el payload.
+- `completedAt` de la hoja sale del resultado (`r.completed_at`), igual que antes. `personnel.completedAt` (`a.completed_at`) es respaldo.
+- La auditoría read-only agrega PERSONNEL/STATUS_* y compara el md5 de `prosrc` en Production contra 014/017 para confirmar qué versión está aplicada.
+
 ## 2026-10-07 - B4.29.7 Barras apiladas a color
 
 ### Decisiones

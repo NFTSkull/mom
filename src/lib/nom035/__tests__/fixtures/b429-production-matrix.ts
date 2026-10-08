@@ -20,6 +20,9 @@ const LEVELS: RiskLevelNom035[] = ["nulo", "bajo", "medio", "alto", "muy_alto"];
 
 export const B429_REAL_RESULTS = 80;
 
+/** B4.30 — Personal real sin resultado (pending); no participa en métricas. */
+export const B430_INCOMPLETE_USERNAMES = ["081", "082", "083"] as const;
+
 export const B429_OVERALL: Counts = [21, 25, 14, 12, 8];
 
 export const B429_CATEGORIES: Record<string, Counts> = {
@@ -148,6 +151,27 @@ export function buildB429ProductionLikeReport(): NormalizedFullReport {
     LEVELS.map((l, i) => [l, B429_OVERALL[i]!])
   );
 
+  const personnel = [
+    ...workers.map((w) => ({
+      username: w.username,
+      nombre: w.nombre,
+      puesto: null,
+      departamento: null,
+      status: "completed",
+      startedAt: "2026-09-01T15:00:00.000Z",
+      completedAt: "2026-09-01T16:00:00.000Z",
+    })),
+    ...B430_INCOMPLETE_USERNAMES.map((username) => ({
+      username,
+      nombre: `Trabajador ${Number(username)}`,
+      puesto: null,
+      departamento: null,
+      status: "pending",
+      startedAt: null,
+      completedAt: null,
+    })),
+  ].reverse();
+
   return normalizeFullReportPayload({
     ok: true,
     generatedAt: "2026-10-06T16:00:00.000Z",
@@ -169,5 +193,6 @@ export function buildB429ProductionLikeReport(): NormalizedFullReport {
     categoryAverages: {},
     domainAverages: { ...B429_RAW_DOMAIN_AVERAGES },
     workers,
+    personnel,
   })!;
 }

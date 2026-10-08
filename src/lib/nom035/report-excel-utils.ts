@@ -157,7 +157,7 @@ export const FULL_REPORT_SHEETS = [
   "Dominios",
   "Distribución Final",
   "Acontecimiento Traumático",
-  "Completados",
+  "Estado del personal",
   "Resultados Individuales",
   "Guía I - Respuestas",
   "Guía III - Respuestas",

@@ -65,6 +65,17 @@ export type ReportCounts = {
   guiaIICompleted: number;
 };
 
+/** B4.30 — Personal real de la campaña (avance). No participa en métricas de riesgo. */
+export type ReportPersonnelRow = {
+  username: string;
+  nombre: string;
+  puesto: string | null;
+  departamento: string | null;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
 export type NormalizedFullReport = {
   generatedAt: string;
   campaignName: string;
@@ -73,8 +84,19 @@ export type NormalizedFullReport = {
   riskDistribution: Record<RiskLevelNom035, number>;
   categoryAverages: Record<string, number>;
   domainAverages: Record<string, number>;
+  /** Solo completed con resultado: base de todas las métricas. */
   workers: ReportWorkerRow[];
+  /** Todo el personal real (completed + pending + in_progress). Vacío si el RPC no lo envía. */
+  personnel: ReportPersonnelRow[];
 };
+
+export const PERSONNEL_STATUS_COMPLETED = "Completado";
+export const PERSONNEL_STATUS_INCOMPLETE = "Incompleto";
+
+/** B4.30 — Estado visible del personal; nunca expone el estado técnico. */
+export function personnelStatusLabel(status: string | null | undefined): string {
+  return status === "completed" ? PERSONNEL_STATUS_COMPLETED : PERSONNEL_STATUS_INCOMPLETE;
+}
 
 const RISK_LEVELS: RiskLevelNom035[] = [
   "nulo",
@@ -192,6 +214,26 @@ function parseWorker(raw: unknown): ReportWorkerRow | null {
   };
 }
 
+function parsePersonnel(raw: unknown): ReportPersonnelRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const username = String(r.username ?? "");
+  if (!username) return null;
+  return {
+    username,
+    nombre: String(r.nombre ?? ""),
+    puesto: (r.puesto as string | null) ?? null,
+    departamento: (r.departamento as string | null) ?? null,
+    status: String(r.status ?? ""),
+    startedAt: (r.startedAt as string | null) ?? null,
+    completedAt: (r.completedAt as string | null) ?? null,
+  };
+}
+
+function byUsername(a: { username: string }, b: { username: string }): number {
+  return a.username < b.username ? -1 : a.username > b.username ? 1 : 0;
+}
+
 export function normalizeFullReportPayload(
   payload: Record<string, unknown>
 ): NormalizedFullReport | null {
@@ -202,7 +244,12 @@ export function normalizeFullReportPayload(
   const workers = workersRaw
     .map(parseWorker)
     .filter((w): w is ReportWorkerRow => w !== null)
-    .sort((a, b) => (a.username < b.username ? -1 : a.username > b.username ? 1 : 0));
+    .sort(byUsername);
+  const personnelRaw = Array.isArray(payload.personnel) ? payload.personnel : [];
+  const personnel = personnelRaw
+    .map(parsePersonnel)
+    .filter((p): p is ReportPersonnelRow => p !== null)
+    .sort(byUsername);
 
   return {
     generatedAt: String(payload.generatedAt ?? new Date().toISOString()),
@@ -225,6 +272,7 @@ export function normalizeFullReportPayload(
     categoryAverages: parseNumberMap(payload.categoryAverages),
     domainAverages: parseNumberMap(payload.domainAverages),
     workers,
+    personnel,
   };
 }
 
@@ -257,6 +305,35 @@ export function assertFullReportCounts(report: NormalizedFullReport): {
   for (const w of workers) {
     if (w.status !== "completed") {
       return { ok: false, reason: `worker ${w.username} no completed` };
+    }
+  }
+  const { personnel } = report;
+  if (personnel.length > 0) {
+    if (personnel.length !== counts.realWorkers) {
+      return {
+        ok: false,
+        reason: `personnel=${personnel.length} ≠ realWorkers=${counts.realWorkers}`,
+      };
+    }
+    const completed = personnel.filter((p) => p.status === "completed").length;
+    if (completed !== counts.realCompleted) {
+      return {
+        ok: false,
+        reason: `personnel completed=${completed} ≠ realCompleted=${counts.realCompleted}`,
+      };
+    }
+    const incomplete = personnel.length - completed;
+    if (incomplete !== counts.realPending + counts.realInProgress) {
+      return {
+        ok: false,
+        reason: `personnel incompletos=${incomplete} ≠ pending+in_progress=${counts.realPending + counts.realInProgress}`,
+      };
+    }
+    const usernames = new Set(personnel.map((p) => p.username));
+    for (const w of workers) {
+      if (!usernames.has(w.username)) {
+        return { ok: false, reason: `worker ${w.username} sin fila en personnel` };
+      }
     }
   }
   return { ok: true };

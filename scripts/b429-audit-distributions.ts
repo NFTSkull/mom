@@ -9,6 +9,7 @@
  * Uso: NOM035_SECRETS_DIR=<dir> npx tsx scripts/b429-audit-distributions.ts
  */
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
@@ -143,8 +144,36 @@ select json_build_object(
          'answerValue', ans.answer_value))
        from public.evaluation_answers ans
        where ans.assignment_id = cw.assignment_id and ans.question_id = 'guia_i_1'), '[]'::json)
-   ) order by cw.username), '[]'::json) from cw)
+   ) order by cw.username), '[]'::json) from cw),
+  'personnel', (select coalesce(json_agg(json_build_object(
+     'username', wa.username_normalized,
+     'nombre', '',
+     'status', a.status::text,
+     'startedAt', a.started_at,
+     'completedAt', a.completed_at
+   ) order by wa.username_normalized), '[]'::json)
+   from assign a join public.worker_accounts wa on wa.worker_id = a.worker_id)
 );`;
+
+const FUNCDEF_SQL = `
+select json_build_object(
+  'srcMd5', md5(p.prosrc),
+  'hasPersonnel', position('''personnel''' in p.prosrc) > 0,
+  'securityDefiner', p.prosecdef,
+  'acl', p.proacl::text
+)
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'admin_export_nom035_full_report';`;
+
+function migrationSrcMd5(file: string): string {
+  const sql = readFileSync(resolve("supabase/migrations", file), "utf8");
+  const start = sql.indexOf("create or replace function public.admin_export_nom035_full_report()");
+  const open = sql.indexOf("as $$", start) + "as $$".length;
+  const close = sql.indexOf("$$;", open);
+  const hash = createHash("md5");
+  hash.end(sql.slice(open, close));
+  return (hash.read() as Buffer).toString("hex");
+}
 
 const FINGERPRINT_SQL = `
 select json_build_object(
@@ -180,8 +209,30 @@ function main() {
   });
 
   const fingerprints = JSON.parse(psqlReadOnly(conn, FINGERPRINT_SQL));
+  const funcdef = JSON.parse(psqlReadOnly(conn, FUNCDEF_SQL)) as {
+    srcMd5: string;
+    hasPersonnel: boolean;
+    securityDefiner: boolean;
+    acl: string;
+  };
+  const personnel = (payload.personnel ?? []) as { username: string; status: string }[];
+  const completed = personnel.filter((p) => p.status === "completed");
+  const incomplete = personnel.filter((p) => p.status === "pending" || p.status === "in_progress");
 
   const out = {
+    PERSONNEL: personnel.length,
+    STATUS_COMPLETED: completed.length,
+    STATUS_INCOMPLETE: incomplete.length,
+    INCOMPLETE_USERNAMES: incomplete.map((p) => p.username),
+    PENDING: agg.population.realPending,
+    IN_PROGRESS: agg.population.realInProgress,
+    RPC_DEF: {
+      matches014: funcdef.srcMd5 === migrationSrcMd5("014_admin_export_nom035_full_report.sql"),
+      matches017: funcdef.srcMd5 === migrationSrcMd5("017_full_report_personnel.sql"),
+      hasPersonnel: funcdef.hasPersonnel,
+      securityDefiner: funcdef.securityDefiner,
+      anonOrPublicExecute: /(^|[{,])(anon)?=X/.test(funcdef.acl ?? ""),
+    },
     REAL_WORKERS: agg.population.realWorkers,
     REAL_COMPLETED: agg.population.realCompleted,
     REAL_RESULTS: agg.population.realResults,

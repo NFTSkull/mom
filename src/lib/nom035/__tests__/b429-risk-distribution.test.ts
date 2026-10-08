@@ -353,7 +353,10 @@ describe("B4.29 distribución por nivel como fuente principal de interpretación
     );
     const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
     const after015 = migrations.filter((f) => f > "015_result_sort.sql");
-    expect(after015).toEqual(["016_admin_list_results_single_signature.sql"]);
+    expect(after015).toEqual([
+      "016_admin_list_results_single_signature.sql",
+      "017_full_report_personnel.sql",
+    ]);
     const m016 = readFileSync(`supabase/migrations/${after015[0]}`, "utf8").replace(/--.*$/gm, "");
     expect(m016).not.toMatch(/\b(insert\s+into|update\s+public\.|delete\s+from|alter\s+table|truncate)\b/i);
     expect(m016).not.toMatch(/threshold|scoring_version\s*=|guia_iii_manifest/i);

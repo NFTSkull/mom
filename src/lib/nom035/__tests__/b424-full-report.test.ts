@@ -187,11 +187,11 @@ describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
     expect(buildChartDatasets(sampleReport(1)).riskDistribution.values).toHaveLength(5);
   });
 
-  it("17. username 001 conserva ceros en hoja Completados", async () => {
+  it("17. username 001 conserva ceros en hoja Estado del personal", async () => {
     const buf = await buildBuf(sampleReport(1));
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as unknown as ExcelJS.Buffer);
-    const sheet = wb.getWorksheet("Completados");
+    const sheet = wb.getWorksheet("Estado del personal");
     expect(String(sheet?.getRow(2).getCell(1).value)).toBe("001");
   });
 
@@ -247,12 +247,12 @@ describe("B4.24 reportes NOM-035 completos (regresión B4.26)", () => {
     expect(individualReportFilename("001")).toBe("nom035-001-2026.xlsx");
   });
 
-  it("24. consolidado incluye filas = realCompleted", async () => {
+  it("24. sin personnel en payload, Estado del personal cae a workers (= realCompleted)", async () => {
     const report = sampleReport(2);
     const buf = await buildBuf(report);
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as unknown as ExcelJS.Buffer);
-    const sheet = wb.getWorksheet("Completados");
+    const sheet = wb.getWorksheet("Estado del personal");
     expect(sheet?.rowCount).toBe(1 + report.counts.realCompleted);
   });
 
