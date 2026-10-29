@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/resultados", label: "Resultados", permission: "results.aggregate.read" },
   { href: "/admin/plan-accion", label: "Plan de acción", permission: "action_plans.read" },
   { href: "/admin/evidencias", label: "Evidencias", permission: "evidence.read" },
-  { href: "/admin/quejas", label: "Quejas", permission: "complaints.list" },
+  { href: "/admin/cuestionario-anonimo", label: "Cuestionario anónimo", permission: "complaints.list" },\n  { href: "/admin/quejas", label: "Quejas", permission: "complaints.list" },
   { href: "/admin/reportes", label: "Reportes", permission: "reports.generate" },
   { href: "/admin/usuarios", label: "Usuarios", permission: "users.read" },
   { href: "/admin/auditoria", label: "Auditoría", permission: "audit.read" },
