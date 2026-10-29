@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { adminApi } from "@/lib/nom035/admin-client";\nimport { isAnonymousQuestionnaireText } from "@/lib/nom035/anonymous-questionnaire";
+import { adminApi } from "@/lib/nom035/admin-client";
+import { isAnonymousQuestionnaireText } from "@/lib/nom035/anonymous-questionnaire";
 
 type ComplaintListItem = {
   id: string;
@@ -30,6 +31,12 @@ type Summary = {
   resueltas: number;
   cerradas: number;
 };
+
+const ANONYMOUS_REPORT_MARKER = "REPORTE ANÓNIMO DEL PERSONAL";
+
+function isAnonymousReportText(value: string) {
+  return value.includes(ANONYMOUS_REPORT_MARKER);
+}
 
 function typeLabel(t: string) {
   if (t === "violencia_laboral") return "Violencia laboral";
@@ -201,7 +208,7 @@ export default function AdminQuejasPage() {
             {items.map((c) => (
               <tr key={c.id} className="border-b" data-testid={`complaint-row-${c.folio}`}>
                 <td className="px-3 py-2 font-mono text-xs">{c.folio}</td>
-                <td className="px-3 py-2">{isAnonymousQuestionnaireText(c.descriptionPreview) ? "Cuestionario anónimo" : typeLabel(c.complaintType)}</td>
+                <td className="px-3 py-2">{isAnonymousReportText(c.descriptionPreview) ? "Reporte anónimo" : isAnonymousQuestionnaireText(c.descriptionPreview) ? "Cuestionario anónimo" : typeLabel(c.complaintType)}</td>
                 <td className="px-3 py-2">{c.descriptionPreview}</td>
                 <td className="px-3 py-2">{c.isAnonymous ? "Anónima" : "Con datos"}</td>
                 <td className="px-3 py-2">{statusLabel(c.status)}</td>
@@ -219,7 +226,7 @@ export default function AdminQuejasPage() {
 
       {detail ? (
         <aside className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4" data-testid="complaint-detail">
-          <h2 className="font-semibold text-slate-900">{isAnonymousQuestionnaireText(detail.description) ? "Cuestionario anónimo" : "Detalle"} · {detail.folio}</h2>
+          <h2 className="font-semibold text-slate-900">{isAnonymousReportText(detail.description) ? "Reporte anónimo" : isAnonymousQuestionnaireText(detail.description) ? "Cuestionario anónimo" : "Detalle"} · {detail.folio}</h2>
           <p className="text-sm whitespace-pre-wrap">{detail.description}</p>
           <p className="text-sm">
             <span className="font-medium">Anonimato:</span>{" "}
